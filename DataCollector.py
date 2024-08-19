@@ -1,0 +1,103 @@
+import os
+import pandas as pd
+from binance.client import Client
+
+class DataCollector:
+    def __init__(self, api_key, api_secret, symbol='BTCUSDT', timeframe='5m', limit=1000, data_directory='data'):
+        self.client = Client(api_key, api_secret)
+        self.symbol = symbol
+        self.timeframe = timeframe  # Timeframe for the OHLCV data
+        self.limit = limit  # Limit for the number of data points to fetch
+        self.data_directory = data_directory
+
+        # Ensure the data directory exists
+        if not os.path.exists(self.data_directory):
+            os.makedirs(self.data_directory)
+
+    def fetch_ohlcv(self):
+        try:
+            # Fetch OHLCV data for the specified timeframe with a limit
+            ohlcv = self.client.get_klines(symbol=self.symbol, interval=self.timeframe, limit=self.limit)
+            return ohlcv
+        except Exception as e:
+            print(f"Error fetching OHLCV data: {e}")
+            return []
+
+    def collect_data(self):
+        try:
+            # Fetch OHLCV data
+            ohlcv = self.fetch_ohlcv()
+            if not ohlcv:
+                return None
+
+            df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume',
+                                              'close_time', 'quote_asset_volume', 'number_of_trades',
+                                              'taker_buy_base_asset_volume', 'taker_buy_quote_asset_volume', 'ignore'])
+            df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+
+            # Use the last row for the most recent data point
+            ticker = df.iloc[-1]
+
+            # Fetch order book data (bids, asks)
+            order_book = self.client.get_order_book(symbol=self.symbol)
+
+            # Collect all relevant data including the order book
+            data = {
+                'timestamp': ticker['timestamp'].strftime('%Y-%m-%d %H:%M:%S'),
+                'last_price': float(ticker['close']),
+                'bid': float(order_book['bids'][0][0]) if len(order_book['bids']) > 0 else None,
+                'ask': float(order_book['asks'][0][0]) if len(order_book['asks']) > 0 else None,
+                'high': float(ticker['high']),
+                'low': float(ticker['low']),
+                'volume': float(ticker['volume']),
+                'order_book': order_book,  # Include the full order book
+                'ohlcv': df[['timestamp', 'open', 'high', 'low', 'close', 'volume']]
+                # Include the full DataFrame for further processing
+            }
+
+            # Save the collected data to a CSV file
+            self.save_to_csv(data)
+
+            return data
+        except Exception as e:
+            print(f"Error collecting data: {e}")
+            return None
+
+    def save_to_csv(self, data):
+        try:
+            # Convert the OHLCV DataFrame to a CSV file
+            df = data['ohlcv'].copy()
+
+            # Save the order book as a separate CSV file for review (if needed)
+            order_book_df = pd.DataFrame({
+                'bid_price': [bid[0] for bid in data['order_book']['bids']],
+                'bid_volume': [bid[1] for bid in data['order_book']['bids']],
+                'ask_price': [ask[0] for ask in data['order_book']['asks']],
+                'ask_volume': [ask[1] for ask in data['order_book']['asks']]
+            })
+
+            df['top_bid'] = data['bid']
+            df['top_ask'] = data['ask']
+
+            file_path = os.path.join(self.data_directory, 'collected_data.csv')
+            df.to_csv(file_path, mode='w', header=True, index=False)
+
+            order_book_path = os.path.join(self.data_directory, 'order_book_data.csv')
+            order_book_df.to_csv(order_book_path, mode='w', header=True, index=False)
+
+            print(f"Collected data saved to {file_path}")
+            print(f"Order book data saved to {order_book_path}")
+        except Exception as e:
+            print(f"Error saving to CSV: {e}")
+
+# Example usage:
+if __name__ == "__main__":
+    api_key = 'your_binance_api_key'
+    api_secret = 'your_binance_api_secret'
+
+    data_collector = DataCollector(api_key, api_secret, timeframe='5m', limit=1000)
+    market_data = data_collector.collect_data()
+
+    if market_data is not None:
+        print("Collected market data:")
+        print(market_data)
