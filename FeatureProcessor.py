@@ -1,6 +1,4 @@
 import os
-
-import numpy as np
 import pandas as pd
 import talib
 from DataCollector import DataCollector
@@ -11,13 +9,13 @@ class FeatureProcessor:
         if not os.path.exists(self.data_directory):
             os.makedirs(self.data_directory)
 
-    def process(self, market_data):
-        all_features = {}
+    def process(self, data):
+        try:
+            all_features = {}
 
-        for interval, data in market_data.items():
-            try:
+            for interval, market_data in data.items():
                 # Extract the OHLCV DataFrame from the data dictionary
-                df = data['ohlcv']
+                df = market_data['ohlcv']
 
                 # Convert necessary columns to numeric types (float) to ensure proper calculations
                 df['open'] = df['open'].astype(float)
@@ -40,121 +38,54 @@ class FeatureProcessor:
                 df['support_level'] = df['low'].min()
                 df['resistance_level'] = df['high'].max()
 
+                # Calculate ADX
+                df['ADX'] = talib.ADX(df['high'], df['low'], df['close'], timeperiod=14)
+
                 # Extract the latest row to use as the features
                 features = df.iloc[-1].to_dict()
 
                 # Add additional features from the original data (including order book)
-                features['last_price'] = float(data['last_price'])
-                features['bid'] = float(data['bid']) if data['bid'] else None
-                features['ask'] = float(data['ask']) if data['ask'] else None
-                features['high'] = float(data['high'])
-                features['low'] = float(data['low'])
-                features['volume'] = float(data['volume'])
+                features['last_price'] = float(market_data['last_price'])
+                features['bid'] = float(market_data['bid']) if market_data['bid'] else None
+                features['ask'] = float(market_data['ask']) if market_data['ask'] else None
+                features['high'] = float(market_data['high'])
+                features['low'] = float(market_data['low'])
+                features['volume'] = float(market_data['volume'])
 
                 # Add order book features
-                if 'order_book' in data:
-                    order_book = data['order_book']
+                if 'order_book' in market_data:
+                    order_book = market_data['order_book']
                     features['top_bid'] = float(order_book['bids'][0][0]) if order_book['bids'] else None
                     features['top_ask'] = float(order_book['asks'][0][0]) if order_book['asks'] else None
                     features['bid_ask_spread'] = features['top_ask'] - features['top_bid'] if features['top_bid'] and features['top_ask'] else None
                     features['bid_volume'] = sum(float(bid[1]) for bid in order_book['bids'])  # Sum of bid volumes
                     features['ask_volume'] = sum(float(ask[1]) for ask in order_book['asks'])  # Sum of ask volumes
 
-                # Convert the features dictionary to a DataFrame
-                features_df = pd.DataFrame([features])
-
-                # Save the processed data to a CSV file, overwriting any existing file
-                self.save_to_csv(features_df, interval)
-
                 # Store the features for this interval
                 all_features[interval] = features
 
-            except Exception as e:
-                print(f"Error processing features for interval {interval}: {e}")
-                all_features[interval] = None
+            # Convert the features dictionary to a DataFrame and save it
+            features_df = pd.DataFrame.from_dict(all_features, orient='index')
+            self.save_to_csv(features_df)
 
-        return all_features
-
-    def calculate_price_change(self, current_price, reference_price):
-        try:
-            price_change = (current_price - reference_price) / reference_price * 100
-            return price_change
+            return all_features
         except Exception as e:
-            print(f"Error calculating price change: {e}")
-            return 0.0
-
-    def calculate_volume_change(self, volume):
-        try:
-            reference_volume = 1000  # Static reference for demonstration
-            volume_change = (volume - reference_volume) / reference_volume * 100
-            return volume_change
-        except Exception as e:
-            print(f"Error calculating volume change: {e}")
-            return 0.0
-
-    def calculate_rsi(self, prices, period=14):
-        try:
-            rsi = talib.RSI(prices, timeperiod=period)
-            return rsi.iloc[-1] if len(rsi) > 0 else None  # Get the most recent RSI value
-        except Exception as e:
-            print(f"Error calculating RSI: {e}")
+            print(f"Error processing features: {e}")
             return None
 
-    def calculate_sma(self, prices, window):
+    def save_to_csv(self, df):
         try:
-            sma = talib.SMA(prices, timeperiod=window)
-            return sma.iloc[-1] if len(sma) > 0 else None  # Get the most recent SMA value
-        except Exception as e:
-            print(f"Error calculating SMA: {e}")
-            return prices.mean()
-
-    def calculate_ema(self, prices, window):
-        try:
-            ema = talib.EMA(prices, timeperiod=window)
-            return ema.iloc[-1] if len(ema) > 0 else None  # Get the most recent EMA value
-        except Exception as e:
-            print(f"Error calculating EMA: {e}")
-            return prices.mean()
-
-    def calculate_macd(self, prices, fastperiod=12, slowperiod=26, signalperiod=9):
-        try:
-            macd, macd_signal, macd_hist = talib.MACD(prices, fastperiod=fastperiod, slowperiod=slowperiod, signalperiod=signalperiod)
-            return macd.iloc[-1], macd_signal.iloc[-1], macd_hist.iloc[-1]  # Get the most recent values
-        except Exception as e:
-            print(f"Error calculating MACD: {e}")
-            return None, None, None
-
-    def calculate_bollinger_bands(self, prices, timeperiod=20, nbdevup=2, nbdevdn=2, matype=0):
-        try:
-            upper_band, middle_band, lower_band = talib.BBANDS(prices, timeperiod=timeperiod, nbdevup=nbdevup, nbdevdn=nbdevdn, matype=matype)
-            return upper_band.iloc[-1], middle_band.iloc[-1], lower_band.iloc[-1]  # Get the most recent values
-        except Exception as e:
-            print(f"Error calculating Bollinger Bands: {e}")
-            return None, None, None
-
-    def calculate_support_resistance(self, prices):
-        try:
-            # Simplified support/resistance calculation (you may use more advanced methods)
-            support_level = prices.min()
-            resistance_level = prices.max()
-            return support_level, resistance_level
-        except Exception as e:
-            print(f"Error calculating support/resistance levels: {e}")
-            return None, None
-
-    def save_to_csv(self, df, interval):
-        try:
-            file_path = os.path.join(self.data_directory, f'processed_features_{interval}.csv')
+            file_path = os.path.join(self.data_directory, 'processed_features.csv')
 
             # Always overwrite the existing file
-            df.to_csv(file_path, mode='w', header=True, index=False)
+            df.to_csv(file_path, mode='w', header=True, index=True)
 
-            print(f"Features for interval {interval} saved to {file_path}")
+            print(f"Features saved to {file_path}")
         except Exception as e:
-            print(f"Error saving features to CSV for interval {interval}: {e}")
+            print(f"Error saving to CSV: {e}")
 
+# Example usage:
 if __name__ == "__main__":
-    # Assuming the data_collector collects data for multiple intervals
     api_key = 'your_binance_api_key'
     api_secret = 'your_binance_api_secret'
 
@@ -163,7 +94,8 @@ if __name__ == "__main__":
 
     if market_data is not None:
         feature_processor = FeatureProcessor()
-        features = feature_processor.process(market_data)
-        if features:
+        all_features = feature_processor.process(market_data)
+
+        if all_features:
             print("Processed Features:")
-            print(features)
+            print(all_features)
