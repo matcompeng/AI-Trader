@@ -11,62 +11,69 @@ class FeatureProcessor:
         if not os.path.exists(self.data_directory):
             os.makedirs(self.data_directory)
 
-    def process(self, data):
-        try:
-            # Extract the OHLCV DataFrame from the data dictionary
-            df = data['ohlcv']
+    def process(self, market_data):
+        all_features = {}
 
-            # Convert necessary columns to numeric types (float) to ensure proper calculations
-            df['open'] = df['open'].astype(float)
-            df['high'] = df['high'].astype(float)
-            df['low'] = df['low'].astype(float)
-            df['close'] = df['close'].astype(float)
-            df['volume'] = df['volume'].astype(float)
+        for interval, data in market_data.items():
+            try:
+                # Extract the OHLCV DataFrame from the data dictionary
+                df = data['ohlcv']
 
-            # Calculate price change
-            df['price_change'] = ((df['close'] - df['open']) / df['open']) * 100
+                # Convert necessary columns to numeric types (float) to ensure proper calculations
+                df['open'] = df['open'].astype(float)
+                df['high'] = df['high'].astype(float)
+                df['low'] = df['low'].astype(float)
+                df['close'] = df['close'].astype(float)
+                df['volume'] = df['volume'].astype(float)
 
-            # Calculate technical indicators using the full DataFrame
-            df['RSI'] = talib.RSI(df['close'], timeperiod=14)
-            df['SMA_50'] = talib.SMA(df['close'], timeperiod=50)
-            df['SMA_200'] = talib.SMA(df['close'], timeperiod=200)
-            df['EMA_50'] = talib.EMA(df['close'], timeperiod=50)
-            df['EMA_200'] = talib.EMA(df['close'], timeperiod=200)
-            df['MACD'], df['MACD_signal'], df['MACD_hist'] = talib.MACD(df['close'])
-            df['upper_band'], df['middle_band'], df['lower_band'] = talib.BBANDS(df['close'], timeperiod=20)
-            df['support_level'] = df['low'].min()
-            df['resistance_level'] = df['high'].max()
+                # Calculate price change
+                df['price_change'] = ((df['close'] - df['open']) / df['open']) * 100
 
-            # Extract the latest row to use as the features
-            features = df.iloc[-1].to_dict()
+                # Calculate technical indicators using the full DataFrame
+                df['RSI'] = talib.RSI(df['close'], timeperiod=14)
+                df['SMA_50'] = talib.SMA(df['close'], timeperiod=50)
+                df['SMA_200'] = talib.SMA(df['close'], timeperiod=200)
+                df['EMA_50'] = talib.EMA(df['close'], timeperiod=50)
+                df['EMA_200'] = talib.EMA(df['close'], timeperiod=200)
+                df['MACD'], df['MACD_signal'], df['MACD_hist'] = talib.MACD(df['close'])
+                df['upper_band'], df['middle_band'], df['lower_band'] = talib.BBANDS(df['close'], timeperiod=20)
+                df['support_level'] = df['low'].min()
+                df['resistance_level'] = df['high'].max()
 
-            # Add additional features from the original data (including order book)
-            features['last_price'] = float(data['last_price'])
-            features['bid'] = float(data['bid']) if data['bid'] else None
-            features['ask'] = float(data['ask']) if data['ask'] else None
-            features['high'] = float(data['high'])
-            features['low'] = float(data['low'])
-            features['volume'] = float(data['volume'])
+                # Extract the latest row to use as the features
+                features = df.iloc[-1].to_dict()
 
-            # Add order book features
-            if 'order_book' in data:
-                order_book = data['order_book']
-                features['top_bid'] = float(order_book['bids'][0][0]) if order_book['bids'] else None
-                features['top_ask'] = float(order_book['asks'][0][0]) if order_book['asks'] else None
-                features['bid_ask_spread'] = features['top_ask'] - features['top_bid'] if features['top_bid'] and features['top_ask'] else None
-                features['bid_volume'] = sum(float(bid[1]) for bid in order_book['bids'])  # Sum of bid volumes
-                features['ask_volume'] = sum(float(ask[1]) for ask in order_book['asks'])  # Sum of ask volumes
+                # Add additional features from the original data (including order book)
+                features['last_price'] = float(data['last_price'])
+                features['bid'] = float(data['bid']) if data['bid'] else None
+                features['ask'] = float(data['ask']) if data['ask'] else None
+                features['high'] = float(data['high'])
+                features['low'] = float(data['low'])
+                features['volume'] = float(data['volume'])
 
-            # Convert the features dictionary to a DataFrame
-            features_df = pd.DataFrame([features])
+                # Add order book features
+                if 'order_book' in data:
+                    order_book = data['order_book']
+                    features['top_bid'] = float(order_book['bids'][0][0]) if order_book['bids'] else None
+                    features['top_ask'] = float(order_book['asks'][0][0]) if order_book['asks'] else None
+                    features['bid_ask_spread'] = features['top_ask'] - features['top_bid'] if features['top_bid'] and features['top_ask'] else None
+                    features['bid_volume'] = sum(float(bid[1]) for bid in order_book['bids'])  # Sum of bid volumes
+                    features['ask_volume'] = sum(float(ask[1]) for ask in order_book['asks'])  # Sum of ask volumes
 
-            # Save the processed data to a CSV file, overwriting any existing file
-            self.save_to_csv(features_df)
+                # Convert the features dictionary to a DataFrame
+                features_df = pd.DataFrame([features])
 
-            return features
-        except Exception as e:
-            print(f"Error processing features: {e}")
-            return None
+                # Save the processed data to a CSV file, overwriting any existing file
+                self.save_to_csv(features_df, interval)
+
+                # Store the features for this interval
+                all_features[interval] = features
+
+            except Exception as e:
+                print(f"Error processing features for interval {interval}: {e}")
+                all_features[interval] = None
+
+        return all_features
 
     def calculate_price_change(self, current_price, reference_price):
         try:
@@ -135,24 +142,23 @@ class FeatureProcessor:
             print(f"Error calculating support/resistance levels: {e}")
             return None, None
 
-    def save_to_csv(self, df):
+    def save_to_csv(self, df, interval):
         try:
-            file_path = os.path.join(self.data_directory, 'processed_features.csv')
+            file_path = os.path.join(self.data_directory, f'processed_features_{interval}.csv')
 
             # Always overwrite the existing file
             df.to_csv(file_path, mode='w', header=True, index=False)
 
-            print(f"Features saved to {file_path}")
+            print(f"Features for interval {interval} saved to {file_path}")
         except Exception as e:
-            print(f"Error saving to CSV: {e}")
+            print(f"Error saving features to CSV for interval {interval}: {e}")
 
-# Example usage:
-# Example usage:
 if __name__ == "__main__":
+    # Assuming the data_collector collects data for multiple intervals
     api_key = 'your_binance_api_key'
     api_secret = 'your_binance_api_secret'
 
-    data_collector = DataCollector(api_key, api_secret, timeframe='5m')
+    data_collector = DataCollector(api_key, api_secret, intervals=['1m', '5m', '15m', '1h'])
     market_data = data_collector.collect_data()
 
     if market_data is not None:
