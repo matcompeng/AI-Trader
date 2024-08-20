@@ -29,10 +29,10 @@ class FeatureProcessor:
 
                 # Calculate technical indicators using the full DataFrame
                 df['RSI'] = talib.RSI(df['close'], timeperiod=14)
-                df['SMA_50'] = talib.SMA(df['close'], timeperiod=50)
-                df['SMA_200'] = talib.SMA(df['close'], timeperiod=200)
-                df['EMA_50'] = talib.EMA(df['close'], timeperiod=50)
-                df['EMA_200'] = talib.EMA(df['close'], timeperiod=200)
+                df['SMA_30'] = talib.SMA(df['close'], timeperiod=30)
+                df['SMA_100'] = talib.SMA(df['close'], timeperiod=100)
+                df['EMA_30'] = talib.EMA(df['close'], timeperiod=30)
+                df['EMA_100'] = talib.EMA(df['close'], timeperiod=100)
                 df['MACD'], df['MACD_signal'], df['MACD_hist'] = talib.MACD(df['close'])
                 df['upper_band'], df['middle_band'], df['lower_band'] = talib.BBANDS(df['close'], timeperiod=20)
                 df['support_level'] = df['low'].min()
