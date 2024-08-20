@@ -39,6 +39,7 @@ class Predictor:
                     f"Stochastic %K: {features['stoch_k']:.2f}\n"
                     f"Stochastic %D: {features['stoch_d']:.2f}\n"
                     f"ATR: {features['ATR']:.2f}\n" 
+                    f"VWAP: {features['VWAP']:.2f}\n"  # Include VWAP in the prompt
                     f"Support Level: {features['support_level']:.2f}\n"
                     f"Resistance Level: {features['resistance_level']:.2f}\n"
                     f"Top Bid: {features['top_bid']:.2f}\n"

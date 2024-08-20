@@ -42,6 +42,9 @@ class FeatureProcessor:
                 # Calculate ATR
                 df['ATR'] = talib.ATR(df['high'], df['low'], df['close'], timeperiod=14)
 
+                # Calculate VWAP
+                df['VWAP'] = (df['volume'] * (df['high'] + df['low'] + df['close']) / 3).cumsum() / df['volume'].cumsum()
+
                 df['support_level'] = df['low'].min()
                 df['resistance_level'] = df['high'].max()
 
