@@ -39,6 +39,9 @@ class FeatureProcessor:
                 df['stoch_k'], df['stoch_d'] = talib.STOCH(df['high'], df['low'], df['close'],
                                                            fastk_period=14, slowk_period=3, slowk_matype=0,
                                                            slowd_period=3, slowd_matype=0)
+                # Calculate ATR
+                df['ATR'] = talib.ATR(df['high'], df['low'], df['close'], timeperiod=14)
+
                 df['support_level'] = df['low'].min()
                 df['resistance_level'] = df['high'].max()
 
