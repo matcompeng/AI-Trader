@@ -1,27 +1,36 @@
 import os
 import pandas as pd
 from binance.client import Client
+import time
 
 class DataCollector:
-    def __init__(self, api_key, api_secret, symbol='BTCUSDT', intervals=['1m', '5m', '15m', '1h'], limit=1000, data_directory='data'):
+    def __init__(self, api_key, api_secret, symbol='BTCUSDT', intervals=['1m', '5m', '15m', '1h'], limit=1000, data_directory='data', max_retries=3, retry_delay=5):
         self.client = Client(api_key, api_secret)
         self.symbol = symbol
         self.intervals = intervals  # List of intervals to fetch data for
         self.limit = limit  # Limit for the number of data points to fetch
         self.data_directory = data_directory
+        self.max_retries = max_retries  # Maximum number of retries
+        self.retry_delay = retry_delay  # Delay in seconds between retries
 
         # Ensure the data directory exists
         if not os.path.exists(self.data_directory):
             os.makedirs(self.data_directory)
 
     def fetch_ohlcv(self, interval):
-        try:
-            # Fetch OHLCV data for the specified interval using the limit
-            ohlcv = self.client.get_klines(symbol=self.symbol, interval=interval, limit=self.limit)
-            return ohlcv
-        except Exception as e:
-            print(f"Error fetching OHLCV data for interval {interval}: {e}")
-            return []
+        for attempt in range(self.max_retries):
+            try:
+                # Fetch OHLCV data for the specified interval using the limit
+                ohlcv = self.client.get_klines(symbol=self.symbol, interval=interval, limit=self.limit)
+                return ohlcv
+            except Exception as e:
+                print(f"Error fetching OHLCV data for interval {interval}: {e}")
+                if attempt + 1 < self.max_retries:
+                    print(f"Retrying... (Attempt {attempt + 1}/{self.max_retries})")
+                    time.sleep(self.retry_delay)
+                else:
+                    print(f"Failed to fetch data for interval {interval} after {self.max_retries} attempts.")
+                    return []
 
     def collect_data(self):
         try:

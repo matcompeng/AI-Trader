@@ -37,8 +37,6 @@ class FeatureProcessor:
                 df['upper_band'], df['middle_band'], df['lower_band'] = talib.BBANDS(df['close'], timeperiod=20)
                 df['support_level'] = df['low'].min()
                 df['resistance_level'] = df['high'].max()
-
-                # Calculate ADX
                 df['ADX'] = talib.ADX(df['high'], df['low'], df['close'], timeperiod=14)
 
                 # Extract the latest row to use as the features
