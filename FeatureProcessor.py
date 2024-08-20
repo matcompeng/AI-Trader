@@ -35,9 +35,12 @@ class FeatureProcessor:
                 df['EMA_100'] = talib.EMA(df['close'], timeperiod=100)
                 df['MACD'], df['MACD_signal'], df['MACD_hist'] = talib.MACD(df['close'])
                 df['upper_band'], df['middle_band'], df['lower_band'] = talib.BBANDS(df['close'], timeperiod=20)
+                df['ADX'] = talib.ADX(df['high'], df['low'], df['close'], timeperiod=14)
+                df['stoch_k'], df['stoch_d'] = talib.STOCH(df['high'], df['low'], df['close'],
+                                                           fastk_period=14, slowk_period=3, slowk_matype=0,
+                                                           slowd_period=3, slowd_matype=0)
                 df['support_level'] = df['low'].min()
                 df['resistance_level'] = df['high'].max()
-                df['ADX'] = talib.ADX(df['high'], df['low'], df['close'], timeperiod=14)
 
                 # Extract the latest row to use as the features
                 features = df.iloc[-1].to_dict()

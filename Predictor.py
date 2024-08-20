@@ -35,7 +35,9 @@ class Predictor:
                     f"MACD: {features['MACD']:.2f}\n"
                     f"MACD Signal: {features['MACD_signal']:.2f}\n"
                     f"Bollinger Bands: {features['upper_band']:.2f}, {features['middle_band']:.2f}, {features['lower_band']:.2f}\n"
-                    f"ADX: {features['ADX']:.2f}\n"  # Include ADX in the prompt
+                    f"ADX: {features['ADX']:.2f}\n"
+                    f"Stochastic %K: {features['stoch_k']:.2f}\n"
+                    f"Stochastic %D: {features['stoch_d']:.2f}\n"
                     f"Support Level: {features['support_level']:.2f}\n"
                     f"Resistance Level: {features['resistance_level']:.2f}\n"
                     f"Top Bid: {features['top_bid']:.2f}\n"
