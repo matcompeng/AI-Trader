@@ -2,16 +2,18 @@ import os
 import pandas as pd
 from datetime import datetime
 import logging
+import time
 
 from ChatGPTClient import ChatGPTClient
 from DataCollector import DataCollector
 from FeatureProcessor import FeatureProcessor
 
-
 class Predictor:
-    def __init__(self, chatgpt_client, data_directory='data'):
+    def __init__(self, chatgpt_client, data_directory='data', max_retries=3, retry_delay=5):
         self.chatgpt_client = chatgpt_client
         self.data_directory = data_directory
+        self.max_retries = max_retries  # Maximum number of retries
+        self.retry_delay = retry_delay  # Delay in seconds between retries
 
         # Ensure the data directory exists
         if not os.path.exists(self.data_directory):
@@ -73,10 +75,24 @@ class Predictor:
     def get_prediction(self, all_features):
         prompt = self.format_prompt(all_features)
         self.save_prompt(prompt)
-        response = self.chatgpt_client.get_prediction(prompt)
-        decision, explanation = self.interpret_response(response)
-        self.save_response(decision, explanation)
-        return decision, explanation
+        for attempt in range(self.max_retries):
+            try:
+                response = self.chatgpt_client.get_prediction(prompt)
+                decision, explanation = self.interpret_response(response)
+                self.save_response(decision, explanation)
+                return decision, explanation
+            except Exception as e:
+                if "Request timed out" in str(e):
+                    logging.error("Error in ChatGPT API call: Request timed out.")
+                    print("Error in ChatGPT API call: Request timed out. Retrying...")
+                else:
+                    logging.error(f"Error during communication with OpenAI: {e}")
+                    print(f"Attempt {attempt + 1} failed. Retrying in {self.retry_delay} seconds...")
+                time.sleep(self.retry_delay)
+
+        # If all retries fail
+        logging.error("All attempts to communicate with OpenAI failed. Skipping this cycle.")
+        return "Hold", "Failed to get a response from OpenAI after multiple attempts."
 
     def interpret_response(self, response):
         if response is None:

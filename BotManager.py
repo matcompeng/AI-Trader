@@ -14,7 +14,7 @@ from Notifier import Notifier
 
 # Global variables
 INTERVAL = 5 * 60  # Time in seconds between each run of the bot
-AMOUNT = 0.0001  # Amount of BTC to trade
+AMOUNT = 0.0002  # Amount of BTC to trade
 
 # Configure logging
 logging.basicConfig(filename='bot_manager.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
