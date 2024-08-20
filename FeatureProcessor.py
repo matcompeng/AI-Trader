@@ -1,7 +1,10 @@
 import os
 import pandas as pd
 import talib
+from datetime import datetime, timedelta
+
 from DataCollector import DataCollector
+
 
 class FeatureProcessor:
     def __init__(self, data_directory='data'):
@@ -23,30 +26,46 @@ class FeatureProcessor:
                 df['low'] = df['low'].astype(float)
                 df['close'] = df['close'].astype(float)
                 df['volume'] = df['volume'].astype(float)
+                df['timestamp'] = pd.to_datetime(df['timestamp'])
 
                 # Calculate price change
                 df['price_change'] = ((df['close'] - df['open']) / df['open']) * 100
 
-                # Calculate technical indicators using the full DataFrame
+                # Calculate RSI
                 df['RSI'] = talib.RSI(df['close'], timeperiod=14)
-                df['SMA_30'] = talib.SMA(df['close'], timeperiod=30)
+
+                # Calculate three SMA and three EMA with periods 7, 25, and 100
+                df['SMA_7'] = talib.SMA(df['close'], timeperiod=7)
+                df['SMA_25'] = talib.SMA(df['close'], timeperiod=25)
                 df['SMA_100'] = talib.SMA(df['close'], timeperiod=100)
-                df['EMA_30'] = talib.EMA(df['close'], timeperiod=30)
+                df['EMA_7'] = talib.EMA(df['close'], timeperiod=7)
+                df['EMA_25'] = talib.EMA(df['close'], timeperiod=25)
                 df['EMA_100'] = talib.EMA(df['close'], timeperiod=100)
-                df['MACD'], df['MACD_signal'], df['MACD_hist'] = talib.MACD(df['close'])
+
+                # df['MACD'], df['MACD_signal'], df['MACD_hist'] = talib.MACD(df['close'])
                 df['upper_band'], df['middle_band'], df['lower_band'] = talib.BBANDS(df['close'], timeperiod=20)
-                df['ADX'] = talib.ADX(df['high'], df['low'], df['close'], timeperiod=14)
-                df['stoch_k'], df['stoch_d'] = talib.STOCH(df['high'], df['low'], df['close'],
-                                                           fastk_period=14, slowk_period=3, slowk_matype=0,
-                                                           slowd_period=3, slowd_matype=0)
+                # df['ADX'] = talib.ADX(df['high'], df['low'], df['close'], timeperiod=14)
+
+                # Calculate Stochastic RSI using the existing RSI calculation
+                df['stoch_rsi_k'], df['stoch_rsi_d'] = self.calculate_stoch_rsi(df['close'])
+
                 # Calculate ATR
                 df['ATR'] = talib.ATR(df['high'], df['low'], df['close'], timeperiod=14)
 
                 # Calculate VWAP
                 df['VWAP'] = (df['volume'] * (df['high'] + df['low'] + df['close']) / 3).cumsum() / df['volume'].cumsum()
 
-                df['support_level'] = df['low'].min()
-                df['resistance_level'] = df['high'].max()
+                # Calculate OBV (On-Balance Volume)
+                df['OBV'] = talib.OBV(df['close'], df['volume'])
+
+                # Calculate support and resistance levels based on current time for 1m, 5m, 15m, 1h, and 1d intervals
+                if interval in ['1m', '5m', '15m', '1h', '1d']:
+                    support_level, resistance_level = self.calculate_support_resistance(df, interval)
+                    df['support_level'] = support_level
+                    df['resistance_level'] = resistance_level
+                else:
+                    df['support_level'] = None
+                    df['resistance_level'] = None
 
                 # Extract the latest row to use as the features
                 features = df.iloc[-1].to_dict()
@@ -80,6 +99,43 @@ class FeatureProcessor:
             print(f"Error processing features: {e}")
             return None
 
+    def calculate_support_resistance(self, df, interval):
+        now = datetime.utcnow()
+        if interval == '1m':
+            start_time = now.replace(second=0, microsecond=0)
+            end_time = start_time + timedelta(minutes=1)
+        elif interval == '5m':
+            start_time = now.replace(minute=(now.minute // 5) * 5, second=0, microsecond=0)
+            end_time = start_time + timedelta(minutes=5)
+        elif interval == '15m':
+            start_time = now.replace(minute=(now.minute // 15) * 15, second=0, microsecond=0)
+            end_time = start_time + timedelta(minutes=15)
+        elif interval == '1h':
+            start_time = now.replace(minute=0, second=0, microsecond=0)
+            end_time = start_time + timedelta(hours=1)
+        elif interval == '1d':
+            start_time = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_time = start_time + timedelta(days=1)
+        else:
+            return None, None
+
+        # Filter data for the current time interval
+        df_interval = df[(df['timestamp'] >= start_time) & (df['timestamp'] < end_time)]
+
+        if not df_interval.empty:
+            support_level = df_interval['low'].min()
+            resistance_level = df_interval['high'].max()
+            return support_level, resistance_level
+        else:
+            return None, None
+
+    def calculate_stoch_rsi(self, close_prices, timeperiod=14, smooth_k=3, smooth_d=3):
+        rsi = talib.RSI(close_prices, timeperiod)
+        stoch_rsi_k = (rsi - rsi.rolling(window=timeperiod).min()) / (rsi.rolling(window=timeperiod).max() - rsi.rolling(window=timeperiod).min()) * 100
+        stoch_rsi_k = stoch_rsi_k.rolling(window=smooth_k).mean()  # Smooth %K
+        stoch_rsi_d = stoch_rsi_k.rolling(window=smooth_d).mean()  # Smooth %D
+        return stoch_rsi_k, stoch_rsi_d
+
     def save_to_csv(self, df):
         try:
             file_path = os.path.join(self.data_directory, 'processed_features.csv')
@@ -91,12 +147,13 @@ class FeatureProcessor:
         except Exception as e:
             print(f"Error saving to CSV: {e}")
 
+
 # Example usage:
 if __name__ == "__main__":
     api_key = 'your_binance_api_key'
     api_secret = 'your_binance_api_secret'
 
-    data_collector = DataCollector(api_key, api_secret, intervals=['1m', '5m', '15m', '1h'])
+    data_collector = DataCollector(api_key, api_secret, intervals=['1m', '5m', '15m', '1h', '1d'])
     market_data = data_collector.collect_data()
 
     if market_data is not None:

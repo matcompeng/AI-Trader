@@ -25,23 +25,29 @@ class Predictor:
         for interval, features in all_features.items():
             if features:
                 interval_prompt = (
-                    f"Interval: {interval}\n"
+                    f"\nInterval: {interval}\n"
                     f"Price Change: {features['price_change']:.2f}%\n"
                     f"RSI: {features['RSI']:.2f}\n"
-                    f"SMA (30): {features['SMA_30']:.2f}\n"
+                    f"SMA (7): {features['SMA_7']:.2f}\n"
+                    f"SMA (25): {features['SMA_25']:.2f}\n"
                     f"SMA (100): {features['SMA_100']:.2f}\n"
-                    f"EMA (30): {features['EMA_30']:.2f}\n"
+                    f"EMA (7): {features['EMA_7']:.2f}\n"
+                    f"EMA (25): {features['EMA_25']:.2f}\n"
                     f"EMA (100): {features['EMA_100']:.2f}\n"
-                    f"MACD: {features['MACD']:.2f}\n"
-                    f"MACD Signal: {features['MACD_signal']:.2f}\n"
+                    # f"MACD: {features['MACD']:.2f}\n"
+                    # f"MACD Signal: {features['MACD_signal']:.2f}\n"
                     f"Bollinger Bands: {features['upper_band']:.2f}, {features['middle_band']:.2f}, {features['lower_band']:.2f}\n"
-                    f"ADX: {features['ADX']:.2f}\n"
-                    f"Stochastic %K: {features['stoch_k']:.2f}\n"
-                    f"Stochastic %D: {features['stoch_d']:.2f}\n"
-                    f"ATR: {features['ATR']:.2f}\n" 
+                    # f"ADX: {features['ADX']:.2f}\n"
+                    f"Stochastic RSI %K: {features['stoch_rsi_k']:.2f}\n"  # Updated to reflect stochRSI
+                    f"Stochastic RSI %D: {features['stoch_rsi_d']:.2f}\n"  # Updated to reflect stochRSI
+                    f"ATR: {features['ATR']:.2f}\n"
                     f"VWAP: {features['VWAP']:.2f}\n"  # Include VWAP in the prompt
+                    # f"OBV: {features['OBV']:.2f}\n"  # Include OBV in the prompt
                     f"Support Level: {features['support_level']:.2f}\n"
                     f"Resistance Level: {features['resistance_level']:.2f}\n"
+                )
+
+                interval_prompt += (
                     f"Top Bid: {features['top_bid']:.2f}\n"
                     f"Top Ask: {features['top_ask']:.2f}\n"
                     f"Bid-Ask Spread: {features['bid_ask_spread']:.2f}\n"
@@ -51,8 +57,8 @@ class Predictor:
                 prompt += interval_prompt
 
         prompt += (
-            "Based on this data from multiple intervals, "
-            "please provide a single, clear recommendation (Buy, Sell, or Hold) for BTC. "
+            "I am looking to trade in the short and intermediate term within a day. "
+            "Based on this data from multiple intervals, please provide a single, clear recommendation (Buy, Sell, or Hold) for BTC. "
             "Ensure that your explanation supports your recommendation. Avoid any conflicting suggestions."
         )
         return prompt
@@ -144,7 +150,7 @@ if __name__ == "__main__":
     api_key = 'your_binance_api_key'
     api_secret = 'your_binance_api_secret'
 
-    data_collector = DataCollector(api_key, api_secret, intervals=['1m', '5m', '15m', '1h'])
+    data_collector = DataCollector(api_key, api_secret, intervals=['1m', '5m', '15m', '1h', '1d'])
     market_data = data_collector.collect_data()
 
     if market_data is not None:
