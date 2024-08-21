@@ -16,7 +16,7 @@ class ChatGPTClient:
                 raise ValueError("Prompt must be a string.")
 
             response = openai.ChatCompletion.create(
-                model="gpt-4",  # or "gpt-3.5-turbo" if you're using GPT-3.5
+                model="gpt-4-turbo",  # or "gpt-3.5-turbo" if you're using GPT-3.5
                 messages=[
                     {"role": "system", "content": "You are a trading assistant."},
                     {"role": "user", "content": prompt},

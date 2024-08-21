@@ -172,8 +172,7 @@ class BotManager:
                         print(f"Position sold: {position_id}, Sell Price: {current_price}, Amount: {amount}")
                         self.notifier.send_notification("Trade Executed", f"Sold {amount} BTC at ${current_price}")
                     else:
-                        print(
-                            f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}")
+                        print(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}")
 
             else:  # This case is for "Hold"
                 print("Predictor suggested to Hold. No trade action taken.")
@@ -187,6 +186,9 @@ class BotManager:
 
     def start(self):
         try:
+            # Run immediately
+            self.run()
+
             # Schedule the bot to run at the specified interval
             schedule.every(INTERVAL).seconds.do(self.run)
 
