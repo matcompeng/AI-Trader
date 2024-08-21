@@ -26,33 +26,33 @@ class Predictor:
             if features:
                 interval_prompt = (
                     f"\nInterval: {interval}\n"
-                    f"Price Change: {features['price_change']:.2f}%\n"
-                    f"RSI: {features['RSI']:.2f}\n"
-                    f"SMA (7): {features['SMA_7']:.2f}\n"
-                    f"SMA (25): {features['SMA_25']:.2f}\n"
-                    f"SMA (100): {features['SMA_100']:.2f}\n"
-                    f"EMA (7): {features['EMA_7']:.2f}\n"
-                    f"EMA (25): {features['EMA_25']:.2f}\n"
-                    f"EMA (100): {features['EMA_100']:.2f}\n"
-                    # f"MACD: {features['MACD']:.2f}\n"
-                    # f"MACD Signal: {features['MACD_signal']:.2f}\n"
-                    f"Bollinger Bands: {features['upper_band']:.2f}, {features['middle_band']:.2f}, {features['lower_band']:.2f}\n"
-                    # f"ADX: {features['ADX']:.2f}\n"
-                    f"Stochastic RSI %K: {features['stoch_rsi_k']:.2f}\n"  # Updated to reflect stochRSI
-                    f"Stochastic RSI %D: {features['stoch_rsi_d']:.2f}\n"  # Updated to reflect stochRSI
-                    f"ATR: {features['ATR']:.2f}\n"
-                    f"VWAP: {features['VWAP']:.2f}\n"  # Include VWAP in the prompt
-                    # f"OBV: {features['OBV']:.2f}\n"  # Include OBV in the prompt
-                    f"Support Level: {features['support_level']:.2f}\n"
-                    f"Resistance Level: {features['resistance_level']:.2f}\n"
+                    f"Price Change: {features.get('price_change', 'N/A'):.2f}%\n"
+                    f"RSI: {features.get('RSI', 'N/A'):.2f}\n"
+                    f"SMA (7): {features.get('SMA_7', 'N/A'):.2f}\n"
+                    f"SMA (25): {features.get('SMA_25', 'N/A'):.2f}\n"
+                    f"SMA (100): {features.get('SMA_100', 'N/A'):.2f}\n"
+                    f"EMA (7): {features.get('EMA_7', 'N/A'):.2f}\n"
+                    f"EMA (25): {features.get('EMA_25', 'N/A'):.2f}\n"
+                    f"EMA (100): {features.get('EMA_100', 'N/A'):.2f}\n"
+                    # f"MACD: {features.get('MACD', 'N/A'):.2f}\n"
+                    # f"MACD Signal: {features.get('MACD_signal', 'N/A'):.2f}\n"
+                    f"Bollinger Bands: {features.get('upper_band', 'N/A'):.2f}, {features.get('middle_band', 'N/A'):.2f}, {features.get('lower_band', 'N/A'):.2f}\n"
+                    # f"ADX: {features.get('ADX', 'N/A'):.2f}\n"
+                    f"Stochastic RSI %K: {features.get('stoch_rsi_k', 'N/A'):.2f}\n"
+                    f"Stochastic RSI %D: {features.get('stoch_rsi_d', 'N/A'):.2f}\n"
+                    f"ATR: {features.get('ATR', 'N/A'):.2f}\n"
+                    f"VWAP: {features.get('VWAP', 'N/A'):.2f}\n"
+                    # f"OBV: {features.get('OBV', 'N/A'):.2f}\n"
+                    f"Support Level: {features.get('support_level', 'N/A'):.2f}\n"
+                    f"Resistance Level: {features.get('resistance_level', 'N/A'):.2f}\n"
                 )
 
                 interval_prompt += (
-                    f"Top Bid: {features['top_bid']:.2f}\n"
-                    f"Top Ask: {features['top_ask']:.2f}\n"
-                    f"Bid-Ask Spread: {features['bid_ask_spread']:.2f}\n"
-                    f"Bid Volume: {features['bid_volume']:.2f}\n"
-                    f"Ask Volume: {features['ask_volume']:.2f}\n\n"
+                    f"Top Bid: {features.get('top_bid', 'N/A'):.2f}\n"
+                    f"Top Ask: {features.get('top_ask', 'N/A'):.2f}\n"
+                    f"Bid-Ask Spread: {features.get('bid_ask_spread', 'N/A'):.2f}\n"
+                    f"Bid Volume: {features.get('bid_volume', 'N/A'):.2f}\n"
+                    f"Ask Volume: {features.get('ask_volume', 'N/A'):.2f}\n\n"
                 )
                 prompt += interval_prompt
 
