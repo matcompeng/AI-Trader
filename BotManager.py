@@ -109,81 +109,94 @@ class BotManager:
             logging.error(f"Failed to save error details to CSV: {e}")
 
     def run(self):
-        try:
-            start_time = time.time()
-            print(f"\n\nBot started, running every {INTERVAL} seconds.")
-            print("Collecting market data...")
-            market_data = self.data_collector.collect_data()
-            self.log_time("Data collection", start_time)
-
-            if not market_data:
-                print("Failed to collect market data. Skipping this cycle.")
-                return
-
-            start_time = time.time()
-            print("Processing features...")
-            all_features = self.feature_processor.process(market_data)
-            self.log_time("Feature processing", start_time)
-
-            if not all_features:
-                print("Failed to process features. Skipping this cycle.")
-                return
-
-            start_time = time.time()
-            print("Generating prediction...")
-            decision, explanation = self.predictor.get_prediction(all_features)
-            self.log_time("Prediction generation", start_time)
-
-            # Log the explanation from ChatGPT
-            logging.info(f"Prediction: {decision}. Explanation: {explanation}")
-
-            current_price = market_data['1m']['last_price']
-
-            if decision == "Buy":
-                # Buy logic
+        attempt = 0
+        while attempt < 3:
+            try:
                 start_time = time.time()
-                print(f"Executing trade: {decision}")
-                self.trader.execute_trade(decision, AMOUNT)
-                self.log_time("Trade execution (Buy)", start_time)
+                print(f"\n\nBot started, running every {INTERVAL} seconds.")
+                print("Collecting market data...")
+                market_data = self.data_collector.collect_data()
+                self.log_time("Data collection", start_time)
 
-                # Save the new position
-                position_id = str(int(time.time()))  # Use timestamp as a unique ID
-                self.position_manager.add_position(position_id, current_price, AMOUNT)
-                print(f"New position added: {position_id}, Entry Price: {current_price}, Amount: {AMOUNT}")
-                self.notifier.send_notification("Trade Executed", f"Bought {AMOUNT} BTC at ${current_price}")
+                if not market_data:
+                    print("Failed to collect market data. Skipping this cycle.")
+                    return
 
-            elif decision == "Sell":
-                # Sell logic
-                positions = self.position_manager.get_positions()
-                for position_id, position in positions.items():
-                    entry_price = position['entry_price']
-                    amount = position['amount']
+                start_time = time.time()
+                print("Processing features...")
+                all_features = self.feature_processor.process(market_data)
+                self.log_time("Feature processing", start_time)
 
+                if not all_features:
+                    print("Failed to process features. Skipping this cycle.")
+                    return
+
+                start_time = time.time()
+                print("Generating prediction...")
+                decision, explanation = self.predictor.get_prediction(all_features)
+                self.log_time("Prediction generation", start_time)
+
+                # Log the explanation from ChatGPT
+                logging.info(f"Prediction: {decision}. Explanation: {explanation}")
+
+                current_price = market_data['1m']['last_price']
+
+                if decision == "Buy":
+                    # Buy logic
                     start_time = time.time()
-                    final_decision = self.decision_maker.make_decision(decision, current_price, entry_price)
-                    self.log_time("Decision making (Sell)", start_time)
+                    print(f"Executing trade: {decision}")
+                    self.trader.execute_trade(decision, AMOUNT)
+                    self.log_time("Trade execution (Buy)", start_time)
 
-                    if final_decision == "Sell":
+                    # Save the new position
+                    position_id = str(int(time.time()))  # Use timestamp as a unique ID
+                    self.position_manager.add_position(position_id, current_price, AMOUNT)
+                    print(f"New position added: {position_id}, Entry Price: {current_price}, Amount: {AMOUNT}")
+                    self.notifier.send_notification("Trade Executed", f"Bought {AMOUNT} BTC at ${current_price}")
+
+                elif decision == "Sell":
+                    # Sell logic
+                    positions = self.position_manager.get_positions()
+                    for position_id, position in positions.items():
+                        entry_price = position['entry_price']
+                        amount = position['amount']
+
                         start_time = time.time()
-                        print(f"Executing trade: {final_decision}")
-                        self.trader.execute_trade(final_decision, amount)
-                        self.log_time("Trade execution (Sell)", start_time)
+                        final_decision = self.decision_maker.make_decision(decision, current_price, entry_price)
+                        self.log_time("Decision making (Sell)", start_time)
 
-                        self.position_manager.remove_position(position_id)
-                        print(f"Position sold: {position_id}, Sell Price: {current_price}, Amount: {amount}")
-                        self.notifier.send_notification("Trade Executed", f"Sold {amount} BTC at ${current_price}")
-                    else:
-                        print(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}")
+                        if final_decision == "Sell":
+                            start_time = time.time()
+                            print(f"Executing trade: {final_decision}")
+                            self.trader.execute_trade(final_decision, amount)
+                            self.log_time("Trade execution (Sell)", start_time)
 
-            else:  # This case is for "Hold"
-                print("Predictor suggested to Hold. No trade action taken.")
-                # Optional: Log or notify the hold decision
-                # self.notifier.send_notification("Hold Decision", "No trade executed. The Predictor advised to hold.")
-        except Exception as e:
-            logging.error(f"An error occurred during the run: {e}")
-            self.save_error_to_csv(str(e))
-            self.notifier.send_notification("Bot Stopped", f"An error occurred: {e}")
-            raise
+                            self.position_manager.remove_position(position_id)
+                            print(f"Position sold: {position_id}, Sell Price: {current_price}, Amount: {amount}")
+                            self.notifier.send_notification("Trade Executed", f"Sold {amount} BTC at ${current_price}")
+                        else:
+                            print(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}")
+
+                else:  # This case is for "Hold"
+                    print("Predictor suggested to Hold. No trade action taken.")
+                    # Optional: Log or notify the hold decision
+                    # self.notifier.send_notification("Hold Decision", "No trade executed. The Predictor advised to hold.")
+
+                # If the process completes without errors, break the loop
+                break
+
+            except Exception as e:
+                attempt += 1
+                logging.error(f"An error occurred during the run (Attempt {attempt}): {e}")
+                self.save_error_to_csv(str(e))
+                self.notifier.send_notification("Bot Error", f"An error occurred: {e}. Attempt {attempt} of 3.")
+                print(f"An error occurred. Restarting cycle in 5 seconds... (Attempt {attempt} of 3)")
+                time.sleep(5)
+
+                if attempt >= 3:
+                    self.notifier.send_notification("Bot Stopped", "The bot encountered repeated errors and is stopping.")
+                    print("Bot has stopped due to repeated errors.")
+                    raise
 
     def start(self):
         try:
