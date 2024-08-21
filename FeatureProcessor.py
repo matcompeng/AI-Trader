@@ -52,11 +52,11 @@ class FeatureProcessor:
                 # Calculate ATR
                 df['ATR'] = talib.ATR(df['high'], df['low'], df['close'], timeperiod=14)
 
-                # Calculate VWAP
-                df['VWAP'] = (df['volume'] * (df['high'] + df['low'] + df['close']) / 3).cumsum() / df['volume'].cumsum()
-
                 # Calculate OBV (On-Balance Volume)
                 df['OBV'] = talib.OBV(df['close'], df['volume'])
+
+                # Calculate VWAP manually with a length period of 14
+                df['VWAP'] = self.calculate_vwap(df, period=14)
 
                 # Calculate support and resistance levels based on current time for 1m, 5m, 15m, 1h, and 1d intervals
                 if interval in ['1m', '5m', '15m', '1h', '1d']:
@@ -98,6 +98,20 @@ class FeatureProcessor:
         except Exception as e:
             print(f"Error processing features: {e}")
             return None
+
+    def calculate_vwap(self, df, period=14):
+        # Calculate the typical price (TP) for each period
+        df['typical_price'] = (df['high'] + df['low'] + df['close']) / 3
+
+        # Calculate the cumulative TPV and volume over the specified period
+        df['cumulative_tpv'] = (df['typical_price'] * df['volume']).rolling(window=period).sum()
+        df['cumulative_volume'] = df['volume'].rolling(window=period).sum()
+
+        # Calculate VWAP for the period
+        df['VWAP'] = df['cumulative_tpv'] / df['cumulative_volume']
+
+        # Return the last calculated VWAP value
+        return df['VWAP']
 
     def calculate_support_resistance(self, df, interval):
         now = datetime.utcnow()

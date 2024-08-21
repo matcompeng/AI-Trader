@@ -111,7 +111,8 @@ class BotManager:
     def run(self):
         try:
             start_time = time.time()
-            print("\n\nCollecting market data...")
+            print(f"\n\nBot started, running every {INTERVAL} seconds.")
+            print("Collecting market data...")
             market_data = self.data_collector.collect_data()
             self.log_time("Data collection", start_time)
 
@@ -191,8 +192,6 @@ class BotManager:
 
             # Schedule the bot to run at the specified interval
             schedule.every(INTERVAL).seconds.do(self.run)
-
-            print(f"Bot started, running every {INTERVAL} seconds.")
 
             while True:
                 schedule.run_pending()
