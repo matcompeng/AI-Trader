@@ -62,7 +62,7 @@ class BotManager:
         api_secret = 'your_binance_api_secret'
 
         # Use multiple intervals
-        intervals = ['5m', '15m', '1h','4h','8h','12h','1d']
+        intervals = ['5m', '15m', '1h', '4h', '8h', '12h', '1d']
 
         self.data_collector = DataCollector(api_key, api_secret, intervals=intervals)
         self.feature_processor = FeatureProcessor(intervals=intervals)
@@ -161,18 +161,18 @@ class BotManager:
                         print(f"New position added: {position_id}, Entry Price: {current_price}, Amount: {AMOUNT}")
                         self.notifier.send_notification("Trade Executed", f"Bought {AMOUNT} BTC at ${current_price}")
                     if decision == "Buy" and final_decision == "Hold":
-                        self.notifier.send_notification(" Decision Maker", "Decision Maker hold the Buy Prediction")
+                        self.notifier.send_notification("Decision Maker", "Decision Maker hold the Buy Prediction")
 
-
-                elif decision == "Hold" or decision == "Sell":
-                    # Sell logic
-                    positions = self.position_manager.get_positions()
-                    for position_id, position in positions.items():
+                elif decision in ["Hold", "Sell"]:
+                    # Iterate over a copy of the positions to avoid the runtime error
+                    positions_copy = list(self.position_manager.get_positions().items())
+                    for position_id, position in positions_copy:
                         entry_price = position['entry_price']
                         amount = position['amount']
 
                         start_time = time.time()
-                        final_decision = self.decision_maker.make_decision(decision, current_price, entry_price, all_features)
+                        final_decision = self.decision_maker.make_decision(decision, current_price, entry_price,
+                                                                           all_features)
 
                         if final_decision == "Sell":
                             self.log_time("Decision making (Sell)", start_time)
