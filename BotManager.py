@@ -139,24 +139,32 @@ class BotManager:
                 self.log_time("Prediction generation", start_time)
 
                 # Log the explanation from ChatGPT
+                print(f"Prediction: ///{decision}///.")
                 logging.info(f"Prediction: {decision}. Explanation: {explanation}")
 
                 current_price = market_data['5m']['last_price']
 
                 if decision == "Buy":
+                    entry_price = None
                     # Buy logic
-                    start_time = time.time()
-                    print(f"Executing trade: {decision}")
-                    self.trader.execute_trade(decision, AMOUNT)
-                    self.log_time("Trade execution (Buy)", start_time)
+                    final_decision = self.decision_maker.make_decision(decision, current_price, entry_price,
+                                                                       all_features)
+                    if final_decision == "Buy":
+                        start_time = time.time()
+                        print(f"Executing trade: {decision}")
+                        self.trader.execute_trade(decision, AMOUNT)
+                        self.log_time("Trade execution (Buy)", start_time)
 
-                    # Save the new position
-                    position_id = str(int(time.time()))  # Use timestamp as a unique ID
-                    self.position_manager.add_position(position_id, current_price, AMOUNT)
-                    print(f"New position added: {position_id}, Entry Price: {current_price}, Amount: {AMOUNT}")
-                    self.notifier.send_notification("Trade Executed", f"Bought {AMOUNT} BTC at ${current_price}")
+                        # Save the new position
+                        position_id = str(int(time.time()))  # Use timestamp as a unique ID
+                        self.position_manager.add_position(position_id, current_price, AMOUNT)
+                        print(f"New position added: {position_id}, Entry Price: {current_price}, Amount: {AMOUNT}")
+                        self.notifier.send_notification("Trade Executed", f"Bought {AMOUNT} BTC at ${current_price}")
+                    if decision == "Buy" and final_decision == "Hold":
+                        self.notifier.send_notification(" Decision Maker", "Decision Maker hold the Buy Prediction")
 
-                elif decision == "Sell":
+
+                elif decision == "Hold" or decision == "Sell":
                     # Sell logic
                     positions = self.position_manager.get_positions()
                     for position_id, position in positions.items():
@@ -164,10 +172,10 @@ class BotManager:
                         amount = position['amount']
 
                         start_time = time.time()
-                        final_decision = self.decision_maker.make_decision(decision, current_price, entry_price)
-                        self.log_time("Decision making (Sell)", start_time)
+                        final_decision = self.decision_maker.make_decision(decision, current_price, entry_price, all_features)
 
                         if final_decision == "Sell":
+                            self.log_time("Decision making (Sell)", start_time)
                             start_time = time.time()
                             print(f"Executing trade: {final_decision}")
                             self.trader.execute_trade(final_decision, amount)
