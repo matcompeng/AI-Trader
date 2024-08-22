@@ -92,9 +92,9 @@ class Predictor:
                 self.save_response(decision, explanation)
                 return decision, explanation
             except Exception as e:
-                if "Request timed out" in str(e):
+                if "Request timed out" or "Connection aborted" in str(e):
                     logging.error("Error in ChatGPT API call: Request timed out.")
-                    print("Error in ChatGPT API call: Request timed out. Retrying...")
+                    print("Error in ChatGPT API call: Request timed or connection aborted out. Retrying...")
                 else:
                     logging.error(f"Error during communication with OpenAI: {e}")
                     print(f"Attempt {attempt + 1} failed. Retrying in {self.retry_delay} seconds...")

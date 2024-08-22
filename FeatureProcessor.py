@@ -7,10 +7,11 @@ from DataCollector import DataCollector
 
 
 class FeatureProcessor:
-    def __init__(self, data_directory='data'):
+    def __init__(self, data_directory='data', intervals=None):
         self.data_directory = data_directory
         if not os.path.exists(self.data_directory):
             os.makedirs(self.data_directory)
+        self.intervals = intervals if intervals is not None else []
 
     def process(self, data):
         try:
@@ -58,8 +59,8 @@ class FeatureProcessor:
                 # Calculate VWAP manually with a length period of 14
                 df['VWAP'] = self.calculate_vwap(df, period=14)
 
-                # Calculate support and resistance levels based on current time for 1m, 5m, 15m, 1h, and 1d intervals
-                if interval in ['1m', '5m', '15m', '1h', '1d']:
+                # Calculate support and resistance levels based on current time for the specified intervals
+                if interval in self.intervals:
                     support_level, resistance_level = self.calculate_support_resistance(df, interval)
                     df['support_level'] = support_level
                     df['resistance_level'] = resistance_level
@@ -127,6 +128,15 @@ class FeatureProcessor:
         elif interval == '1h':
             start_time = now.replace(minute=0, second=0, microsecond=0)
             end_time = start_time + timedelta(hours=1)
+        elif interval == '4h':
+            start_time = now.replace(hour=(now.hour // 4) * 4, minute=0, second=0, microsecond=0)
+            end_time = start_time + timedelta(hours=4)
+        elif interval == '8h':
+            start_time = now.replace(hour=(now.hour // 8) * 8, minute=0, second=0, microsecond=0)
+            end_time = start_time + timedelta(hours=8)
+        elif interval == '12h':
+            start_time = now.replace(hour=(now.hour // 12) * 12, minute=0, second=0, microsecond=0)
+            end_time = start_time + timedelta(hours=12)
         elif interval == '1d':
             start_time = now.replace(hour=0, minute=0, second=0, microsecond=0)
             end_time = start_time + timedelta(days=1)
@@ -167,7 +177,7 @@ if __name__ == "__main__":
     api_key = 'your_binance_api_key'
     api_secret = 'your_binance_api_secret'
 
-    data_collector = DataCollector(api_key, api_secret, intervals=['1m', '5m', '15m', '1h', '1d'])
+    data_collector = DataCollector(api_key, api_secret, intervals=['5m', '15m', '1h','4h','8h','12h'])
     market_data = data_collector.collect_data()
 
     if market_data is not None:

@@ -4,7 +4,7 @@ from binance.client import Client
 import time
 
 class DataCollector:
-    def __init__(self, api_key, api_secret, symbol='BTCUSDT', intervals=['1m', '5m', '15m', '1h', '1d'], limit=1000, data_directory='data', max_retries=3, retry_delay=5):
+    def __init__(self, api_key, api_secret, symbol='BTCUSDT', intervals=None, limit=1000, data_directory='data', max_retries=3, retry_delay=5):
         self.client = Client(api_key, api_secret)
         self.symbol = symbol
         self.intervals = intervals  # List of intervals to fetch data for

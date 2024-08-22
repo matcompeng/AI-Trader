@@ -15,8 +15,8 @@ from Trader import Trader
 from Notifier import Notifier
 
 # Global variables
-INTERVAL = 5 * 60  # Time in seconds between each run of the bot
-AMOUNT = 0.0002  # Amount of BTC to trade
+INTERVAL = 3 * 60  # Time in seconds between each run of the bot
+AMOUNT = 0.0001  # Amount of BTC to trade
 
 # Configure logging
 logging.basicConfig(filename='bot_manager.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -38,9 +38,11 @@ class PositionManager:
             json.dump(self.positions, file, indent=4)
 
     def add_position(self, position_id, entry_price, amount):
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Add timestamp
         self.positions[position_id] = {
             'entry_price': entry_price,
-            'amount': amount
+            'amount': amount,
+            'timestamp': timestamp  # Save the timestamp
         }
         self.save_positions()
 
@@ -60,10 +62,10 @@ class BotManager:
         api_secret = 'your_binance_api_secret'
 
         # Use multiple intervals
-        intervals = ['1m', '5m', '15m', '1h', '1d']
+        intervals = ['5m', '15m', '1h','4h','8h','12h','1d']
 
         self.data_collector = DataCollector(api_key, api_secret, intervals=intervals)
-        self.feature_processor = FeatureProcessor()
+        self.feature_processor = FeatureProcessor(intervals=intervals)
         self.chatgpt_client = ChatGPTClient()
         self.predictor = Predictor(self.chatgpt_client)
         self.decision_maker = DecisionMaker()
@@ -139,7 +141,7 @@ class BotManager:
                 # Log the explanation from ChatGPT
                 logging.info(f"Prediction: {decision}. Explanation: {explanation}")
 
-                current_price = market_data['1m']['last_price']
+                current_price = market_data['5m']['last_price']
 
                 if decision == "Buy":
                     # Buy logic
