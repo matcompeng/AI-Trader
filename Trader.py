@@ -20,13 +20,17 @@ class Trader:
             if decision == "Buy":
                 order = self.exchange.create_market_buy_order(self.symbol, amount)
                 print(f"Buy Order Executed: {order}")
+                return "Success", order
             elif decision == "Sell":
                 order = self.exchange.create_market_sell_order(self.symbol, amount)
                 print(f"Sell Order Executed: {order}")
+                return "Success", order
             else:
                 print("No trade executed. Decision was to Hold.")
+                return "NoAction", None
         except Exception as e:
             print(f"Error executing trade: {e}")
+            return "Error", str(e)
 
     def get_current_price(self):
         try:
@@ -35,6 +39,7 @@ class Trader:
         except Exception as e:
             print(f"Error fetching current price: {e}")
             return None
+
 
 
 

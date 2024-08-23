@@ -157,14 +157,21 @@ class BotManager:
                     if final_decision == "Buy":
                         start_time = time.time()
                         print(f"Executing trade: {decision}")
-                        self.trader.execute_trade(decision, AMOUNT)
+                        trade_status, order_details = self.trader.execute_trade(decision, AMOUNT)
                         self.log_time("Trade execution (Buy)", start_time)
 
-                        # Save the new position
-                        position_id = str(int(time.time()))  # Use timestamp as a unique ID
-                        self.position_manager.add_position(position_id, current_price, AMOUNT)
-                        print(f"New position added: {position_id}, Entry Price: {current_price}, Amount: {AMOUNT}")
-                        self.notifier.send_notification("Trade Executed", f"Bought {AMOUNT} BTC at ${current_price}")
+                        if trade_status == "Success":
+                            # Save the new position
+                            position_id = str(int(time.time()))  # Use timestamp as a unique ID
+                            self.position_manager.add_position(position_id, current_price, AMOUNT)
+                            print(f"New position added: {position_id}, Entry Price: {current_price}, Amount: {AMOUNT}")
+                            self.notifier.send_notification("Trade Executed",
+                                                            f"Bought {AMOUNT} BTC at ${current_price}")
+                        else:
+                            error_message = f"Failed to execute Buy order: {order_details}"
+                            self.save_error_to_csv(error_message)
+                            self.notifier.send_notification("Trade Error", error_message)
+
                     if decision == "Buy" and final_decision == "Hold":
                         self.notifier.send_notification("Decision Maker", "Decision Maker hold the Buy Prediction")
 
@@ -183,14 +190,21 @@ class BotManager:
                             self.log_time("Decision making (Sell)", start_time)
                             start_time = time.time()
                             print(f"Executing trade: {final_decision}")
-                            self.trader.execute_trade(final_decision, amount)
+                            trade_status, order_details = self.trader.execute_trade(final_decision, amount)
                             self.log_time("Trade execution (Sell)", start_time)
 
-                            self.position_manager.remove_position(position_id)
-                            print(f"Position sold: {position_id}, Sell Price: {current_price}, Amount: {amount}")
-                            self.notifier.send_notification("Trade Executed", f"Sold {amount} BTC at ${current_price}")
+                            if trade_status == "Success":
+                                self.position_manager.remove_position(position_id)
+                                print(f"Position sold: {position_id}, Sell Price: {current_price}, Amount: {amount}")
+                                self.notifier.send_notification("Trade Executed",
+                                                                f"Sold {amount} BTC at ${current_price}")
+                            else:
+                                error_message = f"Failed to execute Sell order: {order_details}"
+                                self.save_error_to_csv(error_message)
+                                self.notifier.send_notification("Trade Error", error_message)
                         else:
-                            print(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}")
+                            print(
+                                f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}")
 
                 else:  # This case is for "Hold"
                     print("Predictor suggested to Hold. No trade action taken.")
@@ -209,7 +223,8 @@ class BotManager:
                 time.sleep(5)
 
                 if attempt >= 3:
-                    self.notifier.send_notification("Bot Stopped", "The bot encountered repeated errors and is stopping.")
+                    self.notifier.send_notification("Bot Stopped",
+                                                    "The bot encountered repeated errors and is stopping.")
                     print("Bot has stopped due to repeated errors.")
                     raise
 
