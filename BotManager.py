@@ -16,7 +16,7 @@ from Notifier import Notifier
 
 # Global variables
 INTERVAL = 3 * 60  # Time in seconds between each run of the bot
-AMOUNT = 0.0001  # Amount of BTC to trade
+AMOUNT = 0.032  # Amount of BTC to trade
 
 # Configure logging
 logging.basicConfig(filename='bot_manager.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -69,7 +69,7 @@ class BotManager:
         self.chatgpt_client = ChatGPTClient()
         self.predictor = Predictor(self.chatgpt_client)
         self.decision_maker = DecisionMaker()
-        self.trader = Trader()
+        self.trader = Trader()  # Initialize the Trader class
         self.notifier = Notifier()
         self.position_manager = PositionManager()
 
@@ -133,7 +133,6 @@ class BotManager:
                     print("Failed to process features. Skipping this cycle.")
                     return
 
-                start_time = time.time()
                 print("Generating prediction...")
                 decision, explanation = self.predictor.get_prediction(all_features)
                 self.log_time("Prediction generation", start_time)
@@ -142,7 +141,13 @@ class BotManager:
                 print(f"Prediction: ///{decision}///.")
                 logging.info(f"Prediction: {decision}. Explanation: {explanation}")
 
-                current_price = market_data['5m']['last_price']
+                # Get the current price right before executing the trade decision
+                print("Getting current price...")
+                current_price = self.trader.get_current_price()  # Get the current price from the Trader
+                print(f"Current price now is: {current_price}")
+                if current_price is None:
+                    print("Failed to get current price. Skipping this cycle.")
+                    return
 
                 if decision == "Buy":
                     entry_price = None
@@ -230,3 +235,4 @@ class BotManager:
 if __name__ == "__main__":
     bot_manager = BotManager()
     bot_manager.start()
+

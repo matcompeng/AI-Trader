@@ -1,7 +1,6 @@
 import os
 import ccxt
 
-
 class Trader:
     def __init__(self, symbol='BTC/USDT'):
         self.api_key = os.getenv("BINANCE_API_KEY")
@@ -28,6 +27,15 @@ class Trader:
                 print("No trade executed. Decision was to Hold.")
         except Exception as e:
             print(f"Error executing trade: {e}")
+
+    def get_current_price(self):
+        try:
+            ticker = self.exchange.fetch_ticker(self.symbol)
+            return ticker['last']
+        except Exception as e:
+            print(f"Error fetching current price: {e}")
+            return None
+
 
 
 # Example usage:
