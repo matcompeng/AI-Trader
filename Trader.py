@@ -15,14 +15,26 @@ class Trader:
             'enableRateLimit': True,
         })
 
-    def execute_trade(self, decision, amount):
+    def execute_trade(self, decision, usdt_amount):
         try:
+            # Get the current price of BTC in USDT
+            current_price = self.get_current_price()
+            if not current_price:
+                return "Error", "Failed to fetch current price."
+
+            # Convert the USDT amount to BTC amount
+            btc_amount = usdt_amount / current_price
+
+            # Round the BTC amount to 5 decimal places
+            adjusted_btc_amount = round(btc_amount, 5)
+
+            # Execute the trade based on the decision
             if decision == "Buy":
-                order = self.exchange.create_market_buy_order(self.symbol, amount)
+                order = self.exchange.create_market_buy_order(self.symbol, adjusted_btc_amount)
                 print(f"Buy Order Executed: {order}")
                 return "Success", order
             elif decision == "Sell":
-                order = self.exchange.create_market_sell_order(self.symbol, amount)
+                order = self.exchange.create_market_sell_order(self.symbol, adjusted_btc_amount)
                 print(f"Sell Order Executed: {order}")
                 return "Success", order
             else:
@@ -41,15 +53,14 @@ class Trader:
             return None
 
 
-
-
 # Example usage:
 if __name__ == "__main__":
     # Initialize the Trader with environment variables
     trader = Trader()
 
-    # Simulate a trading decision
-    decision = "Buy"  # Example decision from Predictor
+    # Example: Simulate a trading decision
+    decision = "Sell"  # Example decision from Predictor
 
-    # Execute the trade based on the decision
-    trader.execute_trade(decision, amount=0.001)  # Adjust the amount as needed
+    # Execute the trade based on the decision with a USDT amount
+    usdt_amount = 10  # Example USDT amount to trade
+    trader.execute_trade(decision, usdt_amount)

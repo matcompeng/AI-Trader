@@ -16,7 +16,7 @@ from Notifier import Notifier
 
 # Global variables
 INTERVAL = 3 * 60  # Time in seconds between each run of the bot
-AMOUNT = 0.032  # Amount of BTC to trade
+USDT_AMOUNT = 2400  # Amount of BTC to trade
 
 # Configure logging
 logging.basicConfig(filename='bot_manager.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -157,16 +157,16 @@ class BotManager:
                     if final_decision == "Buy":
                         start_time = time.time()
                         print(f"Executing trade: {decision}")
-                        trade_status, order_details = self.trader.execute_trade(decision, AMOUNT)
+                        trade_status, order_details = self.trader.execute_trade(decision, USDT_AMOUNT)
                         self.log_time("Trade execution (Buy)", start_time)
 
                         if trade_status == "Success":
                             # Save the new position
                             position_id = str(int(time.time()))  # Use timestamp as a unique ID
-                            self.position_manager.add_position(position_id, current_price, AMOUNT)
-                            print(f"New position added: {position_id}, Entry Price: {current_price}, Amount: {AMOUNT}")
+                            self.position_manager.add_position(position_id, current_price, USDT_AMOUNT)
+                            print(f"New position added: {position_id}, Entry Price: {current_price}, Amount: {USDT_AMOUNT}")
                             self.notifier.send_notification("Trade Executed",
-                                                            f"Bought {AMOUNT} BTC at ${current_price}")
+                                                            f"Bought {USDT_AMOUNT} BTC at ${current_price}")
                         else:
                             error_message = f"Failed to execute Buy order: {order_details}"
                             self.save_error_to_csv(error_message)
