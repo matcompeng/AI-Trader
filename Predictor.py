@@ -9,11 +9,12 @@ from DataCollector import DataCollector
 from FeatureProcessor import FeatureProcessor
 
 class Predictor:
-    def __init__(self, chatgpt_client, data_directory='data', max_retries=3, retry_delay=5):
+    def __init__(self, chatgpt_client, data_directory='data', max_retries=3, retry_delay=5, coin=None):
         self.chatgpt_client = chatgpt_client
         self.data_directory = data_directory
         self.max_retries = max_retries  # Maximum number of retries
         self.retry_delay = retry_delay  # Delay in seconds between retries
+        self.coin = coin
 
         # Ensure the data directory exists
         if not os.path.exists(self.data_directory):
@@ -58,7 +59,7 @@ class Predictor:
 
         prompt += (
             "I am looking to trade in the short and intermediate term within a day. "
-            "Based on this data from multiple intervals, please provide a single, clear recommendation (Buy, Sell, or Hold) for BTC. "
+            f"Based on this data from multiple intervals, please provide a single, clear recommendation (Buy, Sell, or Hold) for {self.coin}. "
             "Ensure that your explanation supports your recommendation. Avoid any conflicting suggestions."
         )
         return prompt

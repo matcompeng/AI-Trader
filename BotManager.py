@@ -14,17 +14,27 @@ from DecisionMaker import DecisionMaker
 from Trader import Trader
 from Notifier import Notifier
 
-# Global variables
-INTERVAL = 3 * 60  # Time in seconds between each run of the bot
-USDT_AMOUNT = 2400  # Amount of BTC to trade
+# Bot Configurations -----------------------------------------------------------
+BOT_INTERVAL = 3 * 60       # Time in seconds between each run of the Bot Cycle
+COIN = 'BTC'
+TRADING_PAIR = 'BTCUSDT'
+TRADING_INTERVALS = ['5m', '15m', '1h', '4h', '8h', '12h', '1d']
+USDT_AMOUNT = 10          # Amount of Currency to trade for each Position
+# ------------------------------------------------------------------------------
 
-# Configure logging
-logging.basicConfig(filename='bot_manager.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Create the data directory if it doesn't exist
+data_directory = 'data'
+if not os.path.exists(data_directory):
+    os.makedirs(data_directory)
+
+# Configure logging to save in the data directory
+log_file_path = os.path.join(data_directory, 'bot_manager.log')
+logging.basicConfig(filename=log_file_path, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 class PositionManager:
     def __init__(self, positions_file='positions.json'):
-        self.positions_file = positions_file
+        self.positions_file = os.path.join(data_directory, positions_file)
         self.positions = self.load_positions()
 
     def load_positions(self):
@@ -61,15 +71,12 @@ class BotManager:
         api_key = 'your_binance_api_key'
         api_secret = 'your_binance_api_secret'
 
-        # Use multiple intervals
-        intervals = ['5m', '15m', '1h', '4h', '8h', '12h', '1d']
-
-        self.data_collector = DataCollector(api_key, api_secret, intervals=intervals)
-        self.feature_processor = FeatureProcessor(intervals=intervals)
+        self.data_collector = DataCollector(api_key, api_secret, intervals=TRADING_INTERVALS, symbol=TRADING_PAIR)
+        self.feature_processor = FeatureProcessor(intervals=TRADING_INTERVALS)
         self.chatgpt_client = ChatGPTClient()
-        self.predictor = Predictor(self.chatgpt_client)
+        self.predictor = Predictor(self.chatgpt_client, coin=COIN)
         self.decision_maker = DecisionMaker()
-        self.trader = Trader()  # Initialize the Trader class
+        self.trader = Trader(symbol=TRADING_PAIR)  # Initialize the Trader class
         self.notifier = Notifier()
         self.position_manager = PositionManager()
 
@@ -102,7 +109,7 @@ class BotManager:
             df = pd.DataFrame(error_data)
 
             # File path for error log
-            file_path = os.path.join('error_logs.csv')
+            file_path = os.path.join(data_directory, 'error_logs.csv')
 
             # Append to the CSV file
             df.to_csv(file_path, mode='a', header=not os.path.exists(file_path), index=False)
@@ -115,7 +122,7 @@ class BotManager:
         while attempt < 3:
             try:
                 start_time = time.time()
-                print(f"\n\nBot started, running every {INTERVAL} seconds.")
+                print(f"\n\nBot started, running every {BOT_INTERVAL} seconds.")
                 print("Collecting market data...")
                 market_data = self.data_collector.collect_data()
                 self.log_time("Data collection", start_time)
@@ -166,7 +173,7 @@ class BotManager:
                             self.position_manager.add_position(position_id, current_price, USDT_AMOUNT)
                             print(f"New position added: {position_id}, Entry Price: {current_price}, Amount: {USDT_AMOUNT}")
                             self.notifier.send_notification("Trade Executed",
-                                                            f"Bought {USDT_AMOUNT} BTC at ${current_price}")
+                                                            f"Bought {USDT_AMOUNT} {COIN} at ${current_price}")
                         else:
                             error_message = f"Failed to execute Buy order: {order_details}"
                             self.save_error_to_csv(error_message)
@@ -197,7 +204,7 @@ class BotManager:
                                 self.position_manager.remove_position(position_id)
                                 print(f"Position sold: {position_id}, Sell Price: {current_price}, Amount: {amount}")
                                 self.notifier.send_notification("Trade Executed",
-                                                                f"Sold {amount} BTC at ${current_price}")
+                                                                f"Sold {amount} {COIN} at ${current_price}")
                             else:
                                 error_message = f"Failed to execute Sell order: {order_details}"
                                 self.save_error_to_csv(error_message)
@@ -234,7 +241,7 @@ class BotManager:
             self.run()
 
             # Schedule the bot to run at the specified interval
-            schedule.every(INTERVAL).seconds.do(self.run)
+            schedule.every(BOT_INTERVAL).seconds.do(self.run)
 
             while True:
                 schedule.run_pending()

@@ -2,7 +2,7 @@ import os
 import ccxt
 
 class Trader:
-    def __init__(self, symbol='BTC/USDT'):
+    def __init__(self, symbol):
         self.api_key = os.getenv("BINANCE_API_KEY")
         self.api_secret = os.getenv("BINANCE_API_SECRET")
         if not self.api_key or not self.api_secret:
@@ -17,24 +17,24 @@ class Trader:
 
     def execute_trade(self, decision, usdt_amount):
         try:
-            # Get the current price of BTC in USDT
+            # Get the current price of Currency in USDT
             current_price = self.get_current_price()
             if not current_price:
                 return "Error", "Failed to fetch current price."
 
-            # Convert the USDT amount to BTC amount
-            btc_amount = usdt_amount / current_price
+            # Convert the USDT amount to Currency amount
+            trading_amount = usdt_amount / current_price
 
-            # Round the BTC amount to 5 decimal places
-            adjusted_btc_amount = round(btc_amount, 5)
+            # Round the Currency amount to 5 decimal places
+            adjusted_trading_amount = round(trading_amount, 5)
 
             # Execute the trade based on the decision
             if decision == "Buy":
-                order = self.exchange.create_market_buy_order(self.symbol, adjusted_btc_amount)
+                order = self.exchange.create_market_buy_order(self.symbol, adjusted_trading_amount)
                 print(f"Buy Order Executed: {order}")
                 return "Success", order
             elif decision == "Sell":
-                order = self.exchange.create_market_sell_order(self.symbol, adjusted_btc_amount)
+                order = self.exchange.create_market_sell_order(self.symbol, adjusted_trading_amount)
                 print(f"Sell Order Executed: {order}")
                 return "Success", order
             else:
@@ -56,7 +56,7 @@ class Trader:
 # Example usage:
 if __name__ == "__main__":
     # Initialize the Trader with environment variables
-    trader = Trader()
+    trader = Trader(symbol='BTC/USDT')
 
     # Example: Simulate a trading decision
     decision = "Sell"  # Example decision from Predictor
