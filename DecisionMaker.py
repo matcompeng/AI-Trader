@@ -8,7 +8,7 @@ class DecisionMaker:
     def calculate_dynamic_risk_tolerance(self, atr_1d, close_price):
         """
         Calculate dynamic risk tolerance based on the ATR of the 5-minute interval.
-        :param atr_5m: The ATR value from the 5m interval.
+        :param atr_1d: The ATR value from the 1d interval.
         :param close_price: The current closing price.
         :return: Adjusted risk tolerance.
         """
