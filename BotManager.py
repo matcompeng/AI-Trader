@@ -16,8 +16,8 @@ from Notifier import Notifier
 
 # Bot Configurations -----------------------------------------------------------
 BOT_INTERVAL = 3 * 60       # Time in seconds between each run of the Bot Cycle
-COIN = 'BTC'
-TRADING_PAIR = 'BTCUSDT'
+COIN = 'SOL'
+TRADING_PAIR = 'SOLUSDT'
 TRADING_INTERVALS = ['5m', '15m', '1h', '4h', '8h', '12h', '1d']
 USDT_AMOUNT = 10          # Amount of Currency to trade for each Position
 # ------------------------------------------------------------------------------
@@ -121,8 +121,12 @@ class BotManager:
         attempt = 0
         while attempt < 3:
             try:
+                # Capture the current timestamp at the start of the cycle
+                cycle_start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                print(f"\n\n***Bot cycle started at {cycle_start_time}, running every {BOT_INTERVAL} seconds.***")
+                logging.info(f"//-----------------Bot cycle started at {cycle_start_time}-----------------//")
+
                 start_time = time.time()
-                print(f"\n\nBot started, running every {BOT_INTERVAL} seconds.")
                 print("Collecting market data...")
                 market_data = self.data_collector.collect_data()
                 self.log_time("Data collection", start_time)
@@ -161,8 +165,10 @@ class BotManager:
                     prediction, current_price, None, all_features)
 
                 # Log and print adjusted stop_loss and take_profit
-                print(f"Adjusted Stop Loss: {adjusted_stop_loss}, Adjusted Take Profit: {adjusted_take_profit}")
-                logging.info(f"Adjusted Stop Loss: {adjusted_stop_loss}, Adjusted Take Profit: {adjusted_take_profit}")
+                print(
+                    f"Dynamic Stop Loss: {round(adjusted_stop_loss, 5)}, Dynamic Take Profit: {round(adjusted_take_profit, 5)}")
+                logging.info(
+                    f"Dynamic Stop Loss: {round(adjusted_stop_loss, 5)}, Dynamic Take Profit: {round(adjusted_take_profit, 5)}")
 
                 if final_decision == "Buy":
                     # Execute buy trade and save position
@@ -192,8 +198,8 @@ class BotManager:
                         amount = position['amount']
 
                         start_time = time.time()
-                        final_decision, adjusted_stop_loss, adjusted_take_profit = self.decision_maker.make_decision(prediction, current_price, entry_price,
-                                                                           all_features)
+                        final_decision, adjusted_stop_loss, adjusted_take_profit = self.decision_maker.make_decision(
+                            prediction, current_price, entry_price, all_features)
 
                         if final_decision == "Sell":
                             self.log_time("Decision making (Sell)", start_time)
@@ -221,6 +227,7 @@ class BotManager:
                     # self.notifier.send_notification("Hold Decision", "No trade executed. The Predictor advised to hold.")
 
                 break
+
 
             except Exception as e:
                 attempt += 1
@@ -258,4 +265,5 @@ class BotManager:
 if __name__ == "__main__":
     bot_manager = BotManager()
     bot_manager.start()
+
 
