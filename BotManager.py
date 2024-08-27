@@ -141,14 +141,14 @@ class BotManager:
                     return
 
                 print("Generating prediction...")
-                decision, explanation = self.predictor.get_prediction(all_features)
+                prediction, explanation = self.predictor.get_prediction(all_features)
                 self.log_time("Prediction generation", start_time)
 
                 # Log the explanation from ChatGPT
-                print(f"Prediction: ///{decision}///.")
-                logging.info(f"Prediction: {decision}. Explanation: {explanation}")
+                print(f"Prediction: ///{prediction}///.")
+                logging.info(f"Prediction: {prediction}. Explanation: {explanation}")
 
-                # Get the current price right before executing the trade decision
+                # Get the current price right before executing the trade prediction
                 print("Getting current price...")
                 current_price = self.trader.get_current_price()  # Get the current price from the Trader
                 print(f"Current price now is: {current_price}")
@@ -156,15 +156,15 @@ class BotManager:
                     print("Failed to get current price. Skipping this cycle.")
                     return
 
-                if decision == "Buy":
+                if prediction == "Buy":
                     entry_price = None
                     # Buy logic
-                    final_decision = self.decision_maker.make_decision(decision, current_price, entry_price,
+                    final_decision = self.decision_maker.make_decision(prediction, current_price, entry_price,
                                                                        all_features)
                     if final_decision == "Buy":
                         start_time = time.time()
-                        print(f"Executing trade: {decision}")
-                        trade_status, order_details = self.trader.execute_trade(decision, USDT_AMOUNT)
+                        print(f"Executing trade: {prediction}")
+                        trade_status, order_details = self.trader.execute_trade(prediction, USDT_AMOUNT)
                         self.log_time("Trade execution (Buy)", start_time)
 
                         if trade_status == "Success":
@@ -179,10 +179,10 @@ class BotManager:
                             self.save_error_to_csv(error_message)
                             self.notifier.send_notification("Trade Error", error_message)
 
-                    if decision == "Buy" and final_decision == "Hold":
+                    if prediction == "Buy" and final_decision == "Hold":
                         self.notifier.send_notification("Decision Maker", "Decision Maker hold the Buy Prediction")
 
-                elif decision in ["Hold", "Sell"]:
+                elif prediction in ["Hold", "Sell"]:
                     # Iterate over a copy of the positions to avoid the runtime error
                     positions_copy = list(self.position_manager.get_positions().items())
                     for position_id, position in positions_copy:
@@ -190,7 +190,7 @@ class BotManager:
                         amount = position['amount']
 
                         start_time = time.time()
-                        final_decision = self.decision_maker.make_decision(decision, current_price, entry_price,
+                        final_decision = self.decision_maker.make_decision(prediction, current_price, entry_price,
                                                                            all_features)
 
                         if final_decision == "Sell":
@@ -215,7 +215,7 @@ class BotManager:
 
                 else:  # This case is for "Hold"
                     print("Predictor suggested to Hold. No trade action taken.")
-                    # Optional: Log or notify the hold decision
+                    # Optional: Log or notify the hold prediction
                     # self.notifier.send_notification("Hold Decision", "No trade executed. The Predictor advised to hold.")
 
                 # If the process completes without errors, break the loop
