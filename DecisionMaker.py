@@ -1,5 +1,5 @@
 class DecisionMaker:
-    def __init__(self, base_risk_tolerance=0.01, base_stop_loss=0.005, base_take_profit=0.0045, volatility_threshold=0.02):
+    def __init__(self, base_risk_tolerance=0.1, base_stop_loss=0.005, base_take_profit=0.0045, volatility_threshold=0.02):
         self.base_risk_tolerance = base_risk_tolerance
         self.base_stop_loss = base_stop_loss
         self.base_take_profit = base_take_profit
