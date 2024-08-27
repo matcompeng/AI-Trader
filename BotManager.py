@@ -156,28 +156,30 @@ class BotManager:
                     print("Failed to get current price. Skipping this cycle.")
                     return
 
-                if prediction == "Buy":
-                    entry_price = None
-                    # Buy logic
-                    final_decision = self.decision_maker.make_decision(prediction, current_price, entry_price,
-                                                                       all_features)
-                    if final_decision == "Buy":
-                        start_time = time.time()
-                        print(f"Executing trade: {prediction}")
-                        trade_status, order_details = self.trader.execute_trade(prediction, USDT_AMOUNT)
-                        self.log_time("Trade execution (Buy)", start_time)
+                # Make the decision and get adjusted stop_loss and take_profit
+                final_decision, adjusted_stop_loss, adjusted_take_profit = self.decision_maker.make_decision(
+                    prediction, current_price, None, all_features)
 
-                        if trade_status == "Success":
-                            # Save the new position
-                            position_id = str(int(time.time()))  # Use timestamp as a unique ID
-                            self.position_manager.add_position(position_id, current_price, USDT_AMOUNT)
-                            print(f"New position added: {position_id}, Entry Price: {current_price}, Amount: {USDT_AMOUNT}")
-                            self.notifier.send_notification("Trade Executed",
-                                                            f"Bought {USDT_AMOUNT} {COIN} at ${current_price}")
-                        else:
-                            error_message = f"Failed to execute Buy order: {order_details}"
-                            self.save_error_to_csv(error_message)
-                            self.notifier.send_notification("Trade Error", error_message)
+                # Log and print adjusted stop_loss and take_profit
+                print(f"Adjusted Stop Loss: {adjusted_stop_loss}, Adjusted Take Profit: {adjusted_take_profit}")
+                logging.info(f"Adjusted Stop Loss: {adjusted_stop_loss}, Adjusted Take Profit: {adjusted_take_profit}")
+
+                if final_decision == "Buy":
+                    # Execute buy trade and save position
+                    start_time = time.time()
+                    trade_status, order_details = self.trader.execute_trade(final_decision, USDT_AMOUNT)
+                    self.log_time("Trade execution (Buy)", start_time)
+
+                    if trade_status == "Success":
+                        position_id = str(int(time.time()))
+                        self.position_manager.add_position(position_id, current_price, USDT_AMOUNT)
+                        print(f"New position added: {position_id}, Entry Price: {current_price}, Amount: {USDT_AMOUNT}")
+                        self.notifier.send_notification("Trade Executed",
+                                                        f"Bought {USDT_AMOUNT} {COIN} at ${current_price}")
+                    else:
+                        error_message = f"Failed to execute Buy order: {order_details}"
+                        self.save_error_to_csv(error_message)
+                        self.notifier.send_notification("Trade Error", error_message)
 
                     if prediction == "Buy" and final_decision == "Hold":
                         self.notifier.send_notification("Decision Maker", "Decision Maker hold the Buy Prediction")
@@ -190,7 +192,7 @@ class BotManager:
                         amount = position['amount']
 
                         start_time = time.time()
-                        final_decision = self.decision_maker.make_decision(prediction, current_price, entry_price,
+                        final_decision, adjusted_stop_loss, adjusted_take_profit = self.decision_maker.make_decision(prediction, current_price, entry_price,
                                                                            all_features)
 
                         if final_decision == "Sell":
@@ -218,7 +220,6 @@ class BotManager:
                     # Optional: Log or notify the hold prediction
                     # self.notifier.send_notification("Hold Decision", "No trade executed. The Predictor advised to hold.")
 
-                # If the process completes without errors, break the loop
                 break
 
             except Exception as e:

@@ -1,9 +1,23 @@
 class DecisionMaker:
-    def __init__(self, risk_tolerance=0.01, stop_loss=0.005, take_profit=0.0045, volatility_threshold=0.02):
-        self.risk_tolerance = risk_tolerance
-        self.stop_loss = stop_loss
-        self.take_profit = take_profit
-        self.volatility_threshold = volatility_threshold  # Threshold for market volatility
+    def __init__(self, base_risk_tolerance=0.01, base_stop_loss=0.005, base_take_profit=0.0045, volatility_threshold=0.02):
+        self.base_risk_tolerance = base_risk_tolerance
+        self.base_stop_loss = base_stop_loss
+        self.base_take_profit = base_take_profit
+        self.volatility_threshold = volatility_threshold
+
+    def calculate_dynamic_risk_tolerance(self, atr_1d, close_price):
+        """
+        Calculate dynamic risk tolerance based on the ATR of the 5-minute interval.
+        :param atr_5m: The ATR value from the 5m interval.
+        :param close_price: The current closing price.
+        :return: Adjusted risk tolerance.
+        """
+        if atr_1d and close_price:
+            # Adjust risk tolerance based on market volatility
+            relative_atr = atr_1d / close_price
+            dynamic_risk_tolerance = self.base_risk_tolerance * (1 + relative_atr)
+            return dynamic_risk_tolerance
+        return self.base_risk_tolerance
 
     def make_decision(self, prediction, current_price, entry_price, all_features):
         """
@@ -12,22 +26,33 @@ class DecisionMaker:
         :param current_price: The current market price of the asset.
         :param entry_price: The price at which the current position was entered (if any).
         :param all_features: Dictionary containing features for multiple intervals.
-        :return: Final decision (Buy, Sell, Hold).
+        :return: Final decision (Buy, Sell, Hold), adjusted_stop_loss, adjusted_take_profit.
         """
+        # Get ATR and close price from the 5-minute interval
+        atr_1d = all_features['1d'].get('ATR', None)
+        close_price_1d = all_features['1d'].get('close', None)
+
+        # Calculate dynamic risk tolerance based on the 5-minute ATR
+        risk_tolerance = self.calculate_dynamic_risk_tolerance(atr_1d, close_price_1d)
+
+        # Adjust stop_loss and take_profit based on the dynamic risk tolerance
+        adjusted_stop_loss = self.base_stop_loss * (1 + risk_tolerance)
+        adjusted_take_profit = self.base_take_profit * (1 + risk_tolerance)
+
         if prediction == "Buy":
             if self.is_market_stable(all_features):
-                return "Buy"
+                return "Buy", adjusted_stop_loss, adjusted_take_profit
             else:
-                return "Hold"
+                return "Hold", adjusted_stop_loss, adjusted_take_profit
         elif prediction == "Hold" and entry_price:
-            if self.should_sell(current_price, entry_price):
-                return "Sell"
+            if self.should_sell(current_price, entry_price, adjusted_stop_loss, adjusted_take_profit):
+                return "Sell", adjusted_stop_loss, adjusted_take_profit
             else:
-                return "Hold"
+                return "Hold", adjusted_stop_loss, adjusted_take_profit
         elif prediction == "Sell" and entry_price:
-            return "Sell"
+            return "Sell", adjusted_stop_loss, adjusted_take_profit
         else:
-            return "Hold"
+            return "Hold", adjusted_stop_loss, adjusted_take_profit
 
     def is_market_stable(self, all_features):
         """
@@ -64,28 +89,11 @@ class DecisionMaker:
 
         return False
 
-    def should_sell(self, current_price, entry_price):
+    def should_sell(self, current_price, entry_price, adjusted_stop_loss, adjusted_take_profit):
         # Calculate the percentage change from the entry price
         price_change = (current_price - entry_price) / entry_price
 
         # Check if the price has hit the stop-loss or take-profit threshold
-        if price_change >= self.take_profit:
+        if price_change <= -adjusted_stop_loss or price_change >= adjusted_take_profit:
             return True
         return False
-
-
-# Example usage:
-if __name__ == "__main__":
-    decision_maker = DecisionMaker()
-
-    # Simulate a prediction from the Predictor
-    prediction = "Sell"
-
-    # Simulate current and entry prices
-    current_price = 45000
-    entry_price = 44000
-
-    # Make the final decision
-    final_decision = decision_maker.make_decision(prediction, current_price, entry_price)
-
-    print(f"Final Decision: {final_decision}")
