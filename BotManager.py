@@ -16,9 +16,9 @@ from Notifier import Notifier
 
 # Bot Configurations -----------------------------------------------------------
 BOT_INTERVAL = 3 * 60       # Time in seconds between each run of the Bot Cycle
-COIN = 'SOL'
-TRADING_PAIR = 'SOLUSDT'
-TRADING_INTERVALS = ['5m', '15m', '1h', '4h', '8h', '12h', '1d']
+COIN = 'BNB'
+TRADING_PAIR = 'BNBUSDT'
+TRADING_INTERVALS = ['1m', '5m', '15m', '1h', '1d']  ## '8h', '12h', '1d']
 USDT_AMOUNT = 10          # Amount of Currency to trade for each Position
 # ------------------------------------------------------------------------------
 
@@ -117,6 +117,11 @@ class BotManager:
         except Exception as e:
             logging.error(f"Failed to save error details to CSV: {e}")
 
+    def convert_usdt_to_crypto(self, current_price, usdt_amount):
+        # Convert USDT amount to cryptocurrency amount and round to 5 decimal places
+        crypto_amount = round(usdt_amount / current_price, 5)
+        return crypto_amount
+
     def run(self):
         attempt = 0
         while attempt < 3:
@@ -160,28 +165,30 @@ class BotManager:
                     print("Failed to get current price. Skipping this cycle.")
                     return
 
+                # Convert USDT amount to cryptocurrency amount
+                crypto_amount = self.convert_usdt_to_crypto(current_price, USDT_AMOUNT)
+                print(f"Converted {USDT_AMOUNT} USDT to {crypto_amount} {COIN}")
+                logging.info(f"Converted {USDT_AMOUNT} USDT to {crypto_amount} {COIN}")
+
                 # Make the decision and get adjusted stop_loss and take_profit
                 final_decision, adjusted_stop_loss, adjusted_take_profit = self.decision_maker.make_decision(
                     prediction, current_price, None, all_features)
 
                 # Log and print adjusted stop_loss and take_profit
-                print(
-                    f"Dynamic Stop Loss: {round(adjusted_stop_loss, 5)}, Dynamic Take Profit: {round(adjusted_take_profit, 5)}")
-                logging.info(
-                    f"Dynamic Stop Loss: {round(adjusted_stop_loss, 5)}, Dynamic Take Profit: {round(adjusted_take_profit, 5)}")
+                print(f"Dynamic Stop Loss: {round(adjusted_stop_loss, 5)}, Dynamic Take Profit: {round(adjusted_take_profit, 5)}")
+                logging.info(f"Dynamic Stop Loss: {round(adjusted_stop_loss, 5)}, Dynamic Take Profit: {round(adjusted_take_profit, 5)}")
 
                 if final_decision == "Buy":
                     # Execute buy trade and save position
                     start_time = time.time()
-                    trade_status, order_details = self.trader.execute_trade(final_decision, USDT_AMOUNT)
+                    trade_status, order_details = self.trader.execute_trade(final_decision, crypto_amount)
                     self.log_time("Trade execution (Buy)", start_time)
 
                     if trade_status == "Success":
                         position_id = str(int(time.time()))
-                        self.position_manager.add_position(position_id, current_price, USDT_AMOUNT)
-                        print(f"New position added: {position_id}, Entry Price: {current_price}, Amount: {USDT_AMOUNT}")
-                        self.notifier.send_notification("Trade Executed",
-                                                        f"Bought {USDT_AMOUNT} {COIN} at ${current_price}")
+                        self.position_manager.add_position(position_id, current_price, crypto_amount)
+                        print(f"New position added: {position_id}, Entry Price: {current_price}, Amount: {crypto_amount}")
+                        self.notifier.send_notification("Trade Executed", f"Bought {crypto_amount} {COIN} at ${current_price}")
                     else:
                         error_message = f"Failed to execute Buy order: {order_details}"
                         self.save_error_to_csv(error_message)
@@ -211,15 +218,13 @@ class BotManager:
                             if trade_status == "Success":
                                 self.position_manager.remove_position(position_id)
                                 print(f"Position sold: {position_id}, Sell Price: {current_price}, Amount: {amount}")
-                                self.notifier.send_notification("Trade Executed",
-                                                                f"Sold {amount} {COIN} at ${current_price}")
+                                self.notifier.send_notification("Trade Executed", f"Sold {amount} {COIN} at ${current_price}")
                             else:
                                 error_message = f"Failed to execute Sell order: {order_details}"
                                 self.save_error_to_csv(error_message)
                                 self.notifier.send_notification("Trade Error", error_message)
                         else:
-                            print(
-                                f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}")
+                            print(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}")
 
                 else:  # This case is for "Hold"
                     print("Predictor suggested to Hold. No trade action taken.")
@@ -231,15 +236,20 @@ class BotManager:
 
             except Exception as e:
                 attempt += 1
-                logging.error(f"An error occurred during the run (Attempt {attempt}): {e}")
-                self.save_error_to_csv(str(e))
-                self.notifier.send_notification("Bot Error", f"An error occurred: {e}. Attempt {attempt} of 3.")
+                error_message = str(e)
+                logging.error(f"An error occurred during the run (Attempt {attempt}): {error_message}")
+
+                # Skip notification if the error is "TypeError: unsupported format string passed to NoneType.__format__"
+                if "unsupported format string passed to NoneType.__format__" not in error_message:
+                    self.save_error_to_csv(error_message)
+                    self.notifier.send_notification("Bot Error",
+                                                    f"An error occurred: {error_message}. Attempt {attempt} of 3.")
+
                 print(f"An error occurred. Restarting cycle in 5 seconds... (Attempt {attempt} of 3)")
                 time.sleep(5)
 
                 if attempt >= 3:
-                    self.notifier.send_notification("Bot Stopped",
-                                                    "The bot encountered repeated errors and is stopping.")
+                    self.notifier.send_notification("Bot Stopped", "The bot encountered repeated errors and is stopping.")
                     print("Bot has stopped due to repeated errors.")
                     raise
 
@@ -265,5 +275,6 @@ class BotManager:
 if __name__ == "__main__":
     bot_manager = BotManager()
     bot_manager.start()
+
 
 

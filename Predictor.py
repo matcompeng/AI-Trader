@@ -35,8 +35,9 @@ class Predictor:
                     f"EMA (7): {features['EMA_7']:.2f}\n"
                     f"EMA (25): {features['EMA_25']:.2f}\n"
                     f"EMA (100): {features['EMA_100']:.2f}\n"
-                    # f"MACD: {features['MACD']:.2f}\n"
-                    # f"MACD Signal: {features['MACD_signal']:.2f}\n"
+                    f"MACD Fast: {features['MACD_fast']:.2f}\n"
+                    f"MACD Slow: {features['MACD_slow']:.2f}\n"
+                    f"MACD Signal: {features['MACD_signal']:.2f}\n"
                     f"Bollinger Bands: {features['upper_band']:.2f}, {features['middle_band']:.2f}, {features['lower_band']:.2f}\n"
                     # f"ADX: {features['ADX']:.2f}\n"
                     f"Stochastic RSI %K: {features['stoch_rsi_k']:.2f}\n"  # Updated to reflect stochRSI
@@ -58,9 +59,11 @@ class Predictor:
                 prompt += interval_prompt
 
         prompt += (
-            "I am looking to trade in the short and intermediate term within a day. "
-            f"Based on this data from multiple intervals, please provide a single, clear recommendation (Buy, Sell, or Hold) for {self.coin}. "
-            "Ensure that your explanation supports your recommendation. Avoid any conflicting suggestions."
+            "I am looking to trade cryptocurrency in the short and intermediate term within a day."
+            "Avoid recommending a 'Buy' decision if the current price is near known resistance levels."
+            "Favor a 'Buy' decision if the price shows signs of reversal after a dip, especially when there is a strong support level below the current price. A price reversal after a dip suggests a potential upward momentum, making it a more favorable buying opportunity."
+            "Always consider technical indicators, ensuring that the market momentum aligns with a buying decision. If the RSI is oversold and the price has started to rise, it may indicate a good entry point."
+            f"Based on this data from multiple intervals and instructions, please provide a single, clear recommendation (Buy, Sell, or Hold) for {self.coin}. "
         )
         return prompt
 
@@ -139,6 +142,7 @@ class Predictor:
             final_decision = "Hold"
 
         return final_decision, explanation
+
 
 
 # Example usage:

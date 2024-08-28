@@ -1,5 +1,5 @@
 class DecisionMaker:
-    def __init__(self, base_risk_tolerance=0.1, base_stop_loss=0.005, base_take_profit=0.0045, volatility_threshold=0.02):
+    def __init__(self, base_risk_tolerance=0.02, base_stop_loss=0.0005, base_take_profit=0.0045, volatility_threshold=0.01):
         self.base_risk_tolerance = base_risk_tolerance
         self.base_stop_loss = base_stop_loss
         self.base_take_profit = base_take_profit
@@ -65,18 +65,19 @@ class DecisionMaker:
 
         for interval, features in all_features.items():
             # Check ATR (Average True Range) to measure volatility
-            atr = features.get('ATR', None)
-            close_price = features.get('close', None)
-            if atr and close_price:
-                relative_atr = atr / close_price
-                if relative_atr <= self.volatility_threshold:
-                    stable_intervals += 1
+            # atr = features.get('ATR', None)
+            # close_price = features.get('close', None)
+            # if atr and close_price:
+            #     relative_atr = atr / close_price
+            #     if relative_atr <= self.volatility_threshold:
+            #         stable_intervals += 1
 
             # Additional checks for stability could include:
             rsi = features.get('RSI', None)
-            if rsi and 30 <= rsi <= 70:
+            if rsi and 35 <= rsi <= 65:
                 stable_intervals += 1
 
+            close_price = features.get('close', None)
             upper_band = features.get('upper_band', None)
             lower_band = features.get('lower_band', None)
             if upper_band and lower_band and close_price:
@@ -84,7 +85,7 @@ class DecisionMaker:
                     stable_intervals += 1
 
         # Consider the market stable if a majority of intervals indicate stability
-        if stable_intervals >= (total_intervals * 2 / 4):  # e.g., 4 out of 7 intervals must be stable
+        if stable_intervals >= (total_intervals * 2 * 0.75):  # e.g., 4 out of 5 intervals must be stable
             return True
 
         return False
@@ -94,6 +95,7 @@ class DecisionMaker:
         price_change = (current_price - entry_price) / entry_price
 
         # Check if the price has hit the stop-loss or take-profit threshold
-        if price_change <= -adjusted_stop_loss or price_change >= adjusted_take_profit:
+        # if price_change <= -adjusted_stop_loss or price_change >= adjusted_take_profit:
+        if price_change >= adjusted_take_profit:
             return True
         return False

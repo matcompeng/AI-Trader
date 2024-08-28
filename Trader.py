@@ -15,26 +15,20 @@ class Trader:
             'enableRateLimit': True,
         })
 
-    def execute_trade(self, decision, usdt_amount):
+    def execute_trade(self, decision, amount):
         try:
             # Get the current price of Currency in USDT
             current_price = self.get_current_price()
             if not current_price:
                 return "Error", "Failed to fetch current price."
 
-            # Convert the USDT amount to Currency amount
-            trading_amount = usdt_amount / current_price
-
-            # Round the Currency amount to 5 decimal places
-            adjusted_trading_amount = round(trading_amount, 5)
-
             # Execute the trade based on the decision
             if decision == "Buy":
-                order = self.exchange.create_market_buy_order(self.symbol, adjusted_trading_amount)
+                order = self.exchange.create_market_buy_order(self.symbol, amount)
                 print(f"Buy Order Executed: {order}")
                 return "Success", order
             elif decision == "Sell":
-                order = self.exchange.create_market_sell_order(self.symbol, adjusted_trading_amount)
+                order = self.exchange.create_market_sell_order(self.symbol, amount)
                 print(f"Sell Order Executed: {order}")
                 return "Success", order
             else:

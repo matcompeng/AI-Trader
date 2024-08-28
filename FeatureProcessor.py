@@ -43,7 +43,7 @@ class FeatureProcessor:
                 df['EMA_25'] = talib.EMA(df['close'], timeperiod=25)
                 df['EMA_100'] = talib.EMA(df['close'], timeperiod=100)
 
-                # df['MACD'], df['MACD_signal'], df['MACD_hist'] = talib.MACD(df['close'])
+                df['MACD_slow'], df['MACD_fast'], df['MACD_signal'] = talib.MACD(df['close'])
                 df['upper_band'], df['middle_band'], df['lower_band'] = talib.BBANDS(df['close'], timeperiod=20)
                 # df['ADX'] = talib.ADX(df['high'], df['low'], df['close'], timeperiod=14)
 
@@ -117,7 +117,7 @@ class FeatureProcessor:
     def calculate_support_resistance(self, df, interval):
         now = datetime.utcnow()
         if interval == '1m':
-            start_time = now.replace(second=0, microsecond=0)
+            start_time = now.replace(minute=(now.minute // 1) * 1, second=0, microsecond=0)
             end_time = start_time + timedelta(minutes=1)
         elif interval == '5m':
             start_time = now.replace(minute=(now.minute // 5) * 5, second=0, microsecond=0)
@@ -126,8 +126,11 @@ class FeatureProcessor:
             start_time = now.replace(minute=(now.minute // 15) * 15, second=0, microsecond=0)
             end_time = start_time + timedelta(minutes=15)
         elif interval == '1h':
-            start_time = now.replace(minute=0, second=0, microsecond=0)
+            start_time = now.replace(hour=(now.hour // 1) * 1, minute=0, second=0, microsecond=0)
             end_time = start_time + timedelta(hours=1)
+        elif interval == '2h':
+            start_time = now.replace(hour=(now.hour // 2) * 2, minute=0, second=0, microsecond=0)
+            end_time = start_time + timedelta(hours=2)
         elif interval == '4h':
             start_time = now.replace(hour=(now.hour // 4) * 4, minute=0, second=0, microsecond=0)
             end_time = start_time + timedelta(hours=4)
