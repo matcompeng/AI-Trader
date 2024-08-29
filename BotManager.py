@@ -15,7 +15,7 @@ from Trader import Trader
 from Notifier import Notifier
 
 # Bot Configurations -----------------------------------------------------------
-BOT_INTERVAL = 3 * 60       # Time in seconds between each run of the Bot Cycle
+BOT_INTERVAL = 2 * 60       # Time in seconds between each run of the Bot Cycle
 COIN = 'BNB'
 TRADING_PAIR = 'BNBUSDT'
 TRADING_INTERVALS = ['1m', '5m', '15m', '1h', '1d']  ## '8h', '12h', '1d']
@@ -238,10 +238,9 @@ class BotManager:
                 attempt += 1
                 error_message = str(e)
                 logging.error(f"An error occurred during the run (Attempt {attempt}): {error_message}")
-
+                self.save_error_to_csv(error_message)
                 # Skip notification if the error is "TypeError: unsupported format string passed to NoneType.__format__"
                 if "unsupported format string passed to NoneType.__format__" not in error_message:
-                    self.save_error_to_csv(error_message)
                     self.notifier.send_notification("Bot Error",
                                                     f"An error occurred: {error_message}. Attempt {attempt} of 3.")
 
