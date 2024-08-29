@@ -1,23 +1,37 @@
 class DecisionMaker:
-    def __init__(self, base_risk_tolerance=0.02, base_stop_loss=0.0005, base_take_profit=0.0045, volatility_threshold=0.01):
+    def __init__(self, base_risk_tolerance=0.02, base_stop_loss=0.0005, base_take_profit=0.0025,
+                 volatility_threshold=0.01):
         self.base_risk_tolerance = base_risk_tolerance
         self.base_stop_loss = base_stop_loss
         self.base_take_profit = base_take_profit
         self.volatility_threshold = volatility_threshold
 
-    def calculate_dynamic_risk_tolerance(self, atr_1d, close_price):
+    def calculate_adjusted_take_profit(self, entry_price, upper_band_15m, lower_band_15m):
         """
-        Calculate dynamic risk tolerance based on the ATR of the 5-minute interval.
-        :param atr_1d: The ATR value from the 1d interval.
-        :param close_price: The current closing price.
-        :return: Adjusted risk tolerance.
+        Calculate adjusted take profit based on the price change within the Bollinger Bands.
+        :param entry_price: The entry price of the position.
+        :param upper_band_15m: The upper Bollinger Band for the 15m interval.
+        :param lower_band_15m: The lower Bollinger Band for the 15m interval.
+        :return: Adjusted take profit.
         """
-        if atr_1d and close_price:
-            # Adjust risk tolerance based on market volatility
-            relative_atr = atr_1d / close_price
-            dynamic_risk_tolerance = self.base_risk_tolerance * (1 + relative_atr)
-            return dynamic_risk_tolerance
-        return self.base_risk_tolerance
+        if upper_band_15m and lower_band_15m and entry_price:
+            # Calculate the bandwidth
+            band_width_15m = upper_band_15m - lower_band_15m
+
+            if band_width_15m == 0:
+                return self.base_take_profit  # Avoid division by zero
+
+            # Calculate the price change ratio using entry price
+            price_change_ratio = (upper_band_15m - entry_price) / band_width_15m
+
+            # Calculate the adjusted take profit
+            adjusted_take_profit = self.base_take_profit * (1 + price_change_ratio)
+            if adjusted_take_profit < self.base_take_profit:
+                return self.base_take_profit
+
+            return adjusted_take_profit
+
+        return self.base_take_profit
 
     def make_decision(self, prediction, current_price, entry_price, all_features):
         """
@@ -28,16 +42,15 @@ class DecisionMaker:
         :param all_features: Dictionary containing features for multiple intervals.
         :return: Final decision (Buy, Sell, Hold), adjusted_stop_loss, adjusted_take_profit.
         """
-        # Get ATR and close price from the 5-minute interval
-        atr_1d = all_features['1d'].get('ATR', None)
-        close_price_1d = all_features['1d'].get('close', None)
+        # Get the necessary data
+        lower_band_15m = all_features['15m'].get('lower_band', None)
+        upper_band_15m = all_features['15m'].get('upper_band', None)
 
-        # Calculate dynamic risk tolerance based on the 5-minute ATR
-        risk_tolerance = self.calculate_dynamic_risk_tolerance(atr_1d, close_price_1d)
+        # Adjust stop_loss based on the lower band of 15m interval
+        adjusted_stop_loss = lower_band_15m
 
-        # Adjust stop_loss and take_profit based on the dynamic risk tolerance
-        adjusted_stop_loss = self.base_stop_loss * (1 + risk_tolerance)
-        adjusted_take_profit = self.base_take_profit * (1 + risk_tolerance)
+        # Calculate adjusted take profit using entry price and 15m bands
+        adjusted_take_profit = self.calculate_adjusted_take_profit(entry_price, upper_band_15m, lower_band_15m)
 
         if prediction == "Buy":
             if self.is_market_stable(all_features):
@@ -95,7 +108,9 @@ class DecisionMaker:
         price_change = (current_price - entry_price) / entry_price
 
         # Check if the price has hit the stop-loss or take-profit threshold
-        # if price_change <= -adjusted_stop_loss or price_change >= adjusted_take_profit:
         if price_change >= adjusted_take_profit:
             return True
+        if current_price <= adjusted_stop_loss:
+            return True
+
         return False

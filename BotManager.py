@@ -128,8 +128,8 @@ class BotManager:
             try:
                 # Capture the current timestamp at the start of the cycle
                 cycle_start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                print(f"\n\n***Bot cycle started at {cycle_start_time}, running every {BOT_INTERVAL} seconds.***")
-                logging.info(f"//-----------------Bot cycle started at {cycle_start_time}-----------------//")
+                print(f"\n\n*****Bot cycle started at {cycle_start_time}, running every {BOT_INTERVAL} seconds.*****")
+                logging.info(f"//---------------------Bot cycle started at {cycle_start_time}--------------------=//")
 
                 start_time = time.time()
                 print("Collecting market data...")
