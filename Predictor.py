@@ -20,7 +20,7 @@ class Predictor:
         if not os.path.exists(self.data_directory):
             os.makedirs(self.data_directory)
 
-    def format_prompt(self, all_features):
+    def format_prompt(self, all_features, current_price):
         prompt = "Here is the current market data across different intervals:\n\n"
 
         for interval, features in all_features.items():
@@ -59,11 +59,11 @@ class Predictor:
                 prompt += interval_prompt
 
         prompt += (
-            "I am looking to trade cryptocurrency in the short and intermediate term within a day."
-            "Avoid recommending a 'Buy' decision if the current price is near known resistance levels."
-            "Favor a 'Buy' decision if the price shows signs of reversal after a dip, especially when there is a strong support level below the current price. A price reversal after a dip suggests a potential upward momentum, making it a more favorable buying opportunity."
-            "Always consider technical indicators, ensuring that the market momentum aligns with a buying decision. If the RSI is oversold and the price has started to rise, it may indicate a good entry point."
-            f"Based on this data from multiple intervals and instructions, please provide a single, clear recommendation (Buy, Sell, or Hold) for {self.coin}. "
+            "I am looking to trade cryptocurrency in the short and intermediate term within a day.\n"
+            f"Avoid recommending a 'Buy' decision if the current price is near known resistance level of intervals '5m' and '15m' knowing that Current Price now is: {current_price} for this cycle.\n"
+            "Favor a 'Buy' decision if the price shows signs of reversal after a dip in intervals '5m' and '15m', especially when there is a strong support level below the current price. A price reversal after a dip suggests a potential upward momentum, making it a more favorable buying opportunity.\n"
+            "Always consider technical indicators, ensuring that the market momentum aligns with a buying decision.\n"
+            f"Based on this data from multiple intervals and instructions, please provide a single, clear recommendation (Buy or Hold) for {self.coin}. "
         )
         return prompt
 
@@ -86,8 +86,8 @@ class Predictor:
         except Exception as e:
             print(f"Error saving response to CSV: {e}")
 
-    def get_prediction(self, all_features):
-        prompt = self.format_prompt(all_features)
+    def get_prediction(self, all_features, current_price):
+        prompt = self.format_prompt(all_features, current_price)
         self.save_prompt(prompt)
         for attempt in range(self.max_retries):
             try:

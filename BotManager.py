@@ -14,13 +14,15 @@ from DecisionMaker import DecisionMaker
 from Trader import Trader
 from Notifier import Notifier
 
-# Bot Configurations -----------------------------------------------------------
-BOT_INTERVAL = 2 * 60       # Time in seconds between each run of the Bot Cycle
-COIN = 'BNB'
-TRADING_PAIR = 'BNBUSDT'
-TRADING_INTERVALS = ['1m', '5m', '15m', '1h', '1d']  ## '8h', '12h', '1d']
-USDT_AMOUNT = 10          # Amount of Currency to trade for each Position
-# ------------------------------------------------------------------------------
+# Bot Configurations --------------------------------------------------------------------------
+TRADING_INTERVALS = ['1m', '5m', '15m', '1h', '1d']
+BOT_INTERVAL = 2 * 60        # Time in seconds between each run of the Bot Cycle in seconds
+COIN = 'BNB'                 # Select Cryptocurrency
+TRADING_PAIR = 'BNBUSDT'     # Select Cryptocurrency Trading Pair
+PREDICT_IN_BANDWIDTH = 0.99  # Define Minimum Bandwidth Percentage to Activate Trading
+BASE_TAKE_PROFIT = 0.25      # Define Base Take Profit Percentage %
+USDT_AMOUNT = 10             # Amount of Currency to trade for each Position
+# ---------------------------------------------------------------------------------------------
 
 # Create the data directory if it doesn't exist
 data_directory = 'data'
@@ -75,7 +77,7 @@ class BotManager:
         self.feature_processor = FeatureProcessor(intervals=TRADING_INTERVALS)
         self.chatgpt_client = ChatGPTClient()
         self.predictor = Predictor(self.chatgpt_client, coin=COIN)
-        self.decision_maker = DecisionMaker()
+        self.decision_maker = DecisionMaker(base_take_profit=BASE_TAKE_PROFIT)
         self.trader = Trader(symbol=TRADING_PAIR)  # Initialize the Trader class
         self.notifier = Notifier()
         self.position_manager = PositionManager()
@@ -122,6 +124,30 @@ class BotManager:
         crypto_amount = round(usdt_amount / current_price, 5)
         return crypto_amount
 
+    def calculate_band_price_change(self, all_features):
+        """
+        Calculate the percentage price change between the upper and lower Bollinger Bands of the '15m' interval.
+        """
+        upper_band_15m = all_features['15m'].get('upper_band')
+        lower_band_15m = all_features['15m'].get('lower_band')
+
+        if upper_band_15m and lower_band_15m:
+            price_change_15m = ((upper_band_15m - lower_band_15m) / lower_band_15m) * 100
+            return price_change_15m
+
+    def price_is_over_band(self, all_features, current_price):
+
+        lower_band_15m = all_features['15m'].get('lower_band')
+        if current_price >= lower_band_15m:
+            return True
+
+    def calculate_gain_loose(self,entry_price, current_price):
+        gain_loose = ((current_price - entry_price) / entry_price) * 100
+        return gain_loose
+
+
+
+
     def run(self):
         attempt = 0
         while attempt < 3:
@@ -149,16 +175,44 @@ class BotManager:
                     print("Failed to process features. Skipping this cycle.")
                     return
 
-                print("Generating prediction...")
-                prediction, explanation = self.predictor.get_prediction(all_features)
-                self.log_time("Prediction generation", start_time)
+                # Get the current price right before executing the prediction
+                print("Getting current price before executing the prediction...")
+                current_price = self.trader.get_current_price()  # Get the current price from the Trader
+                print(f"Current price now is: {current_price}")
+                if current_price is None:
+                    print("Failed to get current price. Skipping this cycle.")
+                    return
 
-                # Log the explanation from ChatGPT
-                print(f"Prediction: ///{prediction}///.")
-                logging.info(f"Prediction: {prediction}. Explanation: {explanation}")
+                # Check if the price change is greater than PREDICT_IN_BANDWIDTH%
+                bandwidth_price_change = self.calculate_band_price_change(all_features)
+                price_is_over_band = self.price_is_over_band(all_features, current_price)
+                print(f"Current Bandwidth Price Change is: {round(bandwidth_price_change, 2)}% ")
+                if  bandwidth_price_change > PREDICT_IN_BANDWIDTH and price_is_over_band:
+                    print(f"Price change is greater than {PREDICT_IN_BANDWIDTH}%, processing prediction.")
+                    logging.info(f"Price change is greater than {PREDICT_IN_BANDWIDTH}%, processing prediction.")
 
-                # Get the current price right before executing the trade prediction
-                print("Getting current price...")
+                    print("Generating prediction...")
+                    prediction, explanation = self.predictor.get_prediction(all_features, current_price)
+                    self.log_time("Prediction generation", start_time)
+
+                    # Log the explanation from ChatGPT
+                    print(f"Prediction: ///{prediction}///.")
+                    logging.info(f"Prediction: {prediction}. Explanation: {explanation}")
+
+                    # Proceed with the rest of the logic for making a trading decision
+                else:
+                    if bandwidth_price_change < PREDICT_IN_BANDWIDTH:
+                        print(f"X/Price change is less than {PREDICT_IN_BANDWIDTH}%, skipping prediction and returning 'Hold'/X.")
+                        logging.info("Price change is less than or equal to 95%, skipping prediction and returning 'Hold'.")
+                        prediction = "Hold"
+                    else:
+                        print(f"X/current price is above lower band, skipping prediction and returning 'Hold'/X.")
+                        logging.info("current price is below lower band, skipping prediction and returning 'Hold'.")
+                        prediction = "Hold"
+
+
+                # update the current price right before executing the trading
+                print("Updating current price before executing the trade...")
                 current_price = self.trader.get_current_price()  # Get the current price from the Trader
                 print(f"Current price now is: {current_price}")
                 if current_price is None:
@@ -170,13 +224,16 @@ class BotManager:
                 print(f"Converted {USDT_AMOUNT} USDT to {crypto_amount} {COIN}")
                 logging.info(f"Converted {USDT_AMOUNT} USDT to {crypto_amount} {COIN}")
 
-                # Make the decision and get adjusted stop_loss and take_profit
-                final_decision, adjusted_stop_loss, adjusted_take_profit = self.decision_maker.make_decision(
+                # Make the decision and get dynamic stop_loss and take_profit
+                final_decision, adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit = self.decision_maker.make_decision(
                     prediction, current_price, None, all_features)
 
-                # Log and print adjusted stop_loss and take_profit
-                print(f"Dynamic Stop Loss: {round(adjusted_stop_loss, 5)}, Dynamic Take Profit: {round(adjusted_take_profit, 5)}")
-                logging.info(f"Dynamic Stop Loss: {round(adjusted_stop_loss, 5)}, Dynamic Take Profit: {round(adjusted_take_profit, 5)}")
+                # Log and print dynamic stop_loss and take_profit
+                print(f"Dynamic Stop Loss Lower: {round(adjusted_stop_loss_lower, 1)}, Dynamic Stop Loss Middle: {round(adjusted_stop_loss_middle, 1)}, Dynamic Take Profit: {round(adjusted_take_profit, 5)}")
+                logging.info(f"Dynamic Stop Loss Lower: {round(adjusted_stop_loss_lower, 1)}, Dynamic Stop Loss Middle: {round(adjusted_stop_loss_middle, 1)}, Dynamic Take Profit: {round(adjusted_take_profit, 5)}")
+
+                if prediction == "Buy" and final_decision == "Hold":
+                    self.notifier.send_notification("Decision Maker", "Decision Maker hold the Buy Prediction")
 
                 if final_decision == "Buy":
                     # Execute buy trade and save position
@@ -194,9 +251,6 @@ class BotManager:
                         self.save_error_to_csv(error_message)
                         self.notifier.send_notification("Trade Error", error_message)
 
-                    if prediction == "Buy" and final_decision == "Hold":
-                        self.notifier.send_notification("Decision Maker", "Decision Maker hold the Buy Prediction")
-
                 elif prediction in ["Hold", "Sell"]:
                     # Iterate over a copy of the positions to avoid the runtime error
                     positions_copy = list(self.position_manager.get_positions().items())
@@ -205,8 +259,9 @@ class BotManager:
                         amount = position['amount']
 
                         start_time = time.time()
-                        final_decision, adjusted_stop_loss, adjusted_take_profit = self.decision_maker.make_decision(
+                        final_decision, adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit = self.decision_maker.make_decision(
                             prediction, current_price, entry_price, all_features)
+                        gain_loose = self.calculate_gain_loose(entry_price, current_price)
 
                         if final_decision == "Sell":
                             self.log_time("Decision making (Sell)", start_time)
@@ -219,20 +274,24 @@ class BotManager:
                                 self.position_manager.remove_position(position_id)
                                 print(f"Position sold: {position_id}, Sell Price: {current_price}, Amount: {amount}")
                                 self.notifier.send_notification("Trade Executed", f"Sold {amount} {COIN} at ${current_price}")
+                                print(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
+                                logging.info(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
                             else:
                                 error_message = f"Failed to execute Sell order: {order_details}"
                                 self.save_error_to_csv(error_message)
                                 self.notifier.send_notification("Trade Error", error_message)
                         else:
-                            print(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}")
+                            print("Decision Maker suggested to Hold. No trade action taken.")
+                            print(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
+                            logging.info("Decision Maker suggested to Hold. No trade action taken.")
+                            logging.info(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
 
                 else:  # This case is for "Hold"
-                    print("Predictor suggested to Hold. No trade action taken.")
+                    print("Decision Maker suggested to Hold. No trade action taken.")
                     # Optional: Log or notify the hold prediction
                     # self.notifier.send_notification("Hold Decision", "No trade executed. The Predictor advised to hold.")
 
                 break
-
 
             except Exception as e:
                 attempt += 1

@@ -1,5 +1,5 @@
 class DecisionMaker:
-    def __init__(self, base_risk_tolerance=0.02, base_stop_loss=0.0005, base_take_profit=0.0025,
+    def __init__(self, base_risk_tolerance=0.02, base_stop_loss=0.0005, base_take_profit=None,
                  volatility_threshold=0.01):
         self.base_risk_tolerance = base_risk_tolerance
         self.base_stop_loss = base_stop_loss
@@ -22,7 +22,7 @@ class DecisionMaker:
                 return self.base_take_profit  # Avoid division by zero
 
             # Calculate the price change ratio using entry price
-            price_change_ratio = (upper_band_15m - entry_price) / band_width_15m
+            price_change_ratio = ((upper_band_15m - entry_price) / band_width_15m) * 100
 
             # Calculate the adjusted take profit
             adjusted_take_profit = self.base_take_profit * (1 + price_change_ratio)
@@ -45,27 +45,30 @@ class DecisionMaker:
         # Get the necessary data
         lower_band_15m = all_features['15m'].get('lower_band', None)
         upper_band_15m = all_features['15m'].get('upper_band', None)
+        lower_band_1h = all_features['1h'].get('lower_band', None)
+        middle_band_1h = all_features['1h'].get('middle_band', None)
 
         # Adjust stop_loss based on the lower band of 15m interval
-        adjusted_stop_loss = lower_band_15m
+        adjusted_stop_loss_middle = middle_band_1h
+        adjusted_stop_loss_lower = lower_band_1h
 
         # Calculate adjusted take profit using entry price and 15m bands
         adjusted_take_profit = self.calculate_adjusted_take_profit(entry_price, upper_band_15m, lower_band_15m)
 
         if prediction == "Buy":
             if self.is_market_stable(all_features):
-                return "Buy", adjusted_stop_loss, adjusted_take_profit
+                return "Buy", adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit
             else:
-                return "Hold", adjusted_stop_loss, adjusted_take_profit
+                return "Hold", adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit
         elif prediction == "Hold" and entry_price:
-            if self.should_sell(current_price, entry_price, adjusted_stop_loss, adjusted_take_profit):
-                return "Sell", adjusted_stop_loss, adjusted_take_profit
+            if self.should_sell(current_price, entry_price, adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit):
+                return "Sell", adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit
             else:
-                return "Hold", adjusted_stop_loss, adjusted_take_profit
+                return "Hold", adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit
         elif prediction == "Sell" and entry_price:
-            return "Sell", adjusted_stop_loss, adjusted_take_profit
+            return "Sell", adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit
         else:
-            return "Hold", adjusted_stop_loss, adjusted_take_profit
+            return "Hold", adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit
 
     def is_market_stable(self, all_features):
         """
@@ -87,7 +90,7 @@ class DecisionMaker:
 
             # Additional checks for stability could include:
             rsi = features.get('RSI', None)
-            if rsi and 35 <= rsi <= 65:
+            if rsi and 30 <= rsi <= 70:
                 stable_intervals += 1
 
             close_price = features.get('close', None)
@@ -98,19 +101,23 @@ class DecisionMaker:
                     stable_intervals += 1
 
         # Consider the market stable if a majority of intervals indicate stability
-        if stable_intervals >= (total_intervals * 2 * 0.75):  # e.g., 4 out of 5 intervals must be stable
+        # if stable_intervals >= (total_intervals * 2 * 0.75):  # e.g., 4 out of 5 intervals must be stable
+        if stable_intervals == (total_intervals * 2):  # e.g., 4 out of 5 intervals must be stable
             return True
 
         return False
 
-    def should_sell(self, current_price, entry_price, adjusted_stop_loss, adjusted_take_profit):
+    def should_sell(self, current_price, entry_price, adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit):
         # Calculate the percentage change from the entry price
-        price_change = (current_price - entry_price) / entry_price
+        price_change = ((current_price - entry_price) / entry_price) * 100
 
         # Check if the price has hit the stop-loss or take-profit threshold
         if price_change >= adjusted_take_profit:
             return True
-        if current_price <= adjusted_stop_loss:
-            return True
-
+        if entry_price > adjusted_stop_loss_lower:
+            if current_price < adjusted_stop_loss_lower:
+                return True
+        if entry_price > adjusted_stop_loss_middle:
+            if current_price < adjusted_stop_loss_middle:
+                return True
         return False
