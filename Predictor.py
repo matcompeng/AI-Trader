@@ -9,12 +9,13 @@ from DataCollector import DataCollector
 from FeatureProcessor import FeatureProcessor
 
 class Predictor:
-    def __init__(self, chatgpt_client, data_directory='data', max_retries=3, retry_delay=5, coin=None):
+    def __init__(self, chatgpt_client, data_directory='data', max_retries=3, retry_delay=5, coin=None, sr_interval=None):
         self.chatgpt_client = chatgpt_client
         self.data_directory = data_directory
         self.max_retries = max_retries  # Maximum number of retries
         self.retry_delay = retry_delay  # Delay in seconds between retries
         self.coin = coin
+        self.sr_interval = sr_interval
 
         # Ensure the data directory exists
         if not os.path.exists(self.data_directory):
@@ -60,10 +61,10 @@ class Predictor:
 
         prompt += (
             "I am looking to trade cryptocurrency in the short and intermediate term within a day.\n"
-            f"Avoid recommending a 'Buy' decision if the current price is near known resistance level of intervals '5m' and '15m' knowing that Current Price now is: {current_price} for this cycle.\n"
-            "Favor a 'Buy' decision if the price shows signs of reversal after a dip in intervals '5m' and '15m', especially when there is a strong support level below the current price. A price reversal after a dip suggests a potential upward momentum, making it a more favorable buying opportunity.\n"
+            f"Avoid recommending a 'Buy' decision if the current price is near the resistance level defined in interval {self.sr_interval} knowing that Current Price now is: {current_price} for this cycle.\n"
+            f"Favor a 'Buy' decision if the price shows signs of reversal after a dip in interval {self.sr_interval}, especially when there is a strong support level below the current price. A price reversal after a dip suggests a potential upward momentum, making it a more favorable buying opportunity.\n"
             "Always consider technical indicators, ensuring that the market momentum aligns with a buying decision.\n"
-            f"Based on this data from multiple intervals and instructions, please provide a single, clear recommendation (Buy or Hold) for {self.coin}. "
+            f"Based on this data from multiple intervals and instructions, please provide a single, clear recommendation (Buy or Hold) for {self.coin}."
         )
         return prompt
 

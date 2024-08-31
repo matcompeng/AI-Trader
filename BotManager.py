@@ -13,16 +13,21 @@ from Predictor import Predictor
 from DecisionMaker import DecisionMaker
 from Trader import Trader
 from Notifier import Notifier
+import csv
 
-# Bot Configurations --------------------------------------------------------------------------
+# Bot Configurations ------------------------------------------------------------------------------
 TRADING_INTERVALS = ['1m', '5m', '15m', '1h', '1d']
-BOT_INTERVAL = 2 * 60        # Time in seconds between each run of the Bot Cycle in seconds
 COIN = 'BNB'                 # Select Cryptocurrency
 TRADING_PAIR = 'BNBUSDT'     # Select Cryptocurrency Trading Pair
-PREDICT_IN_BANDWIDTH = 0.99  # Define Minimum Bandwidth Percentage to Activate Trading
+PROFIT_INTERVAL = '1h'       # Select The Interval For Take Profit Calculations
+LOOSE_INTERVAL = '1h'        # Select The Interval For Stop Loose Calculations
+PREDICTOR_INTERVAL = '1h'    # Select The Interval That Activate/Deactivate Predictor through PREDICT_IN_BANDWIDTH
+SR_INTERVAL = '1h'           # Select The Interval That Trader Define Support and Resistance Levels
+BOT_CYCLE = 2 * 60           # Time in seconds between each run of the Bot Cycle in seconds
+PREDICT_IN_BANDWIDTH = 2     # Define Minimum Bandwidth Percentage to Activate Trading
 BASE_TAKE_PROFIT = 0.25      # Define Base Take Profit Percentage %
 USDT_AMOUNT = 10             # Amount of Currency to trade for each Position
-# ---------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------
 
 # Create the data directory if it doesn't exist
 data_directory = 'data'
@@ -76,8 +81,8 @@ class BotManager:
         self.data_collector = DataCollector(api_key, api_secret, intervals=TRADING_INTERVALS, symbol=TRADING_PAIR)
         self.feature_processor = FeatureProcessor(intervals=TRADING_INTERVALS)
         self.chatgpt_client = ChatGPTClient()
-        self.predictor = Predictor(self.chatgpt_client, coin=COIN)
-        self.decision_maker = DecisionMaker(base_take_profit=BASE_TAKE_PROFIT)
+        self.predictor = Predictor(self.chatgpt_client, coin=COIN, sr_interval=SR_INTERVAL)
+        self.decision_maker = DecisionMaker(base_take_profit=BASE_TAKE_PROFIT, profit_interval=PROFIT_INTERVAL, loose_interval=LOOSE_INTERVAL)
         self.trader = Trader(symbol=TRADING_PAIR)  # Initialize the Trader class
         self.notifier = Notifier()
         self.position_manager = PositionManager()
@@ -126,10 +131,10 @@ class BotManager:
 
     def calculate_band_price_change(self, all_features):
         """
-        Calculate the percentage price change between the upper and lower Bollinger Bands of the '15m' interval.
+        Calculate the percentage price change between the upper and lower Bollinger Bands of the PREDICTOR_INTERVAL interval.
         """
-        upper_band_15m = all_features['15m'].get('upper_band')
-        lower_band_15m = all_features['15m'].get('lower_band')
+        upper_band_15m = all_features[PREDICTOR_INTERVAL].get('upper_band')
+        lower_band_15m = all_features[PREDICTOR_INTERVAL].get('lower_band')
 
         if upper_band_15m and lower_band_15m:
             price_change_15m = ((upper_band_15m - lower_band_15m) / lower_band_15m) * 100
@@ -137,13 +142,57 @@ class BotManager:
 
     def price_is_over_band(self, all_features, current_price):
 
-        lower_band_15m = all_features['15m'].get('lower_band')
+        lower_band_15m = all_features[PREDICTOR_INTERVAL].get('lower_band')
         if current_price >= lower_band_15m:
             return True
 
     def calculate_gain_loose(self,entry_price, current_price):
         gain_loose = ((current_price - entry_price) / entry_price) * 100
         return gain_loose
+
+    def log_sold_position(self, position_id, entry_price, sold_price, gain_loose):
+        """
+        Log the details of a sold position to a CSV file.
+        :param position_id: The ID of the position.
+        :param entry_price: The entry price of the position.
+        :param sold_price: The price at which the position was sold.
+        :param gain_loose: The gain or loss percentage.
+        """
+        log_file_path = os.path.join(data_directory, 'trading_log.csv')
+
+        # Prepare the data to be logged
+        log_data = {
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'position_id': position_id,
+            'entry_price': entry_price,
+            'sold_price': sold_price,
+            'gain_loose': gain_loose
+        }
+
+        # Write to CSV file
+        file_exists = os.path.isfile(log_file_path)
+        with open(log_file_path, 'a', newline='') as csvfile:
+            fieldnames = ['timestamp', 'position_id', 'entry_price', 'sold_price', 'profit_usdt', 'gain_loose']
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+            if not file_exists:
+                writer.writeheader()  # Write header only if the file does not exist
+
+            writer.writerow(log_data)
+
+        print(f"Position logged: {log_data}")
+        logging.info(f"Position logged: {log_data}")
+
+    def calculate_profit(self, trade_quantity, sold_price, entry_price):
+        try:
+            commission = trade_quantity * (entry_price + sold_price) * 0.00075
+            profit_usdt = ((sold_price - entry_price) * trade_quantity) - commission
+
+            return round(profit_usdt, 2)
+
+        except (TypeError, ValueError):
+            # Handle conversion failures or None values
+            return 0
 
 
 
@@ -154,7 +203,7 @@ class BotManager:
             try:
                 # Capture the current timestamp at the start of the cycle
                 cycle_start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                print(f"\n\n*****Bot cycle started at {cycle_start_time}, running every {BOT_INTERVAL} seconds.*****")
+                print(f"\n\n*****Bot cycle started at {cycle_start_time}, running every {BOT_CYCLE} seconds.*****")
                 logging.info(f"//---------------------Bot cycle started at {cycle_start_time}--------------------=//")
 
                 start_time = time.time()
@@ -187,7 +236,7 @@ class BotManager:
                 bandwidth_price_change = self.calculate_band_price_change(all_features)
                 price_is_over_band = self.price_is_over_band(all_features, current_price)
                 print(f"Current Bandwidth Price Change is: {round(bandwidth_price_change, 2)}% ")
-                if  bandwidth_price_change > PREDICT_IN_BANDWIDTH and price_is_over_band:
+                if  bandwidth_price_change > PREDICT_IN_BANDWIDTH:
                     print(f"Price change is greater than {PREDICT_IN_BANDWIDTH}%, processing prediction.")
                     logging.info(f"Price change is greater than {PREDICT_IN_BANDWIDTH}%, processing prediction.")
 
@@ -206,7 +255,7 @@ class BotManager:
                         logging.info("Price change is less than or equal to 95%, skipping prediction and returning 'Hold'.")
                         prediction = "Hold"
                     else:
-                        print(f"X/current price is above lower band, skipping prediction and returning 'Hold'/X.")
+                        print(f"X/current price is below lower band, skipping prediction and returning 'Hold'/X.")
                         logging.info("current price is below lower band, skipping prediction and returning 'Hold'.")
                         prediction = "Hold"
 
@@ -254,14 +303,13 @@ class BotManager:
                 elif prediction in ["Hold", "Sell"]:
                     # Iterate over a copy of the positions to avoid the runtime error
                     positions_copy = list(self.position_manager.get_positions().items())
-                    for position_id, position in positions_copy:
+                    for position_id, position,amount in positions_copy:
                         entry_price = position['entry_price']
                         amount = position['amount']
 
                         start_time = time.time()
                         final_decision, adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit = self.decision_maker.make_decision(
                             prediction, current_price, entry_price, all_features)
-                        gain_loose = self.calculate_gain_loose(entry_price, current_price)
 
                         if final_decision == "Sell":
                             self.log_time("Decision making (Sell)", start_time)
@@ -271,11 +319,16 @@ class BotManager:
                             self.log_time("Trade execution (Sell)", start_time)
 
                             if trade_status == "Success":
+                                gain_loose = self.calculate_gain_loose(entry_price, current_price)
+                                profit_usdt = self.calculate_profit(trade_quantity=amount, sold_price=current_price,
+                                                                    entry_price=entry_price)
                                 self.position_manager.remove_position(position_id)
                                 print(f"Position sold: {position_id}, Sell Price: {current_price}, Amount: {amount}")
                                 self.notifier.send_notification("Trade Executed", f"Sold {amount} {COIN} at ${current_price}")
                                 print(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
                                 logging.info(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
+                                # Log the sold position to the trading log CSV
+                                self.log_sold_position(position_id, entry_price, current_price, profit_usdt, round(gain_loose, 2))
                             else:
                                 error_message = f"Failed to execute Sell order: {order_details}"
                                 self.save_error_to_csv(error_message)
@@ -311,13 +364,14 @@ class BotManager:
                     print("Bot has stopped due to repeated errors.")
                     raise
 
+
     def start(self):
         try:
             # Run immediately
             self.run()
 
             # Schedule the bot to run at the specified interval
-            schedule.every(BOT_INTERVAL).seconds.do(self.run)
+            schedule.every(BOT_CYCLE).seconds.do(self.run)
 
             while True:
                 schedule.run_pending()

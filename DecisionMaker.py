@@ -1,28 +1,30 @@
 class DecisionMaker:
     def __init__(self, base_risk_tolerance=0.02, base_stop_loss=0.0005, base_take_profit=None,
-                 volatility_threshold=0.01):
+                 volatility_threshold=0.01, profit_interval=None, loose_interval=None):
         self.base_risk_tolerance = base_risk_tolerance
         self.base_stop_loss = base_stop_loss
         self.base_take_profit = base_take_profit
         self.volatility_threshold = volatility_threshold
+        self.profit_interval = profit_interval
+        self.loose_interval = loose_interval
 
-    def calculate_adjusted_take_profit(self, entry_price, upper_band_15m, lower_band_15m):
+    def calculate_adjusted_take_profit(self, entry_price, upper_band_profit, lower_band_profit):
         """
         Calculate adjusted take profit based on the price change within the Bollinger Bands.
         :param entry_price: The entry price of the position.
-        :param upper_band_15m: The upper Bollinger Band for the 15m interval.
-        :param lower_band_15m: The lower Bollinger Band for the 15m interval.
+        :param upper_band_profit: The upper Bollinger Band for the 15m interval.
+        :param lower_band_profit: The lower Bollinger Band for the 15m interval.
         :return: Adjusted take profit.
         """
-        if upper_band_15m and lower_band_15m and entry_price:
+        if upper_band_profit and lower_band_profit and entry_price:
             # Calculate the bandwidth
-            band_width_15m = upper_band_15m - lower_band_15m
+            band_width_15m = upper_band_profit - lower_band_profit
 
             if band_width_15m == 0:
                 return self.base_take_profit  # Avoid division by zero
 
             # Calculate the price change ratio using entry price
-            price_change_ratio = ((upper_band_15m - entry_price) / band_width_15m) * 100
+            price_change_ratio = ((upper_band_profit - entry_price) / band_width_15m)
 
             # Calculate the adjusted take profit
             adjusted_take_profit = self.base_take_profit * (1 + price_change_ratio)
@@ -43,17 +45,17 @@ class DecisionMaker:
         :return: Final decision (Buy, Sell, Hold), adjusted_stop_loss, adjusted_take_profit.
         """
         # Get the necessary data
-        lower_band_15m = all_features['15m'].get('lower_band', None)
-        upper_band_15m = all_features['15m'].get('upper_band', None)
-        lower_band_1h = all_features['1h'].get('lower_band', None)
-        middle_band_1h = all_features['1h'].get('middle_band', None)
+        lower_band_profit = all_features[self.profit_interval].get('lower_band', None)
+        upper_band_profit = all_features[self.profit_interval].get('upper_band', None)
+        lower_band_loose = all_features[self.loose_interval].get('lower_band', None)
+        middle_band_loose = all_features[self.loose_interval].get('middle_band', None)
 
         # Adjust stop_loss based on the lower band of 15m interval
-        adjusted_stop_loss_middle = middle_band_1h
-        adjusted_stop_loss_lower = lower_band_1h
+        adjusted_stop_loss_middle = middle_band_loose
+        adjusted_stop_loss_lower = lower_band_loose
 
         # Calculate adjusted take profit using entry price and 15m bands
-        adjusted_take_profit = self.calculate_adjusted_take_profit(entry_price, upper_band_15m, lower_band_15m)
+        adjusted_take_profit = self.calculate_adjusted_take_profit(entry_price, upper_band_profit, lower_band_profit)
 
         if prediction == "Buy":
             if self.is_market_stable(all_features):
@@ -114,10 +116,10 @@ class DecisionMaker:
         # Check if the price has hit the stop-loss or take-profit threshold
         if price_change >= adjusted_take_profit:
             return True
-        if entry_price > adjusted_stop_loss_lower:
+        elif entry_price > adjusted_stop_loss_lower:
             if current_price < adjusted_stop_loss_lower:
                 return True
-        if entry_price > adjusted_stop_loss_middle:
+        elif entry_price > adjusted_stop_loss_middle:
             if current_price < adjusted_stop_loss_middle:
                 return True
         return False
