@@ -125,6 +125,9 @@ class FeatureProcessor:
         elif interval == '15m':
             start_time = now.replace(minute=(now.minute // 15) * 15, second=0, microsecond=0)
             end_time = start_time + timedelta(minutes=15)
+        elif interval == '30m':
+            start_time = now.replace(minute=(now.minute // 30) * 30, second=0, microsecond=0)
+            end_time = start_time + timedelta(minutes=30)
         elif interval == '1h':
             start_time = now.replace(hour=(now.hour // 1) * 1, minute=0, second=0, microsecond=0)
             end_time = start_time + timedelta(hours=1)

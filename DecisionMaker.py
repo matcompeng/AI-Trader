@@ -109,17 +109,24 @@ class DecisionMaker:
 
         return False
 
-    def should_sell(self, current_price, entry_price, adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit):
+    def should_sell(self, current_price, entry_price, adjusted_stop_loss_lower, adjusted_stop_loss_middle,
+                    adjusted_take_profit):
         # Calculate the percentage change from the entry price
         price_change = ((current_price - entry_price) / entry_price) * 100
 
-        # Check if the price has hit the stop-loss or take-profit threshold
+        # Check if the price has hit the take-profit threshold
         if price_change >= adjusted_take_profit:
             return True
-        elif entry_price > adjusted_stop_loss_lower:
+
+        # Check stop-loss conditions
+        if entry_price > adjusted_stop_loss_lower:
+            # Sell only if current_price is below adjusted_stop_loss_lower
             if current_price < adjusted_stop_loss_lower:
                 return True
         elif entry_price > adjusted_stop_loss_middle:
+            # Sell only if current_price is below adjusted_stop_loss_middle
             if current_price < adjusted_stop_loss_middle:
                 return True
+
+        # If none of the above conditions are met, do not sell
         return False

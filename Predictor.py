@@ -61,7 +61,7 @@ class Predictor:
 
         prompt += (
             "I am looking to trade cryptocurrency in the short and intermediate term within a day.\n"
-            f"Avoid recommending a 'Buy' decision if the current price is near the resistance level defined in interval {self.sr_interval} knowing that Current Price now is: {current_price} for this cycle.\n"
+            f"knowing that Current Price now is: {current_price} for this cycle.\n"
             f"Favor a 'Buy' decision if the price shows signs of reversal after a dip in interval {self.sr_interval}, especially when there is a strong support level below the current price. A price reversal after a dip suggests a potential upward momentum, making it a more favorable buying opportunity.\n"
             "Always consider technical indicators, ensuring that the market momentum aligns with a buying decision.\n"
             f"Based on this data from multiple intervals and instructions, please provide a single, clear recommendation (Buy or Hold) for {self.coin}."
@@ -129,8 +129,8 @@ class Predictor:
         # Determine the final recommendation based on keyword counts
         if buy_count > sell_count and buy_count > hold_count:
             final_decision = "Buy"
-        elif sell_count > buy_count and sell_count > hold_count:
-            final_decision = "Sell"
+        # elif sell_count > buy_count and sell_count > hold_count:
+        #     final_decision = "Sell"
         else:
             final_decision = "Hold"
 

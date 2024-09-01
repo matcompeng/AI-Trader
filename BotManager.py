@@ -16,17 +16,18 @@ from Notifier import Notifier
 import csv
 
 # Bot Configurations ------------------------------------------------------------------------------
-TRADING_INTERVALS = ['1m', '5m', '15m', '1h', '1d']
-COIN = 'BNB'                 # Select Cryptocurrency
-TRADING_PAIR = 'BNBUSDT'     # Select Cryptocurrency Trading Pair
-PROFIT_INTERVAL = '1h'       # Select The Interval For Take Profit Calculations
-LOOSE_INTERVAL = '1h'        # Select The Interval For Stop Loose Calculations
-PREDICTOR_INTERVAL = '1h'    # Select The Interval That Activate/Deactivate Predictor through PREDICT_IN_BANDWIDTH
-SR_INTERVAL = '1h'           # Select The Interval That Trader Define Support and Resistance Levels
-BOT_CYCLE = 2 * 60           # Time in seconds between each run of the Bot Cycle in seconds
-PREDICT_IN_BANDWIDTH = 2     # Define Minimum Bandwidth Percentage to Activate Trading
-BASE_TAKE_PROFIT = 0.25      # Define Base Take Profit Percentage %
-USDT_AMOUNT = 10             # Amount of Currency to trade for each Position
+TRADING_INTERVALS = ['1m', '5m', '15m', '30m', '1h', '1d']
+COIN = 'BNB'                    # Select Cryptocurrency
+TRADING_PAIR = 'BNBUSDT'        # Select Cryptocurrency Trading Pair
+PROFIT_INTERVAL = '1h'          # Select The Interval For Take Profit Calculations
+LOOSE_INTERVAL = '30m'           # Select The Interval For Stop Loose Calculations
+PREDICTOR_INTERVAL = '1h'       # Select The Interval That Activate/Deactivate Predictor through PREDICT_IN_BANDWIDTH
+SR_INTERVAL = '1h'              # Select The Interval That Trader Define Support and Resistance Levels
+CHECK_POSITIONS_ON_BUY = True   # Set True If You Need Bot Manager Check The Positions During Buy Cycle
+BOT_CYCLE = 3 * 60              # Time in seconds between each run of the Bot Cycle in seconds
+PREDICT_IN_BANDWIDTH = 2        # Define Minimum Bandwidth Percentage to Activate Trading
+BASE_TAKE_PROFIT = 0.20         # Define Base Take Profit Percentage %
+USDT_AMOUNT = 10                # Amount of Currency to trade for each Position
 # -------------------------------------------------------------------------------------------------
 
 # Create the data directory if it doesn't exist
@@ -150,9 +151,10 @@ class BotManager:
         gain_loose = ((current_price - entry_price) / entry_price) * 100
         return gain_loose
 
-    def log_sold_position(self, position_id, entry_price, sold_price, gain_loose):
+    def log_sold_position(self, position_id, entry_price, sold_price, profit_usdt, gain_loose):
         """
         Log the details of a sold position to a CSV file.
+        :param profit_usdt:
         :param position_id: The ID of the position.
         :param entry_price: The entry price of the position.
         :param sold_price: The price at which the position was sold.
@@ -166,6 +168,7 @@ class BotManager:
             'position_id': position_id,
             'entry_price': entry_price,
             'sold_price': sold_price,
+            'profit_usdt': profit_usdt,
             'gain_loose': gain_loose
         }
 
@@ -283,6 +286,7 @@ class BotManager:
 
                 if prediction == "Buy" and final_decision == "Hold":
                     self.notifier.send_notification("Decision Maker", "Decision Maker hold the Buy Prediction")
+                    prediction = final_decision
 
                 if final_decision == "Buy":
                     # Execute buy trade and save position
@@ -303,13 +307,14 @@ class BotManager:
                 elif prediction in ["Hold", "Sell"]:
                     # Iterate over a copy of the positions to avoid the runtime error
                     positions_copy = list(self.position_manager.get_positions().items())
-                    for position_id, position,amount in positions_copy:
+                    for position_id, position in positions_copy:
                         entry_price = position['entry_price']
                         amount = position['amount']
 
                         start_time = time.time()
-                        final_decision, adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit = self.decision_maker.make_decision(
+                        final_decision, adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit = self.decision_maker.make_decision(
                             prediction, current_price, entry_price, all_features)
+                        gain_loose = round(self.calculate_gain_loose(entry_price, current_price), 2)
 
                         if final_decision == "Sell":
                             self.log_time("Decision making (Sell)", start_time)
@@ -319,7 +324,6 @@ class BotManager:
                             self.log_time("Trade execution (Sell)", start_time)
 
                             if trade_status == "Success":
-                                gain_loose = self.calculate_gain_loose(entry_price, current_price)
                                 profit_usdt = self.calculate_profit(trade_quantity=amount, sold_price=current_price,
                                                                     entry_price=entry_price)
                                 self.position_manager.remove_position(position_id)
@@ -328,7 +332,47 @@ class BotManager:
                                 print(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
                                 logging.info(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
                                 # Log the sold position to the trading log CSV
-                                self.log_sold_position(position_id, entry_price, current_price, profit_usdt, round(gain_loose, 2))
+                                self.log_sold_position(position_id, entry_price, current_price, profit_usdt, gain_loose)
+                            else:
+                                error_message = f"Failed to execute Sell order: {order_details}"
+                                self.save_error_to_csv(error_message)
+                                self.notifier.send_notification("Trade Error", error_message)
+                        else:
+                            print("Decision Maker suggested to Hold. No trade action taken.")
+                            print(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
+                            logging.info("Decision Maker suggested to Hold. No trade action taken.")
+                            logging.info(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
+
+                if CHECK_POSITIONS_ON_BUY and prediction == "Buy":
+                    prediction = "Hold"
+                    # Iterate over a copy of the positions to avoid the runtime error
+                    positions_copy = list(self.position_manager.get_positions().items())
+                    for position_id, position in positions_copy:
+                        entry_price = position['entry_price']
+                        amount = position['amount']
+
+                        start_time = time.time()
+                        final_decision, adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit = self.decision_maker.make_decision(
+                            prediction, current_price, entry_price, all_features)
+                        gain_loose = round(self.calculate_gain_loose(entry_price, current_price), 2)
+
+                        if final_decision == "Sell":
+                            self.log_time("Decision making (Sell)", start_time)
+                            start_time = time.time()
+                            print(f"Executing trade: {final_decision}")
+                            trade_status, order_details = self.trader.execute_trade(final_decision, amount)
+                            self.log_time("Trade execution (Sell)", start_time)
+
+                            if trade_status == "Success":
+                                profit_usdt = self.calculate_profit(trade_quantity=amount, sold_price=current_price,
+                                                                    entry_price=entry_price)
+                                self.position_manager.remove_position(position_id)
+                                print(f"Position sold: {position_id}, Sell Price: {current_price}, Amount: {amount}")
+                                self.notifier.send_notification("Trade Executed", f"Sold {amount} {COIN} at ${current_price}")
+                                print(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
+                                logging.info(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
+                                # Log the sold position to the trading log CSV
+                                self.log_sold_position(position_id, entry_price, current_price, profit_usdt, gain_loose)
                             else:
                                 error_message = f"Failed to execute Sell order: {order_details}"
                                 self.save_error_to_csv(error_message)
