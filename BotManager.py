@@ -198,6 +198,32 @@ class BotManager:
             # Handle conversion failures or None values
             return 0
 
+    def invested_budget(self, current_price):
+        """
+        Calculate the total invested amount based on the current positions recorded in positions.json.
+        :return: Total invested amount in USDT
+        """
+        try:
+            # Get all positions
+            positions = self.position_manager.get_positions()
+            total_invested = 0.0
+
+            # Iterate over each position and calculate the invested amount
+            for position_id, position in positions.items():
+                entry_price = float(position['entry_price'])
+                amount = float(position['amount'])
+                invested_amount = entry_price * amount
+                total_invested += invested_amount * current_price
+
+            print(f"Total invested budget: {total_invested} USDT")
+            logging.info(f"Total invested budget: {total_invested} USDT")
+            return total_invested
+
+        except Exception as e:
+            logging.error(f"Error calculating invested budget: {e}")
+            print(f"Error calculating invested budget: {e}")
+            return 0.0
+
     def check_positions(self):
         try:
             start_time = time.time()
@@ -242,7 +268,9 @@ class BotManager:
                         self.log_sold_position(position_id, entry_price, current_price, profit_usdt, gain_loose)
                         print(f"Position {position_id} sold successfully")
                         logging.info(f"Position {position_id} sold successfully")
-                        self.notifier.send_notification("Trade Executed", f"Sold {amount} {COIN} at ${current_price}")
+                        self.notifier.send_notification("Trade Executed", f"Sold {amount} {COIN} at ${current_price}\n"
+                                                                          f"Gain/Loose: {gain_loose}%\n"
+                                                                          f"Total Invested: {round(self.invested_budget(current_price))} USDT")
                     else:
                         error_message = f"Failed to execute Sell order: {order_details}"
                         self.save_error_to_csv(error_message)
@@ -251,6 +279,8 @@ class BotManager:
                     print(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
                     logging.info(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
 
+            print(f"Total Invested So Far: {self.invested_budget(current_price)} USDT")
+            logging.info(f"Total Invested So far: {self.invested_budget(current_price)} USDT")
             self.log_time("Position check", start_time)
 
 
@@ -312,6 +342,7 @@ class BotManager:
                     logging.info("Generating prediction...")
                     prediction, explanation = self.predictor.get_prediction(all_features, current_price)
                     self.log_time("Prediction generation", prediction_start)
+                    print(f"Predictor Recommends To  ///{prediction}///")
                     logging.info(f"Prediction: {prediction}. Explanation: {explanation}")
                 else:
                     prediction = "Hold"
@@ -341,7 +372,8 @@ class BotManager:
                         logging.info(
                             f"New position added: {position_id}, Entry Price: {current_price}, Amount: {crypto_amount}")
                         self.notifier.send_notification("Trade Executed",
-                                                        f"Bought {crypto_amount} {COIN} at ${current_price}")
+                                                        f"Bought {crypto_amount} {COIN} at ${current_price}\n"
+                                                        f"Total Invested: {round(self.invested_budget(current_price))} USDT")
                     else:
                         error_message = f"Failed to execute Buy order: {order_details}"
                         self.save_error_to_csv(error_message)
@@ -364,6 +396,9 @@ class BotManager:
 
     def start(self):
         try:
+            # For testing purposes
+            # self.run_prediction_cycle()
+
             # Schedule the position check every POSITION_CYCLE seconds
             schedule.every(POSITION_CYCLE).seconds.do(self.check_positions)
 

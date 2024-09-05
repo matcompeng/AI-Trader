@@ -61,11 +61,12 @@ class Predictor:
 
         prompt += (
             "I am looking to trade cryptocurrency in the short and intermediate term within a day.\n"
-            f"knowing that Current Price now is: {current_price} for this cycle.\n"
+            f"Knowing that the current price is: {current_price} for this cycle.\n"
             f"Favor a 'Buy' decision if the price shows signs of reversal after a dip in interval {self.sr_interval}, especially when there is a strong support level below the current price. A price reversal after a dip suggests a potential upward momentum, making it a more favorable buying opportunity.\n"
             "Always consider technical indicators, ensuring that the market momentum aligns with a buying decision.\n"
-            f"Based on this data from multiple intervals and instructions, please provide a single, clear recommendation (Buy or Hold) for {self.coin}."
+            f"Based on this data from multiple intervals and instructions, please provide a single, clear recommendation (use &Buy& or &Hold& for the final decision) for {self.coin}."
         )
+
         return prompt
 
     def save_prompt(self, prompt):
@@ -93,13 +94,21 @@ class Predictor:
         for attempt in range(self.max_retries):
             try:
                 response = self.chatgpt_client.get_prediction(prompt)
-                decision, explanation = self.interpret_response(response)
-                self.save_response(decision, explanation)
-                return decision, explanation
+
+                # Extract the decision from the response
+                decision = self.extract_decision_from_response(response)
+                explanation = response  # Keep the entire response as the explanation
+
+                if decision:
+                    self.save_response(decision, explanation)
+                    return decision, explanation
+                else:
+                    raise ValueError("No valid decision found in the response.")
+
             except Exception as e:
                 if "Request timed out" or "Connection aborted" in str(e):
                     logging.error("Error in ChatGPT API call: Request timed out.")
-                    print("Error in ChatGPT API call: Request timed or connection aborted out. Retrying...")
+                    print("Error in ChatGPT API call: Request timed out or connection aborted. Retrying...")
                 else:
                     logging.error(f"Error during communication with OpenAI: {e}")
                     print(f"Attempt {attempt + 1} failed. Retrying in {self.retry_delay} seconds...")
@@ -108,6 +117,20 @@ class Predictor:
         # If all retries fail
         logging.error("All attempts to communicate with OpenAI failed. Skipping this cycle.")
         return "Hold", "Failed to get a response from OpenAI after multiple attempts."
+
+    def extract_decision_from_response(self, response):
+        if response is None:
+            return None
+
+        # Look for a recommendation within double quotes (e.g., "Buy", "Sell", or "Hold")
+        if "&buy&" in response.lower():
+            return "Buy"
+        # elif "&sell&" in response.lower():
+        #     return "&Sell&"
+        elif "&hold&" in response.lower():
+            return "Hold"
+        else:
+            return None
 
     def interpret_response(self, response):
         if response is None:
