@@ -20,7 +20,7 @@ TRADING_INTERVALS = ['1m', '5m', '15m', '30m', '1h', '1d']
 COIN = 'BNB'                    # Select Cryptocurrency
 TRADING_PAIR = 'BNBUSDT'        # Select Cryptocurrency Trading Pair
 PROFIT_INTERVAL = '1h'          # Select The Interval For Take Profit Calculations
-LOOSE_INTERVAL = '30m'           # Select The Interval For Stop Loose Calculations
+LOOSE_INTERVAL = '1h'           # Select The Interval For Stop Loose Calculations
 PREDICTOR_INTERVAL = '1h'       # Select The Interval That Activate/Deactivate Predictor through PREDICT_IN_BANDWIDTH
 SR_INTERVAL = '1h'              # Select The Interval That Trader Define Support and Resistance Levels
 CHECK_POSITIONS_ON_BUY = True   # Set True If You Need Bot Manager Check The Positions During Buy Cycle
@@ -198,7 +198,7 @@ class BotManager:
             # Handle conversion failures or None values
             return 0
 
-    def invested_budget(self, current_price):
+    def invested_budget(self):
         """
         Calculate the total invested amount based on the current positions recorded in positions.json.
         :return: Total invested amount in USDT
@@ -213,10 +213,8 @@ class BotManager:
                 entry_price = float(position['entry_price'])
                 amount = float(position['amount'])
                 invested_amount = entry_price * amount
-                total_invested += invested_amount * current_price
+                total_invested += invested_amount
 
-            print(f"Total invested budget: {total_invested} USDT")
-            logging.info(f"Total invested budget: {total_invested} USDT")
             return total_invested
 
         except Exception as e:
@@ -270,7 +268,7 @@ class BotManager:
                         logging.info(f"Position {position_id} sold successfully")
                         self.notifier.send_notification("Trade Executed", f"Sold {amount} {COIN} at ${current_price}\n"
                                                                           f"Gain/Loose: {gain_loose}%\n"
-                                                                          f"Total Invested: {round(self.invested_budget(current_price))} USDT")
+                                                                          f"Total Invested: {round(self.invested_budget())} USDT")
                     else:
                         error_message = f"Failed to execute Sell order: {order_details}"
                         self.save_error_to_csv(error_message)
@@ -279,8 +277,8 @@ class BotManager:
                     print(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
                     logging.info(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
 
-            print(f"Total Invested So Far: {self.invested_budget(current_price)} USDT")
-            logging.info(f"Total Invested So far: {self.invested_budget(current_price)} USDT")
+            print(f"Total Invested So Far: {round(self.invested_budget())} USDT")
+            logging.info(f"Total Invested So far: {round(self.invested_budget())} USDT")
             self.log_time("Position check", start_time)
 
 
@@ -373,11 +371,19 @@ class BotManager:
                             f"New position added: {position_id}, Entry Price: {current_price}, Amount: {crypto_amount}")
                         self.notifier.send_notification("Trade Executed",
                                                         f"Bought {crypto_amount} {COIN} at ${current_price}\n"
-                                                        f"Total Invested: {round(self.invested_budget(current_price))} USDT")
+                                                        f"Total Invested: {round(self.invested_budget())} USDT")
                     else:
                         error_message = f"Failed to execute Buy order: {order_details}"
                         self.save_error_to_csv(error_message)
                         logging.error(f"Failed to execute Buy order: {order_details}")
+
+                elif prediction == "Buy" and final_decision == "Hold":
+                    self.notifier.send_notification(title="Decision Maker", message="Decision Maker Hold The Buy Prediction")
+                    print("Decision Maker Hold The Buy Prediction")
+                    logging.info("Decision Maker Hold The Buy Prediction")
+
+                else:
+                    print("No Trade Executed")
 
                 # Handle other conditions for "Hold" and "Sell"
                 self.log_time("Prediction cycle", start_time)
