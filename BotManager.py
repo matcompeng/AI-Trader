@@ -24,7 +24,8 @@ LOOSE_INTERVAL = '30m'           # Select The Interval For Stop Loose Calculatio
 PREDICTOR_INTERVAL = '1h'       # Select The Interval That Activate/Deactivate Predictor through PREDICT_IN_BANDWIDTH
 SR_INTERVAL = '1h'              # Select The Interval That Trader Define Support and Resistance Levels
 CHECK_POSITIONS_ON_BUY = True   # Set True If You Need Bot Manager Check The Positions During Buy Cycle
-BOT_CYCLE = 3 * 60              # Time in seconds between each run of the Bot Cycle in seconds
+POSITION_CYCLE = 15            # Time in seconds to check positions
+PREDICTION_CYCLE = 3 * 60      # Time in seconds to run the full bot cycle              # Time in seconds between each run of the Bot Cycle in seconds
 PREDICT_IN_BANDWIDTH = 2        # Define Minimum Bandwidth Percentage to Activate Trading
 BASE_TAKE_PROFIT = 0.20         # Define Base Take Profit Percentage %
 USDT_AMOUNT = 10                # Amount of Currency to trade for each Position
@@ -197,229 +198,183 @@ class BotManager:
             # Handle conversion failures or None values
             return 0
 
+    def check_positions(self):
+        try:
+            start_time = time.time()
+            cycle_start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            print(f"\n*****Position check cycle started at {cycle_start_time}.*****")
+            logging.info(
+                f"//---------------------Position check cycle started at {cycle_start_time}--------------------//")
+
+            # Get features and make a decision on whether to sell
+            market_data = self.data_collector.collect_data()
+            all_features = self.feature_processor.process(market_data)
+
+            current_price = self.trader.get_current_price()
+            if current_price is None:
+                print("Failed to get current price. Skipping position check.")
+                logging.info("Failed to get current price. Skipping position check.")
+                return
+
+            # Iterate over a copy of the positions to avoid runtime errors
+            positions_copy = list(self.position_manager.get_positions().items())
+            for position_id, position in positions_copy:
+                entry_price = position['entry_price']
+                amount = position['amount']
+
+                if not all_features:
+                    print("Failed to process features for position check.")
+                    logging.info("Failed to process features for position check.")
+                    return
+
+                final_decision, adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit = self.decision_maker.make_decision(
+                    "Hold", current_price, entry_price, all_features)
+                gain_loose = round(self.calculate_gain_loose(entry_price, current_price), 2)
+
+                if final_decision == "Sell":
+                    print(f"Selling position {position_id}")
+                    logging.info(f"Selling position {position_id}")
+                    trade_status, order_details = self.trader.execute_trade(final_decision, amount)
+                    if trade_status == "Success":
+                        profit_usdt = self.calculate_profit(trade_quantity=amount, sold_price=current_price,
+                                                            entry_price=entry_price)
+                        self.position_manager.remove_position(position_id)
+                        self.log_sold_position(position_id, entry_price, current_price, profit_usdt, gain_loose)
+                        print(f"Position {position_id} sold successfully")
+                        logging.info(f"Position {position_id} sold successfully")
+                        self.notifier.send_notification("Trade Executed", f"Sold {amount} {COIN} at ${current_price}")
+                    else:
+                        error_message = f"Failed to execute Sell order: {order_details}"
+                        self.save_error_to_csv(error_message)
+                        self.notifier.send_notification("Trade Error", error_message)
+                else:
+                    print(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
+                    logging.info(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
+
+            self.log_time("Position check", start_time)
 
 
+        except Exception as e:
+            logging.error(f"An error occurred during position check: {str(e)}")
+            self.save_error_to_csv(str(e))
 
-    def run(self):
+    def run_prediction_cycle(self):
         attempt = 0
         while attempt < 3:
             try:
-                # Capture the current timestamp at the start of the cycle
-                cycle_start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                print(f"\n\n*****Bot cycle started at {cycle_start_time}, running every {BOT_CYCLE} seconds.*****")
-                logging.info(f"//---------------------Bot cycle started at {cycle_start_time}--------------------=//")
-
                 start_time = time.time()
+                cycle_start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                print(
+                    f"\n\n*****Prediction cycle started at {cycle_start_time}, running every {PREDICTION_CYCLE} seconds.*****")
+                logging.info(
+                    f"//---------------------Prediction cycle started at {cycle_start_time}--------------------//")
+
+                # Collect market data
+                market_data_start = time.time()
                 print("Collecting market data...")
+                logging.info("Collecting market data...")
                 market_data = self.data_collector.collect_data()
-                self.log_time("Data collection", start_time)
+                self.log_time("Market data collection", market_data_start)
 
                 if not market_data:
                     print("Failed to collect market data. Skipping this cycle.")
+                    logging.info("Failed to collect market data. Skipping this cycle.")
                     return
 
-                start_time = time.time()
+                # Process features
+                feature_processing_start = time.time()
                 print("Processing features...")
+                logging.info("Processing features...")
                 all_features = self.feature_processor.process(market_data)
-                self.log_time("Feature processing", start_time)
+                self.log_time("Feature processing", feature_processing_start)
 
                 if not all_features:
                     print("Failed to process features. Skipping this cycle.")
+                    logging.info("Failed to process features. Skipping this cycle.")
                     return
 
-                # Get the current price right before executing the prediction
+                # Get current price
+                price_check_start = time.time()
                 print("Getting current price before executing the prediction...")
-                current_price = self.trader.get_current_price()  # Get the current price from the Trader
-                print(f"Current price now is: {current_price}")
+                logging.info("Getting current price before executing the prediction...")
+                current_price = self.trader.get_current_price()
+                self.log_time("Current price check", price_check_start)
                 if current_price is None:
                     print("Failed to get current price. Skipping this cycle.")
+                    logging.info("Failed to get current price. Skipping this cycle.")
                     return
 
                 # Check if the price change is greater than PREDICT_IN_BANDWIDTH%
                 bandwidth_price_change = self.calculate_band_price_change(all_features)
-                price_is_over_band = self.price_is_over_band(all_features, current_price)
-                print(f"Current Bandwidth Price Change is: {round(bandwidth_price_change, 2)}% ")
-                if  bandwidth_price_change > PREDICT_IN_BANDWIDTH:
-                    print(f"Price change is greater than {PREDICT_IN_BANDWIDTH}%, processing prediction.")
-                    logging.info(f"Price change is greater than {PREDICT_IN_BANDWIDTH}%, processing prediction.")
-
+                if bandwidth_price_change > PREDICT_IN_BANDWIDTH:
+                    prediction_start = time.time()
                     print("Generating prediction...")
+                    logging.info("Generating prediction...")
                     prediction, explanation = self.predictor.get_prediction(all_features, current_price)
-                    self.log_time("Prediction generation", start_time)
-
-                    # Log the explanation from ChatGPT
-                    print(f"Prediction: ///{prediction}///.")
+                    self.log_time("Prediction generation", prediction_start)
                     logging.info(f"Prediction: {prediction}. Explanation: {explanation}")
-
-                    # Proceed with the rest of the logic for making a trading decision
                 else:
-                    if bandwidth_price_change < PREDICT_IN_BANDWIDTH:
-                        print(f"X/Price change is less than {PREDICT_IN_BANDWIDTH}%, skipping prediction and returning 'Hold'/X.")
-                        logging.info("Price change is less than or equal to 95%, skipping prediction and returning 'Hold'.")
-                        prediction = "Hold"
-                    else:
-                        print(f"X/current price is below lower band, skipping prediction and returning 'Hold'/X.")
-                        logging.info("current price is below lower band, skipping prediction and returning 'Hold'.")
-                        prediction = "Hold"
+                    prediction = "Hold"
+                    print(f"Bandwidth price change is less than {PREDICT_IN_BANDWIDTH}%. Prediction: Hold")
+                    logging.info(f"Bandwidth price change is less than {PREDICT_IN_BANDWIDTH}%. Prediction: Hold")
 
-
-                # update the current price right before executing the trading
-                print("Updating current price before executing the trade...")
-                current_price = self.trader.get_current_price()  # Get the current price from the Trader
-                print(f"Current price now is: {current_price}")
-                if current_price is None:
-                    print("Failed to get current price. Skipping this cycle.")
-                    return
-
-                # Convert USDT amount to cryptocurrency amount
+                # Make a decision
+                trade_decision_start = time.time()
                 crypto_amount = self.convert_usdt_to_crypto(current_price, USDT_AMOUNT)
-                print(f"Converted {USDT_AMOUNT} USDT to {crypto_amount} {COIN}")
-                logging.info(f"Converted {USDT_AMOUNT} USDT to {crypto_amount} {COIN}")
-
-                # Make the decision and get dynamic stop_loss and take_profit
-                final_decision, adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit = self.decision_maker.make_decision(
+                final_decision, adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit = self.decision_maker.make_decision(
                     prediction, current_price, None, all_features)
+                self.log_time("Trade decision making", trade_decision_start)
 
-                # Log and print dynamic stop_loss and take_profit
-                print(f"Dynamic Stop Loss Lower: {round(adjusted_stop_loss_lower, 1)}, Dynamic Stop Loss Middle: {round(adjusted_stop_loss_middle, 1)}, Dynamic Take Profit: {round(adjusted_take_profit, 5)}")
-                logging.info(f"Dynamic Stop Loss Lower: {round(adjusted_stop_loss_lower, 1)}, Dynamic Stop Loss Middle: {round(adjusted_stop_loss_middle, 1)}, Dynamic Take Profit: {round(adjusted_take_profit, 5)}")
-
-                if prediction == "Buy" and final_decision == "Hold":
-                    self.notifier.send_notification("Decision Maker", "Decision Maker hold the Buy Prediction")
-                    prediction = final_decision
-
+                # Handle Buy and Sell decisions
                 if final_decision == "Buy":
-                    # Execute buy trade and save position
-                    start_time = time.time()
+                    trade_execution_start = time.time()
+                    print("Executing Buy trade...")
+                    logging.info("Executing Buy trade...")
                     trade_status, order_details = self.trader.execute_trade(final_decision, crypto_amount)
-                    self.log_time("Trade execution (Buy)", start_time)
+                    self.log_time("Trade execution (Buy)", trade_execution_start)
 
                     if trade_status == "Success":
                         position_id = str(int(time.time()))
                         self.position_manager.add_position(position_id, current_price, crypto_amount)
-                        print(f"New position added: {position_id}, Entry Price: {current_price}, Amount: {crypto_amount}")
-                        self.notifier.send_notification("Trade Executed", f"Bought {crypto_amount} {COIN} at ${current_price}")
+                        print(
+                            f"New position added: {position_id}, Entry Price: {current_price}, Amount: {crypto_amount}")
+                        logging.info(
+                            f"New position added: {position_id}, Entry Price: {current_price}, Amount: {crypto_amount}")
+                        self.notifier.send_notification("Trade Executed",
+                                                        f"Bought {crypto_amount} {COIN} at ${current_price}")
                     else:
                         error_message = f"Failed to execute Buy order: {order_details}"
                         self.save_error_to_csv(error_message)
-                        self.notifier.send_notification("Trade Error", error_message)
+                        logging.error(f"Failed to execute Buy order: {order_details}")
 
-                elif prediction in ["Hold", "Sell"]:
-                    # Iterate over a copy of the positions to avoid the runtime error
-                    positions_copy = list(self.position_manager.get_positions().items())
-                    for position_id, position in positions_copy:
-                        entry_price = position['entry_price']
-                        amount = position['amount']
-
-                        start_time = time.time()
-                        final_decision, adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit = self.decision_maker.make_decision(
-                            prediction, current_price, entry_price, all_features)
-                        gain_loose = round(self.calculate_gain_loose(entry_price, current_price), 2)
-
-                        if final_decision == "Sell":
-                            self.log_time("Decision making (Sell)", start_time)
-                            start_time = time.time()
-                            print(f"Executing trade: {final_decision}")
-                            trade_status, order_details = self.trader.execute_trade(final_decision, amount)
-                            self.log_time("Trade execution (Sell)", start_time)
-
-                            if trade_status == "Success":
-                                profit_usdt = self.calculate_profit(trade_quantity=amount, sold_price=current_price,
-                                                                    entry_price=entry_price)
-                                self.position_manager.remove_position(position_id)
-                                print(f"Position sold: {position_id}, Sell Price: {current_price}, Amount: {amount}")
-                                self.notifier.send_notification("Trade Executed", f"Sold {amount} {COIN} at ${current_price}")
-                                print(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
-                                logging.info(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
-                                # Log the sold position to the trading log CSV
-                                self.log_sold_position(position_id, entry_price, current_price, profit_usdt, gain_loose)
-                            else:
-                                error_message = f"Failed to execute Sell order: {order_details}"
-                                self.save_error_to_csv(error_message)
-                                self.notifier.send_notification("Trade Error", error_message)
-                        else:
-                            print("Decision Maker suggested to Hold. No trade action taken.")
-                            print(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
-                            logging.info("Decision Maker suggested to Hold. No trade action taken.")
-                            logging.info(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
-
-                if CHECK_POSITIONS_ON_BUY and prediction == "Buy":
-                    prediction = "Hold"
-                    # Iterate over a copy of the positions to avoid the runtime error
-                    positions_copy = list(self.position_manager.get_positions().items())
-                    for position_id, position in positions_copy:
-                        entry_price = position['entry_price']
-                        amount = position['amount']
-
-                        start_time = time.time()
-                        final_decision, adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit = self.decision_maker.make_decision(
-                            prediction, current_price, entry_price, all_features)
-                        gain_loose = round(self.calculate_gain_loose(entry_price, current_price), 2)
-
-                        if final_decision == "Sell":
-                            self.log_time("Decision making (Sell)", start_time)
-                            start_time = time.time()
-                            print(f"Executing trade: {final_decision}")
-                            trade_status, order_details = self.trader.execute_trade(final_decision, amount)
-                            self.log_time("Trade execution (Sell)", start_time)
-
-                            if trade_status == "Success":
-                                profit_usdt = self.calculate_profit(trade_quantity=amount, sold_price=current_price,
-                                                                    entry_price=entry_price)
-                                self.position_manager.remove_position(position_id)
-                                print(f"Position sold: {position_id}, Sell Price: {current_price}, Amount: {amount}")
-                                self.notifier.send_notification("Trade Executed", f"Sold {amount} {COIN} at ${current_price}")
-                                print(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
-                                logging.info(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
-                                # Log the sold position to the trading log CSV
-                                self.log_sold_position(position_id, entry_price, current_price, profit_usdt, gain_loose)
-                            else:
-                                error_message = f"Failed to execute Sell order: {order_details}"
-                                self.save_error_to_csv(error_message)
-                                self.notifier.send_notification("Trade Error", error_message)
-                        else:
-                            print("Decision Maker suggested to Hold. No trade action taken.")
-                            print(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
-                            logging.info("Decision Maker suggested to Hold. No trade action taken.")
-                            logging.info(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
-
-                else:  # This case is for "Hold"
-                    print("Decision Maker suggested to Hold. No trade action taken.")
-                    # Optional: Log or notify the hold prediction
-                    # self.notifier.send_notification("Hold Decision", "No trade executed. The Predictor advised to hold.")
-
+                # Handle other conditions for "Hold" and "Sell"
+                self.log_time("Prediction cycle", start_time)
                 break
 
             except Exception as e:
                 attempt += 1
-                error_message = str(e)
-                logging.error(f"An error occurred during the run (Attempt {attempt}): {error_message}")
-                self.save_error_to_csv(error_message)
-                # Skip notification if the error is "TypeError: unsupported format string passed to NoneType.__format__"
-                if "unsupported format string passed to NoneType.__format__" not in error_message:
-                    self.notifier.send_notification("Bot Error",
-                                                    f"An error occurred: {error_message}. Attempt {attempt} of 3.")
-
-                print(f"An error occurred. Restarting cycle in 5 seconds... (Attempt {attempt} of 3)")
+                logging.error(f"An error occurred during the run (Attempt {attempt}): {str(e)}")
+                self.save_error_to_csv(str(e))
                 time.sleep(5)
-
                 if attempt >= 3:
-                    self.notifier.send_notification("Bot Stopped", "The bot encountered repeated errors and is stopping.")
+                    self.notifier.send_notification("Bot Stopped",
+                                                    "The bot encountered repeated errors and is stopping.")
                     print("Bot has stopped due to repeated errors.")
                     raise
 
-
     def start(self):
         try:
-            # Run immediately
-            self.run()
+            # Schedule the position check every POSITION_CYCLE seconds
+            schedule.every(POSITION_CYCLE).seconds.do(self.check_positions)
 
-            # Schedule the bot to run at the specified interval
-            schedule.every(BOT_CYCLE).seconds.do(self.run)
+            # Schedule the prediction cycle every PREDICTION_CYCLE seconds
+            schedule.every(PREDICTION_CYCLE).seconds.do(self.run_prediction_cycle)
 
+            # Continuously run the scheduled tasks
             while True:
                 schedule.run_pending()
                 time.sleep(1)
+
         except Exception as e:
             logging.error(f"Bot encountered a critical error and is stopping: {e}")
             self.save_error_to_csv(str(e))
