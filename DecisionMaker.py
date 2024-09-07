@@ -1,12 +1,13 @@
 class DecisionMaker:
     def __init__(self, base_risk_tolerance=0.02, base_stop_loss=0.0005, base_take_profit=None,
-                 volatility_threshold=0.01, profit_interval=None, loose_interval=None):
+                 volatility_threshold=0.01, profit_interval=None, loose_interval=None, dip_interval=None):
         self.base_risk_tolerance = base_risk_tolerance
         self.base_stop_loss = base_stop_loss
         self.base_take_profit = base_take_profit
         self.volatility_threshold = volatility_threshold
         self.profit_interval = profit_interval
         self.loose_interval = loose_interval
+        self.dip_interval = dip_interval
 
     def calculate_adjusted_take_profit(self, entry_price, upper_band_profit, lower_band_profit):
         """
@@ -18,13 +19,13 @@ class DecisionMaker:
         """
         if upper_band_profit and lower_band_profit and entry_price:
             # Calculate the bandwidth
-            band_width_15m = upper_band_profit - lower_band_profit
+            band_width = upper_band_profit - lower_band_profit
 
-            if band_width_15m == 0:
+            if band_width == 0:
                 return self.base_take_profit  # Avoid division by zero
 
             # Calculate the price change ratio using entry price
-            price_change_ratio = ((upper_band_profit - entry_price) / band_width_15m)
+            price_change_ratio = ((upper_band_profit - entry_price) / band_width)
 
             # Calculate the adjusted take profit
             adjusted_take_profit = self.base_take_profit * (1 + price_change_ratio)
@@ -60,15 +61,20 @@ class DecisionMaker:
         if prediction == "Buy":
             if self.is_market_stable(all_features):
                 return "Buy", adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit
+            if self.is_there_dip(all_features):
+                return "Buy_Dip"
             else:
                 return "Hold", adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit
+
         elif prediction == "Hold" and entry_price:
             if self.should_sell(current_price, entry_price, adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit):
                 return "Sell", adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit
             else:
                 return "Hold", adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit
+
         elif prediction == "Sell" and entry_price:
             return "Sell", adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit
+
         else:
             return "Hold", adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit
 
@@ -108,6 +114,16 @@ class DecisionMaker:
             return True
 
         return False
+
+    def is_there_dip(self, all_features):
+
+        interval_lower_band = all_features[self.dip_interval].get('lower_band', None)
+        interval_close_price = all_features[self.dip_interval].get('close', None)
+
+        if interval_close_price < interval_lower_band:
+            return True
+        return False
+
 
     def should_sell(self, current_price, entry_price, adjusted_stop_loss_lower, adjusted_stop_loss_middle,
                     adjusted_take_profit):

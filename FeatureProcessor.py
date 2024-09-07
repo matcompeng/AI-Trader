@@ -2,16 +2,19 @@ import os
 import pandas as pd
 import talib
 from datetime import datetime, timedelta
-
 from DataCollector import DataCollector
+import json
 
 
 class FeatureProcessor:
-    def __init__(self, data_directory='data', intervals=None):
+    def __init__(self, data_directory='data', intervals=None, trading_interval=None, dip_interval=None, dip_flag=None):
         self.data_directory = data_directory
         if not os.path.exists(self.data_directory):
             os.makedirs(self.data_directory)
         self.intervals = intervals if intervals is not None else []
+        self.dip_interval = dip_interval
+        self.trading_interval = trading_interval
+        self.dip_flag = dip_flag
 
     def process(self, data):
         try:
@@ -176,6 +179,20 @@ class FeatureProcessor:
             print(f"Features saved to {file_path}")
         except Exception as e:
             print(f"Error saving to CSV: {e}")
+
+
+
+    def get_trading_historical_data(self):
+        """
+        Load historical context data from the JSON file.
+        """
+        historical_file = os.path.join(self.data_directory, f'{self.trading_interval}_trading_historical_context.json')
+
+        if os.path.exists(historical_file):
+            with open(historical_file, 'r') as file:
+                historical_data = json.load(file)
+            return historical_data
+        return []
 
 
 # Example usage:

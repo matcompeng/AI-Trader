@@ -1,11 +1,13 @@
 import json
 import os
 import time
+from xml.sax.handler import all_features
+
 import schedule
 import logging
 import traceback
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from DataCollector import DataCollector
 from FeatureProcessor import FeatureProcessor
 from ChatGPTClient import ChatGPTClient
@@ -16,19 +18,21 @@ from Notifier import Notifier
 import csv
 
 # Bot Configurations ------------------------------------------------------------------------------
-TRADING_INTERVALS = ['1m', '5m', '15m', '30m', '1h', '1d']
+FEATURES_INTERVALS = ['1m', '5m', '15m', '30m', '1h', '1d']
 COIN = 'BNB'                    # Select Cryptocurrency
 TRADING_PAIR = 'BNBUSDT'        # Select Cryptocurrency Trading Pair
+TRADING_INTERVAL = '1h'         # Select The Interval That Activate/Deactivate Predictor through PREDICT_IN_BANDWIDTH
 PROFIT_INTERVAL = '1h'          # Select The Interval For Take Profit Calculations
 LOOSE_INTERVAL = '1h'           # Select The Interval For Stop Loose Calculations
-PREDICTOR_INTERVAL = '1h'       # Select The Interval That Activate/Deactivate Predictor through PREDICT_IN_BANDWIDTH
 SR_INTERVAL = '1h'              # Select The Interval That Trader Define Support and Resistance Levels
+DIP_INTERVAL = '1h'             # Select The Interval For Buying a Dip
 CHECK_POSITIONS_ON_BUY = True   # Set True If You Need Bot Manager Check The Positions During Buy Cycle
-POSITION_CYCLE = 15            # Time in seconds to check positions
-PREDICTION_CYCLE = 3 * 60      # Time in seconds to run the full bot cycle              # Time in seconds between each run of the Bot Cycle in seconds
+POSITION_CYCLE = 15             # Time in seconds to check positions
+PREDICTION_CYCLE = 3 * 60       # Time in seconds to run the Prediction bot cycle
 PREDICT_IN_BANDWIDTH = 2        # Define Minimum Bandwidth Percentage to Activate Trading
 BASE_TAKE_PROFIT = 0.20         # Define Base Take Profit Percentage %
-USDT_AMOUNT = 10                # Amount of Currency to trade for each Position
+USDT_TRADING_AMOUNT = 10        # Amount of Currency to trade for each Position
+USDT_DIP_AMOUNT = 5             # Amount of Currency For Buying a Dip
 # -------------------------------------------------------------------------------------------------
 
 # Create the data directory if it doesn't exist
@@ -56,11 +60,12 @@ class PositionManager:
         with open(self.positions_file, 'w') as file:
             json.dump(self.positions, file, indent=4)
 
-    def add_position(self, position_id, entry_price, amount):
+    def add_position(self, position_id, entry_price, amount, dip_flag):
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Add timestamp
         self.positions[position_id] = {
             'entry_price': entry_price,
             'amount': amount,
+            'dip': dip_flag,
             'timestamp': timestamp  # Save the timestamp
         }
         self.save_positions()
@@ -80,11 +85,11 @@ class BotManager:
         api_key = 'your_binance_api_key'
         api_secret = 'your_binance_api_secret'
 
-        self.data_collector = DataCollector(api_key, api_secret, intervals=TRADING_INTERVALS, symbol=TRADING_PAIR)
-        self.feature_processor = FeatureProcessor(intervals=TRADING_INTERVALS)
+        self.data_collector = DataCollector(api_key, api_secret, intervals=FEATURES_INTERVALS, symbol=TRADING_PAIR)
+        self.feature_processor = FeatureProcessor(intervals=FEATURES_INTERVALS, trading_interval=TRADING_INTERVAL, dip_interval=DIP_INTERVAL)
         self.chatgpt_client = ChatGPTClient()
         self.predictor = Predictor(self.chatgpt_client, coin=COIN, sr_interval=SR_INTERVAL)
-        self.decision_maker = DecisionMaker(base_take_profit=BASE_TAKE_PROFIT, profit_interval=PROFIT_INTERVAL, loose_interval=LOOSE_INTERVAL)
+        self.decision_maker = DecisionMaker(base_take_profit=BASE_TAKE_PROFIT, profit_interval=PROFIT_INTERVAL, loose_interval=LOOSE_INTERVAL, dip_interval=DIP_INTERVAL)
         self.trader = Trader(symbol=TRADING_PAIR)  # Initialize the Trader class
         self.notifier = Notifier()
         self.position_manager = PositionManager()
@@ -135,8 +140,8 @@ class BotManager:
         """
         Calculate the percentage price change between the upper and lower Bollinger Bands of the PREDICTOR_INTERVAL interval.
         """
-        upper_band_15m = all_features[PREDICTOR_INTERVAL].get('upper_band')
-        lower_band_15m = all_features[PREDICTOR_INTERVAL].get('lower_band')
+        upper_band_15m = all_features[TRADING_INTERVAL].get('upper_band')
+        lower_band_15m = all_features[TRADING_INTERVAL].get('lower_band')
 
         if upper_band_15m and lower_band_15m:
             price_change_15m = ((upper_band_15m - lower_band_15m) / lower_band_15m) * 100
@@ -144,7 +149,7 @@ class BotManager:
 
     def price_is_over_band(self, all_features, current_price):
 
-        lower_band_15m = all_features[PREDICTOR_INTERVAL].get('lower_band')
+        lower_band_15m = all_features[TRADING_INTERVAL].get('lower_band')
         if current_price >= lower_band_15m:
             return True
 
@@ -245,6 +250,7 @@ class BotManager:
             for position_id, position in positions_copy:
                 entry_price = position['entry_price']
                 amount = position['amount']
+                dip_flag = position['dip']
 
                 if not all_features:
                     print("Failed to process features for position check.")
@@ -255,7 +261,7 @@ class BotManager:
                     "Hold", current_price, entry_price, all_features)
                 gain_loose = round(self.calculate_gain_loose(entry_price, current_price), 2)
 
-                if final_decision == "Sell":
+                if final_decision == "Sell" and dip_flag == 0:
                     print(f"Selling position {position_id}")
                     logging.info(f"Selling position {position_id}")
                     trade_status, order_details = self.trader.execute_trade(final_decision, amount)
@@ -286,6 +292,101 @@ class BotManager:
             logging.error(f"An error occurred during position check: {str(e)}")
             self.save_error_to_csv(str(e))
 
+    def save_historical_context_for_trading(self):
+        """
+        Saves historical context of the processed features for a specific interval,
+        while ensuring that only the latest 1 day of data is stored. Data older than
+        1 day will be cleared.
+        """
+        try:
+            historical_file = os.path.join(data_directory, f'{TRADING_INTERVAL}_trading_historical_context.json')
+
+            # Collect market data and process features
+            market_data = self.data_collector.collect_data()
+            features = self.feature_processor.process(market_data)
+            trading_feature = features[TRADING_INTERVAL]
+
+            # Load existing data if the file already exists
+            if os.path.exists(historical_file):
+                with open(historical_file, 'r') as file:
+                    historical_data = json.load(file)
+            else:
+                historical_data = []
+
+            # Get the current timestamp and store it as a string
+            current_time = datetime.now()
+            timestamp = current_time.strftime('%Y-%m-%d %H:%M:%S')
+            trading_feature['timestamp'] = timestamp
+
+            # Append the current feature data
+            historical_data.append(trading_feature)
+
+            # Filter the data to only keep entries from the last 24 hours
+            one_day_ago = current_time - timedelta(days=1)
+            historical_data = [
+                entry for entry in historical_data
+                if datetime.strptime(entry['timestamp'], '%Y-%m-%d %H:%M:%S') > one_day_ago
+            ]
+
+            # Save the updated historical data back to the JSON file
+            with open(historical_file, 'w') as file:
+                json.dump(historical_data, file, indent=4)
+
+            print(f"Historical context for interval '{TRADING_INTERVAL}' saved successfully.")
+        except Exception as e:
+            print(f"Error saving historical context for interval '{TRADING_INTERVAL}': {e}")
+
+    def check_dip_flag(self):
+        positions_copy = list(self.position_manager.get_positions().items())
+        for position_id, position in positions_copy:
+            dip_flag = position['dip']
+            if dip_flag == 1:
+                return True
+            return False
+
+    def save_historical_context_for_dip(self):
+        """
+        Saves historical context of the processed features for the specified interval based on the dip_flag.
+        If dip_flag is 1, it appends the historical data.
+        If dip_flag is 0, it clears the historical data file and starts fresh.
+
+        :param features: Processed features (technical indicators) for the given interval.
+        """
+        try:
+            market_data = self.data_collector.collect_data()
+            features = self.feature_processor.process(market_data)
+
+            # Prepare the historical file path based on the interval
+            historical_file = os.path.join(data_directory, f'{DIP_INTERVAL}_dip_historical_context.json')
+
+            # Clear the historical file if dip_flag is 0
+            if not self.check_dip_flag():
+                historical_data = []  # Reset the historical data
+                print(f"Historical data cleared for interval '{DIP_INTERVAL}' as dip_flag is 0.")
+            else:
+                # Load existing data if the file already exists (append mode)
+                if os.path.exists(historical_file):
+                    with open(historical_file, 'r') as file:
+                        historical_data = json.load(file)
+                else:
+                    historical_data = []
+
+            # Append the current feature data along with the timestamp
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            features['timestamp'] = timestamp
+            historical_data.append(features)
+
+            # Save the updated historical data back to the JSON file
+            with open(historical_file, 'w') as file:
+                json.dump(historical_data, file, indent=4)
+
+            print(
+                f"Historical context for interval '{DIP_INTERVAL}' saved successfully.")
+
+
+        except Exception as e:
+            print(f"Error saving historical context for interval '{DIP_INTERVAL}': {e}")
+
     def run_prediction_cycle(self):
         attempt = 0
         while attempt < 3:
@@ -314,6 +415,7 @@ class BotManager:
                 print("Processing features...")
                 logging.info("Processing features...")
                 all_features = self.feature_processor.process(market_data)
+                historical_data = self.feature_processor.get_trading_historical_data()
                 self.log_time("Feature processing", feature_processing_start)
 
                 if not all_features:
@@ -338,7 +440,7 @@ class BotManager:
                     prediction_start = time.time()
                     print("Generating prediction...")
                     logging.info("Generating prediction...")
-                    prediction, explanation = self.predictor.get_prediction(all_features, current_price)
+                    prediction, explanation = self.predictor.get_prediction(all_features, current_price, historical_data)
                     self.log_time("Prediction generation", prediction_start)
                     print(f"Predictor Recommends To  ///{prediction}///")
                     logging.info(f"Prediction: {prediction}. Explanation: {explanation}")
@@ -349,7 +451,8 @@ class BotManager:
 
                 # Make a decision
                 trade_decision_start = time.time()
-                crypto_amount = self.convert_usdt_to_crypto(current_price, USDT_AMOUNT)
+                trading_cryptocurrency_amount = self.convert_usdt_to_crypto(current_price, USDT_TRADING_AMOUNT)
+                dip_cryptocurrency_amount = self.convert_usdt_to_crypto(current_price, USDT_DIP_AMOUNT)
                 final_decision, adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit = self.decision_maker.make_decision(
                     prediction, current_price, None, all_features)
                 self.log_time("Trade decision making", trade_decision_start)
@@ -359,18 +462,40 @@ class BotManager:
                     trade_execution_start = time.time()
                     print("Executing Buy trade...")
                     logging.info("Executing Buy trade...")
-                    trade_status, order_details = self.trader.execute_trade(final_decision, crypto_amount)
+                    trade_status, order_details = self.trader.execute_trade(final_decision, trading_cryptocurrency_amount)
                     self.log_time("Trade execution (Buy)", trade_execution_start)
 
                     if trade_status == "Success":
                         position_id = str(int(time.time()))
-                        self.position_manager.add_position(position_id, current_price, crypto_amount)
+                        self.position_manager.add_position(position_id, current_price, trading_cryptocurrency_amount, dip_flag=0)
                         print(
-                            f"New position added: {position_id}, Entry Price: {current_price}, Amount: {crypto_amount}")
+                            f"New position added: {position_id}, Entry Price: {current_price}, Amount: {trading_cryptocurrency_amount}")
                         logging.info(
-                            f"New position added: {position_id}, Entry Price: {current_price}, Amount: {crypto_amount}")
+                            f"New position added: {position_id}, Entry Price: {current_price}, Amount: {trading_cryptocurrency_amount}")
                         self.notifier.send_notification("Trade Executed",
-                                                        f"Bought {crypto_amount} {COIN} at ${current_price}\n"
+                                                        f"Bought {trading_cryptocurrency_amount} {COIN} at ${current_price}\n"
+                                                        f"Total Invested: {round(self.invested_budget())} USDT")
+                    else:
+                        error_message = f"Failed to execute Buy order: {order_details}"
+                        self.save_error_to_csv(error_message)
+                        logging.error(f"Failed to execute Buy order: {order_details}")
+
+                elif final_decision == "Buy_Dip":
+                    trade_execution_start = time.time()
+                    print("Executing Buying a Dip...")
+                    logging.info("Executing Buying a Dip...")
+                    trade_status, order_details = self.trader.execute_trade(final_decision, dip_cryptocurrency_amount)
+                    self.log_time("Trade execution (Buy) For Dip", trade_execution_start)
+
+                    if trade_status == "Success":
+                        position_id = str(int(time.time()))
+                        self.position_manager.add_position(position_id, current_price, dip_cryptocurrency_amount, dip_flag=1)
+                        print(
+                            f"New position added: {position_id}, Entry Price: {current_price}, Amount: {dip_cryptocurrency_amount}")
+                        logging.info(
+                            f"New position added: {position_id}, Entry Price: {current_price}, Amount: {dip_cryptocurrency_amount}")
+                        self.notifier.send_notification("Dip Trade Executed",
+                                                        f"Bought {dip_cryptocurrency_amount} {COIN} at ${current_price}\n"
                                                         f"Total Invested: {round(self.invested_budget())} USDT")
                     else:
                         error_message = f"Failed to execute Buy order: {order_details}"
@@ -403,6 +528,7 @@ class BotManager:
     def start(self):
         try:
             # For testing purposes
+            # self.save_historical_context_for_trading()
             # self.run_prediction_cycle()
 
             # Schedule the position check every POSITION_CYCLE seconds
@@ -410,6 +536,10 @@ class BotManager:
 
             # Schedule the prediction cycle every PREDICTION_CYCLE seconds
             schedule.every(PREDICTION_CYCLE).seconds.do(self.run_prediction_cycle)
+
+            schedule.every().hour.at(":59").do(self.save_historical_context_for_trading)
+
+            schedule.every().hour.at(":59").do(self.save_historical_context_for_dip)
 
             # Continuously run the scheduled tasks
             while True:

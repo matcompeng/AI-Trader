@@ -1,3 +1,4 @@
+import json
 import os
 import pandas as pd
 from datetime import datetime
@@ -21,9 +22,11 @@ class Predictor:
         if not os.path.exists(self.data_directory):
             os.makedirs(self.data_directory)
 
-    def format_prompt(self, all_features, current_price):
-        prompt = "Here is the current market data across different intervals:\n\n"
+    def format_prompt(self, all_features, current_price, historical_data):
 
+        prompt = "Here is the current market data across different intervals:\n"
+
+        # Include the current market data
         for interval, features in all_features.items():
             if features:
                 interval_prompt = (
@@ -59,12 +62,37 @@ class Predictor:
                 )
                 prompt += interval_prompt
 
+        # Include historical data as one line per entry
+        if historical_data:
+            prompt += "Here is the historical context for the most recent day (one line per entry):\n\n"
+            for entry in historical_data:
+                historical_prompt = (
+                    f"{entry['timestamp']}, "
+                    f"{entry['price_change']:.2f}%, "
+                    f"RSI: {entry['RSI']:.2f}, "
+                    f"SMA (7): {entry['SMA_7']:.2f}, "
+                    f"SMA (25): {entry['SMA_25']:.2f}, "
+                    f"MACD Slow: {entry['MACD_slow']:.2f}, "
+                    f"MACD Fast: {entry['MACD_fast']:.2f}, "
+                    f"MACD Signal: {entry['MACD_signal']:.2f}, "
+                    f"Bollinger Bands: {entry['upper_band']:.2f}, {entry['middle_band']:.2f}, {entry['lower_band']:.2f}, "
+                    f"Stoch RSI %K: {entry['stoch_rsi_k']:.2f}, "
+                    f"Stoch RSI %D: {entry['stoch_rsi_d']:.2f}, "
+                    f"ATR: {entry['ATR']:.2f}, "
+                    f"VWAP: {entry['VWAP']:.2f}, "
+                    f"Support: {entry['support_level']:.2f}, "
+                    f"Resistance: {entry['resistance_level']:.2f}, "
+                    f"Last Price: {entry['last_price']:.2f}\n"
+                )
+                prompt += historical_prompt
+
+        # Append final instructions for ChatGPT
         prompt += (
-            "I am looking to trade cryptocurrency in the short and intermediate term within a day.\n"
+            "\n\nI am looking to trade cryptocurrency in the short and intermediate term within a day.\n"
             f"Knowing that the current price is: {current_price} for this cycle.\n"
             f"Favor a 'Buy' decision if the price shows signs of reversal after a dip in interval {self.sr_interval}, especially when there is a strong support level below the current price. A price reversal after a dip suggests a potential upward momentum, making it a more favorable buying opportunity.\n"
             "Always consider technical indicators, ensuring that the market momentum aligns with a buying decision.\n"
-            f"Based on this data from multiple intervals and instructions, please provide a single, clear recommendation (use &Buy& or &Hold& for the final decision) for {self.coin}."
+            f"Based on this data from multiple intervals, historical context and instructions, please provide a single, clear recommendation (use &Buy& or &Hold& for the final decision) for {self.coin}."
         )
 
         return prompt
@@ -88,8 +116,8 @@ class Predictor:
         except Exception as e:
             print(f"Error saving response to CSV: {e}")
 
-    def get_prediction(self, all_features, current_price):
-        prompt = self.format_prompt(all_features, current_price)
+    def get_prediction(self, all_features, current_price, historical_data):
+        prompt = self.format_prompt(all_features, current_price, historical_data)
         self.save_prompt(prompt)
         for attempt in range(self.max_retries):
             try:
