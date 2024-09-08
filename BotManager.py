@@ -1,8 +1,6 @@
 import json
 import os
 import time
-from xml.sax.handler import all_features
-
 import schedule
 import logging
 import traceback
@@ -26,13 +24,14 @@ PROFIT_INTERVAL = '1h'          # Select The Interval For Take Profit Calculatio
 LOOSE_INTERVAL = '1h'           # Select The Interval For Stop Loose Calculations
 SR_INTERVAL = '1h'              # Select The Interval That Trader Define Support and Resistance Levels
 DIP_INTERVAL = '1h'             # Select The Interval For Buying a Dip
-CHECK_POSITIONS_ON_BUY = True   # Set True If You Need Bot Manager Check The Positions During Buy Cycle
 POSITION_CYCLE = 15             # Time in seconds to check positions
 PREDICTION_CYCLE = 3 * 60       # Time in seconds to run the Prediction bot cycle
 PREDICT_IN_BANDWIDTH = 2        # Define Minimum Bandwidth Percentage to Activate Trading
 BASE_TAKE_PROFIT = 0.20         # Define Base Take Profit Percentage %
+BASE_STOP_LOSS = 0.10           # Define Base Stop Loose  Percentage %
 USDT_TRADING_AMOUNT = 10        # Amount of Currency to trade for each Position
 USDT_DIP_AMOUNT = 5             # Amount of Currency For Buying a Dip
+CHECK_POSITIONS_ON_BUY = True   # Set True If You Need Bot Manager Check The Positions During Buy Cycle
 # -------------------------------------------------------------------------------------------------
 
 # Create the data directory if it doesn't exist
@@ -89,7 +88,7 @@ class BotManager:
         self.feature_processor = FeatureProcessor(intervals=FEATURES_INTERVALS, trading_interval=TRADING_INTERVAL, dip_interval=DIP_INTERVAL)
         self.chatgpt_client = ChatGPTClient()
         self.predictor = Predictor(self.chatgpt_client, coin=COIN, sr_interval=SR_INTERVAL)
-        self.decision_maker = DecisionMaker(base_take_profit=BASE_TAKE_PROFIT, profit_interval=PROFIT_INTERVAL, loose_interval=LOOSE_INTERVAL, dip_interval=DIP_INTERVAL)
+        self.decision_maker = DecisionMaker(base_take_profit=BASE_TAKE_PROFIT, base_stop_loss=BASE_STOP_LOSS, profit_interval=PROFIT_INTERVAL, loose_interval=LOOSE_INTERVAL, dip_interval=DIP_INTERVAL)
         self.trader = Trader(symbol=TRADING_PAIR)  # Initialize the Trader class
         self.notifier = Notifier()
         self.position_manager = PositionManager()

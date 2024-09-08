@@ -1,5 +1,5 @@
 class DecisionMaker:
-    def __init__(self, base_risk_tolerance=0.02, base_stop_loss=0.0005, base_take_profit=None,
+    def __init__(self, base_risk_tolerance=0.02, base_stop_loss=None, base_take_profit=None,
                  volatility_threshold=0.01, profit_interval=None, loose_interval=None, dip_interval=None):
         self.base_risk_tolerance = base_risk_tolerance
         self.base_stop_loss = base_stop_loss
@@ -36,6 +36,60 @@ class DecisionMaker:
 
         return self.base_take_profit
 
+    def calculate_adjusted_stop_middle(self, entry_price, upper_band_loss, middle_band_loss):
+        """
+        Calculate adjusted take profit based on the price change within the Bollinger Bands.
+        :param entry_price: The entry price of the position.
+        :param upper_band_loss: The upper Bollinger Band for the 15m interval.
+        :param middle_band_loss: The lower Bollinger Band for the 15m interval.
+        :return: Adjusted take profit.
+        """
+        if upper_band_loss and middle_band_loss and entry_price:
+            # Calculate the bandwidth
+            band_width = upper_band_loss - middle_band_loss
+
+            if band_width == 0:
+                return self.base_stop_loss  # Avoid division by zero
+
+            # Calculate the price change ratio using entry price
+            price_change_ratio = ((entry_price - middle_band_loss) / band_width)
+
+            # Calculate the adjusted take profit
+            adjusted_stop_loss_middle = self.base_stop_loss * (1 + price_change_ratio)
+            if adjusted_stop_loss_middle < self.base_stop_loss:
+                return self.base_stop_loss
+
+            return adjusted_stop_loss_middle
+
+        return self.base_stop_loss
+
+    def calculate_adjusted_stop_lower(self, entry_price, lower_band_loss, middle_band_loss):
+        """
+        Calculate adjusted take profit based on the price change within the Bollinger Bands.
+        :param entry_price: The entry price of the position.
+        :param lower_band_loss: The upper Bollinger Band for the 15m interval.
+        :param middle_band_loss: The lower Bollinger Band for the 15m interval.
+        :return: Adjusted take profit.
+        """
+        if lower_band_loss and middle_band_loss and entry_price:
+            # Calculate the bandwidth
+            band_width = middle_band_loss - lower_band_loss
+
+            if band_width == 0:
+                return self.base_stop_loss  # Avoid division by zero
+
+            # Calculate the price change ratio using entry price
+            price_change_ratio = ((entry_price - lower_band_loss) / band_width)
+
+            # Calculate the adjusted take profit
+            adjusted_stop_loss_lower = self.base_stop_loss * (1 + price_change_ratio)
+            if adjusted_stop_loss_lower < self.base_stop_loss:
+                return self.base_stop_loss
+
+            return adjusted_stop_loss_lower
+
+        return self.base_stop_loss
+
     def make_decision(self, prediction, current_price, entry_price, all_features):
         """
         Make a final trading decision based on the prediction and risk management rules.
@@ -48,14 +102,15 @@ class DecisionMaker:
         # Get the necessary data
         lower_band_profit = all_features[self.profit_interval].get('lower_band', None)
         upper_band_profit = all_features[self.profit_interval].get('upper_band', None)
-        lower_band_loose = all_features[self.loose_interval].get('lower_band', None)
-        middle_band_loose = all_features[self.loose_interval].get('middle_band', None)
+        lower_band_loss = all_features[self.loose_interval].get('lower_band', None)
+        middle_band_loss = all_features[self.loose_interval].get('middle_band', None)
+        upper_band_loss = all_features[self.loose_interval].get('upper_band', None)
 
-        # Adjust stop_loss based on the lower band of 15m interval
-        adjusted_stop_loss_middle = middle_band_loose
-        adjusted_stop_loss_lower = lower_band_loose
+        # Adjust stop_loss based
+        adjusted_stop_loss_middle = self.calculate_adjusted_stop_middle(entry_price, upper_band_loss, middle_band_loss)
+        adjusted_stop_loss_lower = self.calculate_adjusted_stop_lower(entry_price, lower_band_loss, middle_band_loss)
 
-        # Calculate adjusted take profit using entry price and 15m bands
+        # adjust take_profit base
         adjusted_take_profit = self.calculate_adjusted_take_profit(entry_price, upper_band_profit, lower_band_profit)
 
         if prediction == "Buy":
