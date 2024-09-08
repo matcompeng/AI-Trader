@@ -182,11 +182,23 @@ class FeatureProcessor:
 
 
 
-    def get_trading_historical_data(self):
+    def get_stable_historical_data(self):
         """
         Load historical context data from the JSON file.
         """
-        historical_file = os.path.join(self.data_directory, f'{self.trading_interval}_trading_historical_context.json')
+        historical_file = os.path.join(self.data_directory, f'{self.trading_interval}_stable_historical_context.json')
+
+        if os.path.exists(historical_file):
+            with open(historical_file, 'r') as file:
+                historical_data = json.load(file)
+            return historical_data
+        return []
+
+    def get_dip_historical_data(self):
+        """
+        Load historical context data from the JSON file.
+        """
+        historical_file = os.path.join(self.data_directory, f'{self.trading_interval}_dip_historical_context.json')
 
         if os.path.exists(historical_file):
             with open(historical_file, 'r') as file:

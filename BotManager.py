@@ -25,9 +25,9 @@ LOOSE_INTERVAL = '1h'           # Select The Interval For Stop Loose Calculation
 SR_INTERVAL = '1h'              # Select The Interval That Trader Define Support and Resistance Levels
 DIP_INTERVAL = '1h'             # Select The Interval For Buying a Dip
 POSITION_CYCLE = 15             # Time in seconds to check positions
-PREDICTION_CYCLE = 3 * 60       # Time in seconds to run the Prediction bot cycle
+PREDICTION_CYCLE = 5 * 60       # Time in seconds to run the Prediction bot cycle
 PREDICT_IN_BANDWIDTH = 2        # Define Minimum Bandwidth Percentage to Activate Trading
-BASE_TAKE_PROFIT = 0.20         # Define Base Take Profit Percentage %
+BASE_TAKE_PROFIT = 0.25         # Define Base Take Profit Percentage %
 BASE_STOP_LOSS = 0.10           # Define Base Stop Loose  Percentage %
 USDT_TRADING_AMOUNT = 5         # Amount of Currency to trade for each Position
 USDT_DIP_AMOUNT = 5             # Amount of Currency For Buying a Dip
@@ -156,9 +156,10 @@ class BotManager:
         gain_loose = ((current_price - entry_price) / entry_price) * 100
         return gain_loose
 
-    def log_sold_position(self, position_id, entry_price, sold_price, profit_usdt, gain_loose):
+    def log_sold_position(self, position_id, trade_type, entry_price, sold_price, profit_usdt, gain_loose):
         """
         Log the details of a sold position to a CSV file.
+        :param trade_type:
         :param profit_usdt:
         :param position_id: The ID of the position.
         :param entry_price: The entry price of the position.
@@ -171,6 +172,7 @@ class BotManager:
         log_data = {
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             'position_id': position_id,
+            'trade_type': trade_type,
             'entry_price': entry_price,
             'sold_price': sold_price,
             'profit_usdt': profit_usdt,
@@ -180,7 +182,7 @@ class BotManager:
         # Write to CSV file
         file_exists = os.path.isfile(log_file_path)
         with open(log_file_path, 'a', newline='') as csvfile:
-            fieldnames = ['timestamp', 'position_id', 'entry_price', 'sold_price', 'profit_usdt', 'gain_loose']
+            fieldnames = ['timestamp', 'position_id', 'trade_type', 'entry_price', 'sold_price', 'profit_usdt', 'gain_loose']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
             if not file_exists:
@@ -226,13 +228,13 @@ class BotManager:
             print(f"Error calculating invested budget: {e}")
             return 0.0
 
-    def check_positions(self):
+    def check_stable_positions(self):
         try:
             start_time = time.time()
             cycle_start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            print(f"\n*****Position check cycle started at {cycle_start_time}.*****")
+            print(f"\n*****Stable Position check cycle started at {cycle_start_time}.*****")
             logging.info(
-                f"//---------------------Position check cycle started at {cycle_start_time}--------------------//")
+                f"//---------------------Stable Position check cycle started at {cycle_start_time}--------------------//")
 
             # Get features and make a decision on whether to sell
             market_data = self.data_collector.collect_data()
@@ -261,6 +263,7 @@ class BotManager:
                 gain_loose = round(self.calculate_gain_loose(entry_price, current_price), 2)
 
                 if final_decision == "Sell" and dip_flag == 0:
+                    trade_type = 'Stable'
                     print(f"Selling position {position_id}")
                     logging.info(f"Selling position {position_id}")
                     trade_status, order_details = self.trader.execute_trade(final_decision, amount)
@@ -268,7 +271,7 @@ class BotManager:
                         profit_usdt = self.calculate_profit(trade_quantity=amount, sold_price=current_price,
                                                             entry_price=entry_price)
                         self.position_manager.remove_position(position_id)
-                        self.log_sold_position(position_id, entry_price, current_price, profit_usdt, gain_loose)
+                        self.log_sold_position(position_id, trade_type, entry_price, current_price, profit_usdt, gain_loose)
                         print(f"Position {position_id} sold successfully")
                         logging.info(f"Position {position_id} sold successfully")
                         self.notifier.send_notification("Trade Executed", f"Sold {amount} {COIN} at ${current_price}\n"
@@ -279,8 +282,11 @@ class BotManager:
                         self.save_error_to_csv(error_message)
                         self.notifier.send_notification("Trade Error", error_message)
                 else:
-                    print(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
-                    logging.info(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
+                    print(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, ((Gain/Loose: {gain_loose}%))")
+                    logging.info(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, ((Gain/Loose: {gain_loose}%))")
+                    print(f"dynamic_stop_loss_lower: {round(adjusted_stop_loss_lower, 2)}%, dynamic_stop_loss_middle: {round(adjusted_stop_loss_middle, 2)}%, dynamic_take_profit: {round(adjusted_take_profit, 2)}%\n")
+                    logging.info(f"dynamic_stop_loss_lower: {round(adjusted_stop_loss_lower, 2)}%, dynamic_stop_loss_middle: {round(adjusted_stop_loss_middle, 2)}%, dynamic_take_profit: {round(adjusted_take_profit, 2)}\n%")
+
 
             print(f"Total Invested So Far: {round(self.invested_budget())} USDT")
             logging.info(f"Total Invested So far: {round(self.invested_budget())} USDT")
@@ -291,14 +297,14 @@ class BotManager:
             logging.error(f"An error occurred during position check: {str(e)}")
             self.save_error_to_csv(str(e))
 
-    def save_historical_context_for_trading(self):
+    def save_historical_context_for_stable(self):
         """
         Saves historical context of the processed features for a specific interval,
         while ensuring that only the latest 1 day of data is stored. Data older than
         1 day will be cleared.
         """
         try:
-            historical_file = os.path.join(data_directory, f'{TRADING_INTERVAL}_trading_historical_context.json')
+            historical_file = os.path.join(data_directory, f'{TRADING_INTERVAL}_stable_historical_context.json')
 
             # Collect market data and process features
             market_data = self.data_collector.collect_data()
@@ -414,7 +420,7 @@ class BotManager:
                 print("Processing features...")
                 logging.info("Processing features...")
                 all_features = self.feature_processor.process(market_data)
-                historical_data = self.feature_processor.get_trading_historical_data()
+                historical_data = self.feature_processor.get_stable_historical_data()
                 self.log_time("Feature processing", feature_processing_start)
 
                 if not all_features:
@@ -439,7 +445,11 @@ class BotManager:
                     prediction_start = time.time()
                     print("Generating prediction...")
                     logging.info("Generating prediction...")
-                    prediction, explanation = self.predictor.get_prediction(all_features, current_price, historical_data)
+                    prediction, explanation = self.predictor.get_prediction(all_features=all_features,
+                                                                            current_price=current_price,
+                                                                            historical_data=historical_data,
+                                                                            prediction_type='Stable')
+
                     self.log_time("Prediction generation", prediction_start)
                     print(f"Predictor Recommends To  ///{prediction}///")
                     logging.info(f"Prediction: {prediction}. Explanation: {explanation}")
@@ -524,6 +534,89 @@ class BotManager:
                     print("Bot has stopped due to repeated errors.")
                     raise
 
+    def check_dip_positions(self):
+        try:
+            start_time = time.time()
+            cycle_start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            print(f"\n*****Dip Position check cycle started at {cycle_start_time}.*****")
+            logging.info(
+                f"//---------------------Dip Position check cycle started at {cycle_start_time}--------------------//")
+
+            # Loading dip_positions
+            if self.check_dip_flag():
+                positions_copy = [
+                    position for position_key, position in self.position_manager.get_positions().items()
+                    if position.get('dip_flag') == 1]
+
+                #Loading Dip Historical context data
+                historical_data = self.feature_processor.get_dip_historical_data()
+
+                # Get current price
+                price_check_start = time.time()
+                print("Getting current price before executing the prediction...")
+                logging.info("Getting current price before executing the prediction...")
+                current_price = self.trader.get_current_price()
+                self.log_time("Current price check", price_check_start)
+                if current_price is None:
+                    print("Failed to get current price. Skipping this cycle.")
+                    logging.info("Failed to get current price. Skipping this cycle.")
+                    return
+
+                # Generate Dip Prediction
+                prediction_start = time.time()
+                print("Generating prediction...")
+                logging.info("Generating prediction...")
+                prediction, explanation = self.predictor.get_prediction(current_price=current_price,
+                                                                        historical_data=historical_data,
+                                                                        prediction_type='Dip', positions=positions_copy)
+                self.log_time("Prediction generation", prediction_start)
+                print(f"Predictor Recommends To  ///{prediction}///")
+                logging.info(f"Prediction: {prediction}. Explanation: {explanation}")
+
+                # Dip Trade Execution
+
+                for position_id, position in positions_copy:
+                    entry_price = position['entry_price']
+                    amount = position['amount']
+
+                    gain_loose = round(self.calculate_gain_loose(entry_price, current_price), 2)
+
+                    if prediction == 'Sell':
+                        trade_type = 'Dip'
+                        print(f"Selling position {position_id}")
+                        logging.info(f"Selling position {position_id}")
+                        trade_status, order_details = self.trader.execute_trade(prediction, amount)
+                        if trade_status == "Success":
+                            profit_usdt = self.calculate_profit(trade_quantity=amount, sold_price=current_price,
+                                                                entry_price=entry_price)
+                            self.position_manager.remove_position(position_id)
+                            self.log_sold_position(position_id, trade_type, entry_price, current_price, profit_usdt, gain_loose)
+                            print(f"Position {position_id} sold successfully")
+                            logging.info(f"Position {position_id} sold successfully")
+                            self.notifier.send_notification("Trade Executed", f"Sold {amount} {COIN} at ${current_price}\n"
+                                                                              f"Gain/Loose: {gain_loose}%\n"
+                                                                              f"Total Invested: {round(self.invested_budget())} USDT")
+                        else:
+                            error_message = f"Failed to execute Sell order: {order_details}"
+                            self.save_error_to_csv(error_message)
+                            self.notifier.send_notification("Trade Error", error_message)
+
+                    else:
+                        print(
+                            f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
+                        logging.info(
+                            f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
+
+            else:
+                print("No Dip Entry Founds")
+                logging.info("No Dip Entry Founds")
+
+
+        except Exception as e:
+            logging.error(f"An error occurred during position check: {str(e)}")
+            self.save_error_to_csv(str(e))
+
+
     def start(self):
         try:
             # For testing purposes
@@ -531,14 +624,16 @@ class BotManager:
             # self.run_prediction_cycle()
 
             # Schedule the position check every POSITION_CYCLE seconds
-            schedule.every(POSITION_CYCLE).seconds.do(self.check_positions)
+            schedule.every(POSITION_CYCLE).seconds.do(self.check_stable_positions)
 
             # Schedule the prediction cycle every PREDICTION_CYCLE seconds
             schedule.every(PREDICTION_CYCLE).seconds.do(self.run_prediction_cycle)
 
-            schedule.every().hour.at(":59").do(self.save_historical_context_for_trading)
+            schedule.every().hour.at(":59").do(self.save_historical_context_for_stable)
 
             schedule.every().hour.at(":59").do(self.save_historical_context_for_dip)
+
+            schedule.every().hour.do(self.check_dip_positions)
 
             # Continuously run the scheduled tasks
             while True:

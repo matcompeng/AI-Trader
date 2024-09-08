@@ -22,7 +22,7 @@ class Predictor:
         if not os.path.exists(self.data_directory):
             os.makedirs(self.data_directory)
 
-    def format_prompt(self, all_features, current_price, historical_data):
+    def format_stable_prompt(self, all_features, current_price, historical_data):
 
         prompt = "Here is the current market data across different intervals:\n"
 
@@ -97,14 +97,65 @@ class Predictor:
 
         return prompt
 
-    def save_trade_prompt(self, prompt):
+    def format_dip_prompt(self, dip_positions, current_price, historical_data):
+
+        prompt = "Below are the entry positions recorded during the market dip (each entry is presented on a single line):\n\n"
+        # Iterate through the positions and format each entry
+        for position_id, position_data in dip_positions.items():
+            timestamp = position_data['timestamp']
+            entry_price = position_data['entry_price']
+            prompt += f"Timestamp: {timestamp}, Position_id: {position_id},Entry Price: {entry_price}\n"
+
+
+
+        # Include historical data as one line per entry
+        if historical_data:
+            prompt += "Here is the historical context for the most recent 3 days (each entry is presented on a single line):\n\n"
+            for entry in historical_data:
+                historical_prompt = (
+                    f"{entry['timestamp']}, "
+                    f"{entry['price_change']:.2f}%, "
+                    f"RSI: {entry['RSI']:.2f}, "
+                    f"SMA (7): {entry['SMA_7']:.2f}, "
+                    f"SMA (25): {entry['SMA_25']:.2f}, "
+                    f"MACD Slow: {entry['MACD_slow']:.2f}, "
+                    f"MACD Fast: {entry['MACD_fast']:.2f}, "
+                    f"MACD Signal: {entry['MACD_signal']:.2f}, "
+                    f"Bollinger Bands: {entry['upper_band']:.2f}, {entry['middle_band']:.2f}, {entry['lower_band']:.2f}, "
+                    f"Stoch RSI %K: {entry['stoch_rsi_k']:.2f}, "
+                    f"Stoch RSI %D: {entry['stoch_rsi_d']:.2f}, "
+                    f"ATR: {entry['ATR']:.2f}, "
+                    f"VWAP: {entry['VWAP']:.2f}, "
+                    f"Support: {entry['support_level']:.2f}, "
+                    f"Resistance: {entry['resistance_level']:.2f}, "
+                    f"Last Price: {entry['last_price']:.2f}\n"
+                )
+                prompt += historical_prompt
+
+        # Append final instructions for ChatGPT
+        prompt += (
+            f"\nI have provided the entry positions for my already bought trades, the current market price is {current_price}, "
+             "and the historical market data from the past 3 days. Please use the following techniques to analyze the data:\n\n"
+             "1. Volatility-Based Levels (using ATR) to determine suitable stop loss and take profit levels.\n"
+             "2. Fibonacci Retracement Levels to refine and validate the stop loss and take profit levels.\n\n"
+             "Your task is to evaluate the average entry price of all given positions based on the historical data, using the above techniques, "
+             "to decide the appropriate course of action for the entire portfolio:\n"
+             "1. Recommend selling for take profit if the market shows signs of reaching an optimal profit level based on the average entry price.\n"
+             "2. Recommend selling for stop loss if the market shows signs of potential further decline below the average entry price.\n\n"
+             "Please provide a clear recommendation for the entire portfolio (use &Sell_TP& for Take Profit, &Sell_SL& for Stop Loss, or &Hold&), "
+             "including your reasoning based on the technical analysis of the data."
+        )
+
+        return prompt
+
+    def save_stable_prompt(self, prompt):
         try:
-            file_path = os.path.join(self.data_directory, 'latest_trade_prompt.csv')
+            file_path = os.path.join(self.data_directory, 'latest_stable_prompt.csv')
             df = pd.DataFrame([{"prompt": prompt}])
             df.to_csv(file_path, mode='w', header=True, index=False)
             print(f"Prompt saved to {file_path}")
         except Exception as e:
-            print(f"Error saving trade prompt to CSV: {e}")
+            print(f"Error saving stable prompt to CSV: {e}")
 
     def save_dip_prompt(self, prompt):
         try:
@@ -115,15 +166,15 @@ class Predictor:
         except Exception as e:
             print(f"Error saving dip prompt to CSV: {e}")
 
-    def save_trade_response(self, decision, explanation):
+    def save_stable_response(self, decision, explanation):
         try:
-            file_path = os.path.join(self.data_directory, 'trade_predictions.csv')
+            file_path = os.path.join(self.data_directory, 'stable_predictions.csv')
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             df = pd.DataFrame([{"timestamp": timestamp, "prediction": decision, "explanation": explanation}])
             df.to_csv(file_path, mode='a', header=not os.path.exists(file_path), index=False)
-            print(f"Trade Prediction and explanation saved to {file_path}")
+            print(f"Stable Prediction and explanation saved to {file_path}")
         except Exception as e:
-            print(f"Error saving trade response to CSV: {e}")
+            print(f"Error saving stable response to CSV: {e}")
 
     def save_dip_response(self, decision, explanation):
         try:
@@ -135,13 +186,13 @@ class Predictor:
         except Exception as e:
             print(f"Error saving dip response to CSV: {e}")
 
-    def get_prediction(self, all_features, current_price, historical_data, prediction_type):
+    def get_prediction(self, all_features=None, current_price=None, historical_data=None, prediction_type=None ,positions=None):
         prompt = None
-        if prediction_type == 'Trade':
-            prompt = self.format_prompt(all_features, current_price, historical_data)
-            self.save_trade_prompt(prompt)
+        if prediction_type == 'Stable':
+            prompt = self.format_stable_prompt(all_features, current_price, historical_data)
+            self.save_stable_prompt(prompt)
         elif prediction_type == 'Dip':
-            prompt = self.format_prompt(all_features, current_price, historical_data)
+            prompt = self.format_dip_prompt(positions, current_price, historical_data)
             self.save_dip_prompt(prompt)
 
         for attempt in range(self.max_retries):
@@ -152,8 +203,8 @@ class Predictor:
                 decision = self.extract_decision_from_response(response)
                 explanation = response  # Keep the entire response as the explanation
 
-                if decision and prediction_type == 'Trade':
-                    self.save_trade_response(decision, explanation)
+                if decision and prediction_type == 'Stable':
+                    self.save_stable_response(decision, explanation)
                     return decision, explanation
                 elif decision and prediction_type == 'Dip':
                     self.save_dip_response(decision, explanation)
@@ -185,6 +236,10 @@ class Predictor:
         #     return "&Sell&"
         elif "&hold&" in response.lower():
             return "Hold"
+        elif "&Sell_TP&" in response.lower():
+            return "Sell"
+        elif "&Sell_SL&" in response.lower():
+            return "Sell"
         else:
             return None
 

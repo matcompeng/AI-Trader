@@ -44,24 +44,26 @@ class DecisionMaker:
         :param middle_band_loss: The lower Bollinger Band for the 15m interval.
         :return: Adjusted take profit.
         """
-        if upper_band_loss and middle_band_loss and entry_price:
-            # Calculate the bandwidth
-            band_width = upper_band_loss - middle_band_loss
+        if entry_price and upper_band_loss and middle_band_loss:
+            if middle_band_loss < entry_price < upper_band_loss:
+                # Calculate the bandwidth
+                band_width = upper_band_loss - middle_band_loss
 
-            if band_width == 0:
-                return self.base_stop_loss  # Avoid division by zero
+                if band_width == 0:
+                    return -self.base_stop_loss  # Avoid division by zero
 
-            # Calculate the price change ratio using entry price
-            price_change_ratio = ((entry_price - middle_band_loss) / band_width)
+                # Calculate the price change ratio using entry price
+                price_change_ratio = ((entry_price - middle_band_loss) / band_width)
 
-            # Calculate the adjusted take profit
-            adjusted_stop_loss_middle = self.base_stop_loss * (1 + price_change_ratio)
-            if adjusted_stop_loss_middle < self.base_stop_loss:
-                return self.base_stop_loss
+                # Calculate the adjusted take profit
+                adjusted_stop_loss_middle = self.base_stop_loss * (1 + price_change_ratio)
+                if adjusted_stop_loss_middle < self.base_stop_loss:
+                    return -self.base_stop_loss
 
-            return adjusted_stop_loss_middle
+                return -adjusted_stop_loss_middle
 
-        return self.base_stop_loss
+            return 0
+        return 0
 
     def calculate_adjusted_stop_lower(self, entry_price, lower_band_loss, middle_band_loss):
         """
@@ -71,24 +73,26 @@ class DecisionMaker:
         :param middle_band_loss: The lower Bollinger Band for the 15m interval.
         :return: Adjusted take profit.
         """
-        if lower_band_loss and middle_band_loss and entry_price:
-            # Calculate the bandwidth
-            band_width = middle_band_loss - lower_band_loss
+        if lower_band_loss and entry_price and middle_band_loss:
+            if lower_band_loss < entry_price < middle_band_loss:
+                # Calculate the bandwidth
+                band_width = middle_band_loss - lower_band_loss
 
-            if band_width == 0:
-                return self.base_stop_loss  # Avoid division by zero
+                if band_width == 0:
+                    return -self.base_stop_loss  # Avoid division by zero
 
-            # Calculate the price change ratio using entry price
-            price_change_ratio = ((entry_price - lower_band_loss) / band_width)
+                # Calculate the price change ratio using entry price
+                price_change_ratio = ((entry_price - lower_band_loss) / band_width)
 
-            # Calculate the adjusted take profit
-            adjusted_stop_loss_lower = self.base_stop_loss * (1 + price_change_ratio)
-            if adjusted_stop_loss_lower < self.base_stop_loss:
-                return self.base_stop_loss
+                # Calculate the adjusted take profit
+                adjusted_stop_loss_lower = self.base_stop_loss * (1 + price_change_ratio)
+                if adjusted_stop_loss_lower < self.base_stop_loss:
+                    return -self.base_stop_loss
 
-            return adjusted_stop_loss_lower
+                return -adjusted_stop_loss_lower
 
-        return self.base_stop_loss
+            return 0
+        return 0
 
     def make_decision(self, prediction, current_price, entry_price, all_features):
         """
@@ -122,7 +126,7 @@ class DecisionMaker:
                 return "Hold", adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit
 
         elif prediction == "Hold" and entry_price:
-            if self.should_sell(current_price, entry_price, adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit):
+            if self.should_sell(current_price, entry_price, adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit, middle_band_loss, lower_band_loss):
                 return "Sell", adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit
             else:
                 return "Hold", adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit
@@ -181,22 +185,21 @@ class DecisionMaker:
 
 
     def should_sell(self, current_price, entry_price, adjusted_stop_loss_lower, adjusted_stop_loss_middle,
-                    adjusted_take_profit):
+                    adjusted_take_profit, middle_band_loss, lower_band_loss):
         # Calculate the percentage change from the entry price
         price_change = ((current_price - entry_price) / entry_price) * 100
 
         # Check if the price has hit the take-profit threshold
         if price_change >= adjusted_take_profit:
             return True
-
-        # Check stop-loss conditions
-        if entry_price > adjusted_stop_loss_lower:
-            # Sell only if current_price is below adjusted_stop_loss_lower
-            if current_price < adjusted_stop_loss_lower:
-                return True
-        elif entry_price > adjusted_stop_loss_middle:
+        elif entry_price > middle_band_loss:
             # Sell only if current_price is below adjusted_stop_loss_middle
-            if current_price < adjusted_stop_loss_middle:
+            if price_change < adjusted_stop_loss_middle:
+                return True
+        # Check stop-loss conditions
+        elif entry_price > lower_band_loss:
+            # Sell only if current_price is below adjusted_stop_loss_lower
+            if price_change < adjusted_stop_loss_lower:
                 return True
 
         # If none of the above conditions are met, do not sell
