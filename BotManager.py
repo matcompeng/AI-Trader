@@ -29,7 +29,7 @@ PREDICTION_CYCLE = 3 * 60       # Time in seconds to run the Prediction bot cycl
 PREDICT_IN_BANDWIDTH = 2        # Define Minimum Bandwidth Percentage to Activate Trading
 BASE_TAKE_PROFIT = 0.20         # Define Base Take Profit Percentage %
 BASE_STOP_LOSS = 0.10           # Define Base Stop Loose  Percentage %
-USDT_TRADING_AMOUNT = 10        # Amount of Currency to trade for each Position
+USDT_TRADING_AMOUNT = 5         # Amount of Currency to trade for each Position
 USDT_DIP_AMOUNT = 5             # Amount of Currency For Buying a Dip
 CHECK_POSITIONS_ON_BUY = True   # Set True If You Need Bot Manager Check The Positions During Buy Cycle
 # -------------------------------------------------------------------------------------------------
@@ -322,18 +322,18 @@ class BotManager:
 
             # Filter the data to only keep entries from the last 24 hours
             one_day_ago = current_time - timedelta(days=1)
-            historical_data = [
-                entry for entry in historical_data
-                if datetime.strptime(entry['timestamp'], '%Y-%m-%d %H:%M:%S') > one_day_ago
-            ]
+            historical_data = [entry for entry in historical_data
+                               if datetime.strptime(entry['timestamp'], '%Y-%m-%d %H:%M:%S') > one_day_ago]
 
             # Save the updated historical data back to the JSON file
             with open(historical_file, 'w') as file:
                 json.dump(historical_data, file, indent=4)
 
             print(f"Historical context for interval '{TRADING_INTERVAL}' saved successfully.")
+            logging.info(f"Historical context for interval '{TRADING_INTERVAL}' saved successfully.")
         except Exception as e:
             print(f"Error saving historical context for interval '{TRADING_INTERVAL}': {e}")
+            logging.info(f"Error saving historical context for interval '{TRADING_INTERVAL}': {e}")
 
     def check_dip_flag(self):
         positions_copy = list(self.position_manager.get_positions().items())
@@ -345,46 +345,46 @@ class BotManager:
 
     def save_historical_context_for_dip(self):
         """
-        Saves historical context of the processed features for the specified interval based on the dip_flag.
-        If dip_flag is 1, it appends the historical data.
-        If dip_flag is 0, it clears the historical data file and starts fresh.
-
-        :param features: Processed features (technical indicators) for the given interval.
+        Saves historical context of the processed features for the specified interval.
+        Only the latest 3 days of data will be stored. Data older than 3 days will be removed.
         """
         try:
+            # Collect market data and process features
             market_data = self.data_collector.collect_data()
             features = self.feature_processor.process(market_data)
+            dip_feature = features[DIP_INTERVAL]
 
             # Prepare the historical file path based on the interval
             historical_file = os.path.join(data_directory, f'{DIP_INTERVAL}_dip_historical_context.json')
 
-            # Clear the historical file if dip_flag is 0
-            if not self.check_dip_flag():
-                historical_data = []  # Reset the historical data
-                print(f"Historical data cleared for interval '{DIP_INTERVAL}' as dip_flag is 0.")
+            # Load existing data if the file already exists
+            if os.path.exists(historical_file):
+                with open(historical_file, 'r') as file:
+                    historical_data = json.load(file)
             else:
-                # Load existing data if the file already exists (append mode)
-                if os.path.exists(historical_file):
-                    with open(historical_file, 'r') as file:
-                        historical_data = json.load(file)
-                else:
-                    historical_data = []
+                historical_data = []
 
             # Append the current feature data along with the timestamp
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            features['timestamp'] = timestamp
-            historical_data.append(features)
+            current_time = datetime.now()
+            timestamp = current_time.strftime('%Y-%m-%d %H:%M:%S')
+            dip_feature['timestamp'] = timestamp
+            historical_data.append(dip_feature)
+
+            # Filter out data older than 3 days
+            three_days_ago = current_time - timedelta(days=3)
+            historical_data = [entry for entry in historical_data if
+                               datetime.strptime(entry['timestamp'], '%Y-%m-%d %H:%M:%S') > three_days_ago]
 
             # Save the updated historical data back to the JSON file
             with open(historical_file, 'w') as file:
                 json.dump(historical_data, file, indent=4)
 
-            print(
-                f"Historical context for interval '{DIP_INTERVAL}' saved successfully.")
-
-
+            print(f"Historical context for interval '{DIP_INTERVAL}' saved successfully.")
+            logging.info(f"Historical context for interval '{DIP_INTERVAL}' saved successfully.")
         except Exception as e:
             print(f"Error saving historical context for interval '{DIP_INTERVAL}': {e}")
+            logging.info(f"Error saving historical context for interval '{DIP_INTERVAL}': {e}")
+
 
     def run_prediction_cycle(self):
         attempt = 0
