@@ -97,28 +97,53 @@ class Predictor:
 
         return prompt
 
-    def save_prompt(self, prompt):
+    def save_trade_prompt(self, prompt):
         try:
-            file_path = os.path.join(self.data_directory, 'latest_prompt.csv')
+            file_path = os.path.join(self.data_directory, 'latest_trade_prompt.csv')
             df = pd.DataFrame([{"prompt": prompt}])
             df.to_csv(file_path, mode='w', header=True, index=False)
             print(f"Prompt saved to {file_path}")
         except Exception as e:
-            print(f"Error saving prompt to CSV: {e}")
+            print(f"Error saving trade prompt to CSV: {e}")
 
-    def save_response(self, decision, explanation):
+    def save_dip_prompt(self, prompt):
         try:
-            file_path = os.path.join(self.data_directory, 'predictions.csv')
+            file_path = os.path.join(self.data_directory, 'latest_dip_prompt.csv')
+            df = pd.DataFrame([{"prompt": prompt}])
+            df.to_csv(file_path, mode='w', header=True, index=False)
+            print(f"Prompt saved to {file_path}")
+        except Exception as e:
+            print(f"Error saving dip prompt to CSV: {e}")
+
+    def save_trade_response(self, decision, explanation):
+        try:
+            file_path = os.path.join(self.data_directory, 'trade_predictions.csv')
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             df = pd.DataFrame([{"timestamp": timestamp, "prediction": decision, "explanation": explanation}])
             df.to_csv(file_path, mode='a', header=not os.path.exists(file_path), index=False)
-            print(f"Prediction and explanation saved to {file_path}")
+            print(f"Trade Prediction and explanation saved to {file_path}")
         except Exception as e:
-            print(f"Error saving response to CSV: {e}")
+            print(f"Error saving trade response to CSV: {e}")
 
-    def get_prediction(self, all_features, current_price, historical_data):
-        prompt = self.format_prompt(all_features, current_price, historical_data)
-        self.save_prompt(prompt)
+    def save_dip_response(self, decision, explanation):
+        try:
+            file_path = os.path.join(self.data_directory, 'dip_predictions.csv')
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            df = pd.DataFrame([{"timestamp": timestamp, "prediction": decision, "explanation": explanation}])
+            df.to_csv(file_path, mode='a', header=not os.path.exists(file_path), index=False)
+            print(f"Dip Prediction and explanation saved to {file_path}")
+        except Exception as e:
+            print(f"Error saving dip response to CSV: {e}")
+
+    def get_prediction(self, all_features, current_price, historical_data, prediction_type):
+        prompt = None
+        if prediction_type == 'Trade':
+            prompt = self.format_prompt(all_features, current_price, historical_data)
+            self.save_trade_prompt(prompt)
+        elif prediction_type == 'Dip':
+            prompt = self.format_prompt(all_features, current_price, historical_data)
+            self.save_dip_prompt(prompt)
+
         for attempt in range(self.max_retries):
             try:
                 response = self.chatgpt_client.get_prediction(prompt)
@@ -127,8 +152,11 @@ class Predictor:
                 decision = self.extract_decision_from_response(response)
                 explanation = response  # Keep the entire response as the explanation
 
-                if decision:
-                    self.save_response(decision, explanation)
+                if decision and prediction_type == 'Trade':
+                    self.save_trade_response(decision, explanation)
+                    return decision, explanation
+                elif decision and prediction_type == 'Dip':
+                    self.save_dip_response(decision, explanation)
                     return decision, explanation
                 else:
                     raise ValueError("No valid decision found in the response.")
