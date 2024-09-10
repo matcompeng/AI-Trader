@@ -1,13 +1,41 @@
 class DecisionMaker:
-    def __init__(self, base_risk_tolerance=0.02, base_stop_loss=None, base_take_profit=None,
-                 volatility_threshold=0.01, profit_interval=None, loose_interval=None, dip_interval=None):
-        self.base_risk_tolerance = base_risk_tolerance
+    def __init__(self, risk_tolerance=None, base_stop_loss=None, base_take_profit=None, profit_interval=None,
+                 loose_interval=None, dip_interval=None, amount_rsi_interval=None, amount_atr_interval=None):
+        self.risk_tolerance = risk_tolerance
         self.base_stop_loss = base_stop_loss
         self.base_take_profit = base_take_profit
-        self.volatility_threshold = volatility_threshold
         self.profit_interval = profit_interval
         self.loose_interval = loose_interval
         self.dip_interval = dip_interval
+        self.amount_rsi_interval = amount_rsi_interval
+        self.amount_atr_interval = amount_atr_interval
+
+
+    def calculate_buy_amount(self, all_features ,amount_rsi_interval, amount_atr_interval, capital):
+        """
+        Calculate buy amount based on ATR (from 30m or 1h) and RSI (from 5m or 15m).
+
+        :param capital:
+        :param amount_atr_interval:
+        :param amount_rsi_interval:
+        :param all_features: A dictionary of dataframes for different intervals (e.g., '1m', '5m', '15m', '30m', '1h', '1d')
+        :return: Recommended buy amount
+        """
+
+        # Extract data for each interval
+        current_atr = all_features[self.amount_atr_interval].get('ATR', None)
+        current_rsi = all_features[self.amount_atr_interval].get('RSI', None)
+
+        # Example logic to adjust buy amount based on volatility and momentum
+        volatility_factor = 1 / current_atr
+        momentum_factor = 1.2 if current_rsi < 40 else 0.5 if current_rsi > 60 else 1.0
+
+        # Adjust the buy amount based on both volatility and momentum factors
+        adjusted_risk = self.risk_tolerance * volatility_factor * momentum_factor
+        buy_amount = capital * adjusted_risk
+
+        print(f"ATR ({amount_atr_interval}): {current_atr:.2f}, RSI ({amount_rsi_interval}): {current_rsi:.2f}, Buy Amount: {buy_amount:.2f}")
+        return buy_amount
 
     def calculate_adjusted_take_profit(self, entry_price, upper_band_profit, lower_band_profit):
         """

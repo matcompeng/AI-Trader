@@ -29,7 +29,10 @@ PREDICTION_CYCLE = 5 * 60       # Time in seconds to run the Prediction bot cycl
 PREDICT_IN_BANDWIDTH = 2        # Define Minimum Bandwidth Percentage to Activate Trading
 BASE_TAKE_PROFIT = 0.30         # Define Base Take Profit Percentage %
 BASE_STOP_LOSS = 0.10           # Define Base Stop Loose  Percentage %
-USDT_TRADING_AMOUNT = 5         # Amount of Currency to trade for each Position
+CAPITAL_AMOUNT = 500            # Your Capital Investment
+RISK_TOLERANCE = 0.02           # The Portion Amount you want to take risk of capital for each Buying position
+AMOUNT_RSI_INTERVAL = '5m'      # Interval To get its RSI for Buying Amount Calculations Function
+AMOUNT_ATR_INTERVAL = '15m'     # Interval To get its ATR for Buying Amount Calculations Function
 USDT_DIP_AMOUNT = 5             # Amount of Currency For Buying a Dip
 CHECK_POSITIONS_ON_BUY = True   # Set True If You Need Bot Manager Check The Positions During Buy Cycle
 # -------------------------------------------------------------------------------------------------
@@ -88,7 +91,8 @@ class BotManager:
         self.feature_processor = FeatureProcessor(intervals=FEATURES_INTERVALS, trading_interval=TRADING_INTERVAL, dip_interval=DIP_INTERVAL)
         self.chatgpt_client = ChatGPTClient()
         self.predictor = Predictor(self.chatgpt_client, coin=COIN, sr_interval=SR_INTERVAL)
-        self.decision_maker = DecisionMaker(base_take_profit=BASE_TAKE_PROFIT, base_stop_loss=BASE_STOP_LOSS, profit_interval=PROFIT_INTERVAL, loose_interval=LOOSE_INTERVAL, dip_interval=DIP_INTERVAL)
+        self.decision_maker = DecisionMaker(base_take_profit=BASE_TAKE_PROFIT, base_stop_loss=BASE_STOP_LOSS,
+                                            profit_interval=PROFIT_INTERVAL, loose_interval=LOOSE_INTERVAL, dip_interval=DIP_INTERVAL, risk_tolerance=RISK_TOLERANCE)
         self.trader = Trader(symbol=TRADING_PAIR)  # Initialize the Trader class
         self.notifier = Notifier()
         self.position_manager = PositionManager()
@@ -460,7 +464,10 @@ class BotManager:
 
                 # Make a decision
                 trade_decision_start = time.time()
-                trading_cryptocurrency_amount = self.convert_usdt_to_crypto(current_price, USDT_TRADING_AMOUNT)
+                trading_cryptocurrency_amount = self.convert_usdt_to_crypto(current_price, self.decision_maker.calculate_buy_amount(all_features=all_features,
+                                                                                                                                    amount_atr_interval=AMOUNT_ATR_INTERVAL,
+                                                                                                                                    amount_rsi_interval=AMOUNT_RSI_INTERVAL,
+                                                                                                                                    capital=CAPITAL_AMOUNT))
                 dip_cryptocurrency_amount = self.convert_usdt_to_crypto(current_price, USDT_DIP_AMOUNT)
                 final_decision, adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit = self.decision_maker.make_decision(
                     prediction, current_price, None, all_features)
