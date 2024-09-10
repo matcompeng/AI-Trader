@@ -34,6 +34,7 @@ RISK_TOLERANCE = 0.03           # The Portion Amount you want to take risk of ca
 AMOUNT_RSI_INTERVAL = '5m'      # Interval To get its RSI for Buying Amount Calculations Function
 AMOUNT_ATR_INTERVAL = '15m'     # Interval To get its ATR for Buying Amount Calculations Function
 USDT_DIP_AMOUNT = 5             # Amount of Currency For Buying a Dip
+MIN_STABLE_INTERVALS = 5        # Set The Minimum Stable Intervals For Market Stable Condition
 CHECK_POSITIONS_ON_BUY = True   # Set True If You Need Bot Manager Check The Positions During Buy Cycle
 # -------------------------------------------------------------------------------------------------
 
@@ -95,7 +96,8 @@ class BotManager:
                                             profit_interval=PROFIT_INTERVAL, loose_interval=LOOSE_INTERVAL,
                                             dip_interval=DIP_INTERVAL, risk_tolerance=RISK_TOLERANCE,
                                             amount_atr_interval=AMOUNT_ATR_INTERVAL,
-                                            amount_rsi_interval=AMOUNT_RSI_INTERVAL)
+                                            amount_rsi_interval=AMOUNT_RSI_INTERVAL,
+                                            min_stable_intervals=MIN_STABLE_INTERVALS)
         self.trader = Trader(symbol=TRADING_PAIR)  # Initialize the Trader class
         self.notifier = Notifier()
         self.position_manager = PositionManager()

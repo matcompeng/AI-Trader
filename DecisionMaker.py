@@ -1,6 +1,6 @@
 class DecisionMaker:
     def __init__(self, risk_tolerance=None, base_stop_loss=None, base_take_profit=None, profit_interval=None,
-                 loose_interval=None, dip_interval=None, amount_rsi_interval=None, amount_atr_interval=None):
+                 loose_interval=None, dip_interval=None, amount_rsi_interval=None, amount_atr_interval=None, min_stable_intervals=None):
         self.risk_tolerance = risk_tolerance
         self.base_stop_loss = base_stop_loss
         self.base_take_profit = base_take_profit
@@ -9,6 +9,7 @@ class DecisionMaker:
         self.dip_interval = dip_interval
         self.amount_rsi_interval = amount_rsi_interval
         self.amount_atr_interval = amount_atr_interval
+        self.min_stable_intervals = min_stable_intervals
 
 
     def calculate_buy_amount(self, all_features ,amount_rsi_interval, amount_atr_interval, capital):
@@ -197,7 +198,7 @@ class DecisionMaker:
 
         # Consider the market stable if a majority of intervals indicate stability
         # if stable_intervals >= (total_intervals * 2 * 0.75):  # e.g., 4 out of 5 intervals must be stable
-        if stable_intervals == (total_intervals * 2):  # e.g., 4 out of 5 intervals must be stable
+        if total_intervals - (total_intervals - (stable_intervals / 2)) >= self.min_stable_intervals  :  # e.g., 4 out of 5 intervals must be stable
             return True
 
         return False
