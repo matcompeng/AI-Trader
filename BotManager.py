@@ -92,7 +92,10 @@ class BotManager:
         self.chatgpt_client = ChatGPTClient()
         self.predictor = Predictor(self.chatgpt_client, coin=COIN, sr_interval=SR_INTERVAL)
         self.decision_maker = DecisionMaker(base_take_profit=BASE_TAKE_PROFIT, base_stop_loss=BASE_STOP_LOSS,
-                                            profit_interval=PROFIT_INTERVAL, loose_interval=LOOSE_INTERVAL, dip_interval=DIP_INTERVAL, risk_tolerance=RISK_TOLERANCE)
+                                            profit_interval=PROFIT_INTERVAL, loose_interval=LOOSE_INTERVAL,
+                                            dip_interval=DIP_INTERVAL, risk_tolerance=RISK_TOLERANCE,
+                                            amount_atr_interval=AMOUNT_ATR_INTERVAL,
+                                            amount_rsi_interval=AMOUNT_RSI_INTERVAL)
         self.trader = Trader(symbol=TRADING_PAIR)  # Initialize the Trader class
         self.notifier = Notifier()
         self.position_manager = PositionManager()
@@ -464,12 +467,13 @@ class BotManager:
 
                 # Make a decision
                 trade_decision_start = time.time()
-                buy_amount = self.decision_maker.calculate_buy_amount(all_features=all_features,
+                trading_cryptocurrency_amount = self.convert_usdt_to_crypto(current_price,
+                                                                      self.decision_maker.calculate_buy_amount
+                                                                      (all_features=all_features,
                                                                       amount_atr_interval=AMOUNT_ATR_INTERVAL,
                                                                       amount_rsi_interval=AMOUNT_RSI_INTERVAL,
-                                                                      capital=CAPITAL_AMOUNT)
+                                                                      capital=CAPITAL_AMOUNT))
 
-                trading_cryptocurrency_amount = self.convert_usdt_to_crypto(current_price, buy_amount)
                 dip_cryptocurrency_amount = self.convert_usdt_to_crypto(current_price, USDT_DIP_AMOUNT)
 
                 final_decision, adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit = self.decision_maker.make_decision(
