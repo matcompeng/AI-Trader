@@ -26,7 +26,8 @@ SR_INTERVAL = '1h'              # Select The Interval That Trader Define Support
 DIP_INTERVAL = '1h'             # Select The Interval For Buying a Dip
 POSITION_CYCLE = 15             # Time in seconds to check positions
 PREDICTION_CYCLE = 5 * 60       # Time in seconds to run the Prediction bot cycle
-PREDICT_IN_BANDWIDTH = 2        # Define Minimum Bandwidth Percentage to Activate Trading
+INTERVAL_BANDWIDTH = '5m'       # Define The Interval To calculate Prediction Bandwidth
+PREDICT_BANDWIDTH = 0.50        # Define Minimum Bandwidth % to Activate Trading
 BASE_TAKE_PROFIT = 0.30         # Define Base Take Profit Percentage %
 BASE_STOP_LOSS = 0.10           # Define Base Stop Loose  Percentage %
 CAPITAL_AMOUNT = 500            # Your Capital Investment
@@ -144,16 +145,16 @@ class BotManager:
         crypto_amount = round(usdt_amount / current_price, 5)
         return crypto_amount
 
-    def calculate_band_price_change(self, all_features):
+    def calculate_prediction_bandwidth(self, all_features):
         """
         Calculate the percentage price change between the upper and lower Bollinger Bands of the PREDICTOR_INTERVAL interval.
         """
-        upper_band_15m = all_features[TRADING_INTERVAL].get('upper_band')
-        lower_band_15m = all_features[TRADING_INTERVAL].get('lower_band')
+        upper_band = all_features[INTERVAL_BANDWIDTH].get('upper_band')
+        lower_band = all_features[INTERVAL_BANDWIDTH].get('lower_band')
 
-        if upper_band_15m and lower_band_15m:
-            price_change_15m = ((upper_band_15m - lower_band_15m) / lower_band_15m) * 100
-            return price_change_15m
+        if upper_band and lower_band:
+            price_change = ((upper_band - lower_band) / lower_band) * 100
+            return price_change
 
     def price_is_over_band(self, all_features, current_price):
 
@@ -449,8 +450,8 @@ class BotManager:
                     return
 
                 # Check if the price change is greater than PREDICT_IN_BANDWIDTH%
-                bandwidth_price_change = self.calculate_band_price_change(all_features)
-                if bandwidth_price_change > PREDICT_IN_BANDWIDTH:
+                bandwidth_price_change = self.calculate_prediction_bandwidth(all_features)
+                if bandwidth_price_change > PREDICT_BANDWIDTH:
                     prediction_start = time.time()
                     print("Generating prediction...")
                     logging.info("Generating prediction...")
@@ -464,8 +465,8 @@ class BotManager:
                     logging.info(f"Prediction: {prediction}. Explanation: {explanation}")
                 else:
                     prediction = "Hold"
-                    print(f"Bandwidth price change is less than {PREDICT_IN_BANDWIDTH}%. Prediction: Hold")
-                    logging.info(f"Bandwidth price change is less than {PREDICT_IN_BANDWIDTH}%. Prediction: Hold")
+                    print(f"Bandwidth price change is less than {PREDICT_BANDWIDTH}%. Prediction: Hold")
+                    logging.info(f"Bandwidth price change is less than {PREDICT_BANDWIDTH}%. Prediction: Hold")
 
                 # Make a decision
                 trade_decision_start = time.time()
