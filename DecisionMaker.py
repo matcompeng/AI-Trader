@@ -24,7 +24,7 @@ class DecisionMaker:
 
         # Extract data for each interval
         current_atr = all_features[self.amount_atr_interval].get('ATR', None)
-        current_rsi = all_features[self.amount_atr_interval].get('RSI', None)
+        current_rsi = all_features[self.amount_rsi_interval].get('RSI', None)
 
         # Example logic to adjust buy amount based on volatility and momentum
         volatility_factor = 1 / current_atr

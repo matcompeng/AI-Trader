@@ -464,11 +464,14 @@ class BotManager:
 
                 # Make a decision
                 trade_decision_start = time.time()
-                trading_cryptocurrency_amount = self.convert_usdt_to_crypto(current_price, self.decision_maker.calculate_buy_amount(all_features=all_features,
-                                                                                                                                    amount_atr_interval=AMOUNT_ATR_INTERVAL,
-                                                                                                                                    amount_rsi_interval=AMOUNT_RSI_INTERVAL,
-                                                                                                                                    capital=CAPITAL_AMOUNT))
+                buy_amount = self.decision_maker.calculate_buy_amount(all_features=all_features,
+                                                                      amount_atr_interval=AMOUNT_ATR_INTERVAL,
+                                                                      amount_rsi_interval=AMOUNT_RSI_INTERVAL,
+                                                                      capital=CAPITAL_AMOUNT)
+
+                trading_cryptocurrency_amount = self.convert_usdt_to_crypto(current_price, buy_amount)
                 dip_cryptocurrency_amount = self.convert_usdt_to_crypto(current_price, USDT_DIP_AMOUNT)
+
                 final_decision, adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit = self.decision_maker.make_decision(
                     prediction, current_price, None, all_features)
                 self.log_time("Trade decision making", trade_decision_start)
