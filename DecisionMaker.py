@@ -65,6 +65,7 @@ class DecisionMaker:
             # If the current gain has decreased by 25% from the maximum, issue a sell signal
             if total_portfolio_gain < self.max_gain * (1 - self.sell_threshold):
                 print(f"Market has reversed. Current gain: {total_portfolio_gain:.2f}%, Max gain: {self.max_gain:.2f}%")
+                self.max_gain = 0 # Reset The Maximum Gain
                 return "Sell"
             else:
                 print(f"Current portfolio gain: {total_portfolio_gain:.2f}%, No reversal detected.")
