@@ -315,11 +315,11 @@ class BotManager:
 
 
             print(f"Stable Invested: {round(stable_invested)} USDT\n"
-                                     f"Dip Invested: {round(dip_invested)} USDT\n"
-                                     f"Total Invested: {round(total_invested)} USDT")
+                                      f"Dip Invested: {round(dip_invested)} USDT\n"
+                                      f"Total Invested: {round(total_invested)} USDT")
             logging.info(f"Stable Invested: {round(stable_invested)} USDT\n"
-                                     f"Dip Invested: {round(dip_invested)} USDT\n"
-                                     f"Total Invested: {round(total_invested)} USDT")
+                                      f"Dip Invested: {round(dip_invested)} USDT\n"
+                                      f"Total Invested: {round(total_invested)} USDT")
             self.log_time("Position check", start_time)
 
 
