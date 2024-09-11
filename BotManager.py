@@ -281,7 +281,9 @@ class BotManager:
                     amount = position['amount']
                     dip_flag = position['dip']
 
-                    if  dip_flag == 0:
+                    gain_loose = round(self.calculate_gain_loose(entry_price, current_price), 2)
+
+                    if dip_flag == 0:
                         trade_type = 'Stable'
                         print(f"Selling position {position_id}")
                         logging.info(f"Selling position {position_id}")
@@ -291,12 +293,16 @@ class BotManager:
                             profit_usdt = self.calculate_profit(trade_quantity=amount, sold_price=current_price,
                                                                 entry_price=entry_price)
                             self.position_manager.remove_position(position_id)
+                            self.log_sold_position(position_id, trade_type, entry_price, current_price, profit_usdt,
+                                                   gain_loose)
                             print(f"Position {position_id} sold successfully")
                             logging.info(f"Position {position_id} sold successfully")
-                            self.notifier.send_notification("Stable Trade Executed", f"Sold {amount} {COIN} at ${current_price}\n"
-                                                                              f"Stable Invested: {round(stable_invested)} USDT\n"
-                                                                              f"Dip Invested: {round(dip_invested)} USDT\n"
-                                                                              f"Total Invested: {round(total_invested)} USDT")
+                            self.notifier.send_notification("Stable Trade Executed",
+                                                            f"Sold {amount} {COIN} at ${current_price}\n"
+                                                            f"Gain/Loose: {gain_loose}%\n"
+                                                            f"Stable Invested: {round(stable_invested)} USDT\n"
+                                                            f"Dip Invested: {round(dip_invested)} USDT\n"
+                                                            f"Total Invested: {round(total_invested)} USDT")
                         else:
                             error_message = f"Failed to execute Sell order: {order_details}"
                             self.save_error_to_csv(error_message)
