@@ -102,6 +102,7 @@ class BotManager:
         self.trader = Trader(symbol=TRADING_PAIR)  # Initialize the Trader class
         self.notifier = Notifier()
         self.position_manager = PositionManager()
+        self.bot_manager = BotManager()
 
     def log_time(self, process_name, start_time):
         end_time = time.time()
@@ -217,12 +218,18 @@ class BotManager:
     def invested_budget(self):
         """
         Calculate the total invested amount based on the current positions recorded in positions.json.
-        :return: Total invested amount in USDT
+        Returns three values:
+        1. stable_investment: Invested amount where dip_flag != position['dip']
+        2. dip_investment: Invested amount where dip_flag == position['dip']
+        3. total_investment: Total invested amount for all positions
+        :return: stable_investment, dip_investment, total_investment
         """
         try:
             # Get all positions
             positions = self.position_manager.get_positions()
             total_invested = 0.0
+            stable_investment = 0.0
+            dip_investment = 0.0
 
             # Iterate over each position and calculate the invested amount
             for position_id, position in positions.items():
@@ -231,12 +238,18 @@ class BotManager:
                 invested_amount = entry_price * amount
                 total_invested += invested_amount
 
-            return total_invested
+                # Check the dip flag and categorize the investment
+                if position['dip'] == 1:
+                    dip_investment += invested_amount
+                else:
+                    stable_investment += invested_amount
+
+            return stable_investment, dip_investment, total_invested
 
         except Exception as e:
             logging.error(f"Error calculating invested budget: {e}")
             print(f"Error calculating invested budget: {e}")
-            return 0.0
+            return 0.0, 0.0, 0.0
 
     def check_stable_positions(self):
         try:
@@ -249,6 +262,7 @@ class BotManager:
             # Get features and make a decision on whether to sell
             market_data = self.data_collector.collect_data()
             all_features = self.feature_processor.process(market_data)
+            total_invested, stable_invested, dip_invested = self.invested_budget()
 
             current_price = self.trader.get_current_price()
             if current_price is None:
@@ -286,7 +300,9 @@ class BotManager:
                         logging.info(f"Position {position_id} sold successfully")
                         self.notifier.send_notification("Trade Executed", f"Sold {amount} {COIN} at ${current_price}\n"
                                                                           f"Gain/Loose: {gain_loose}%\n"
-                                                                          f"Total Invested: {round(self.invested_budget())} USDT")
+                                                                          f"Stable Invested: {round(stable_invested)} USDT\n"
+                                                                          f"Dip Invested: {round(dip_invested)} USDT\n"
+                                                                          f"Total Invested: {round(total_invested)} USDT")
                     else:
                         error_message = f"Failed to execute Sell order: {order_details}"
                         self.save_error_to_csv(error_message)
@@ -298,8 +314,12 @@ class BotManager:
                     logging.info(f"dynamic_stop_loss_lower: {round(adjusted_stop_loss_lower, 2)}%, dynamic_stop_loss_middle: {round(adjusted_stop_loss_middle, 2)}%, dynamic_take_profit: {round(adjusted_take_profit, 2)}\n%")
 
 
-            print(f"Total Invested So Far: {round(self.invested_budget())} USDT")
-            logging.info(f"Total Invested So far: {round(self.invested_budget())} USDT")
+            print(f"Stable Invested: {round(stable_invested)} USDT\n"
+                                     f"Dip Invested: {round(dip_invested)} USDT\n"
+                                     f"Total Invested: {round(total_invested)} USDT")
+            logging.info(f"Stable Invested: {round(stable_invested)} USDT\n"
+                                     f"Dip Invested: {round(dip_invested)} USDT\n"
+                                     f"Total Invested: {round(total_invested)} USDT")
             self.log_time("Position check", start_time)
 
 
