@@ -671,13 +671,16 @@ class BotManager:
                         if trade_status == "Success":
                             profit_usdt = self.calculate_profit(trade_quantity=amount, sold_price=current_price,
                                                                 entry_price=entry_price)
+                            total_invested, stable_invested, dip_invested = self.invested_budget()
                             self.position_manager.remove_position(position_id)
                             self.log_sold_position(position_id, trade_type, entry_price, current_price, profit_usdt, gain_loose)
                             print(f"Position {position_id} sold successfully")
                             logging.info(f"Position {position_id} sold successfully")
                             self.notifier.send_notification("Trade Executed", f"Sold {amount} {COIN} at ${current_price}\n"
                                                                               f"Gain/Loose: {gain_loose}%\n"
-                                                                              f"Total Invested: {round(self.invested_budget())} USDT")
+                                                                              f"Stable Invested: {round(stable_invested)} USDT\n"
+                                                                              f"Dip Invested: {round(dip_invested)} USDT\n"
+                                                                              f"Total Invested: {round(total_invested)} USDT")
                         else:
                             error_message = f"Failed to execute Sell order: {order_details}"
                             self.save_error_to_csv(error_message)
