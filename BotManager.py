@@ -220,17 +220,17 @@ class BotManager:
         """
         Calculate the total invested amount based on the current positions recorded in positions.json.
         Returns three values:
-        1. stable_investment: Invested amount where dip_flag != position['dip']
-        2. dip_investment: Invested amount where dip_flag == position['dip']
+        1. stable_invested: Invested amount where dip_flag != position['dip']
+        2. dip_invested: Invested amount where dip_flag == position['dip']
         3. total_investment: Total invested amount for all positions
-        :return: stable_investment, dip_investment, total_investment
+        :return: stable_invested, dip_invested, total_investment
         """
         try:
             # Get all positions
             positions = self.position_manager.get_positions()
             total_invested = 0.0
-            stable_investment = 0.0
-            dip_investment = 0.0
+            stable_invested = 0.0
+            dip_invested = 0.0
 
             # Iterate over each position and calculate the invested amount
             for position_id, position in positions.items():
@@ -241,11 +241,11 @@ class BotManager:
 
                 # Check the dip flag and categorize the investment
                 if position['dip'] == 1:
-                    dip_investment += invested_amount
+                    dip_invested += invested_amount
                 else:
-                    stable_investment += invested_amount
+                    stable_invested += invested_amount
 
-            return stable_investment, dip_investment, total_invested
+            return stable_invested, dip_invested, total_invested
 
         except Exception as e:
             logging.error(f"Error calculating invested budget: {e}")
@@ -266,7 +266,7 @@ class BotManager:
             # Get features and make a decision on whether to sell
             market_data = self.data_collector.collect_data()
             all_features = self.feature_processor.process(market_data)
-            total_invested, stable_invested, dip_invested = self.invested_budget()
+            stable_invested, dip_invested, total_invested = self.invested_budget()
 
             current_price = self.trader.get_current_price()
             if current_price is None:
@@ -291,7 +291,7 @@ class BotManager:
                         logging.info(f"Selling position {position_id}")
                         trade_status, order_details = self.trader.execute_trade(reversed_decision, amount)
                         if trade_status == "Success":
-                            total_invested, stable_invested, dip_invested = self.invested_budget()
+                            stable_invested, dip_invested, total_invested = self.invested_budget()
                             profit_usdt = self.calculate_profit(trade_quantity=amount, sold_price=current_price,
                                                                 entry_price=entry_price)
                             self.position_manager.remove_position(position_id)
@@ -332,7 +332,7 @@ class BotManager:
                         logging.info(f"Selling position {position_id}")
                         trade_status, order_details = self.trader.execute_trade(final_decision, amount)
                         if trade_status == "Success":
-                            total_invested, stable_invested, dip_invested = self.invested_budget()
+                            stable_invested, dip_invested, total_invested = self.invested_budget()
                             profit_usdt = self.calculate_profit(trade_quantity=amount, sold_price=current_price,
                                                                 entry_price=entry_price)
                             self.position_manager.remove_position(position_id)
@@ -554,7 +554,7 @@ class BotManager:
 
                     if trade_status == "Success":
                         position_id = str(int(time.time()))
-                        total_invested, stable_invested, dip_invested = self.invested_budget()
+                        stable_invested, dip_invested, total_invested = self.invested_budget()
                         self.position_manager.add_position(position_id, current_price, trading_cryptocurrency_amount, dip_flag=0)
                         print(
                             f"New position added: {position_id}, Entry Price: {current_price}, Amount: {trading_cryptocurrency_amount}")
@@ -579,7 +579,7 @@ class BotManager:
 
                     if trade_status == "Success":
                         position_id = str(int(time.time()))
-                        total_invested, stable_invested, dip_invested = self.invested_budget()
+                        stable_invested, dip_invested, total_invested = self.invested_budget()
                         self.position_manager.add_position(position_id, current_price, dip_cryptocurrency_amount, dip_flag=1)
                         print(
                             f"New position added: {position_id}, Entry Price: {current_price}, Amount: {dip_cryptocurrency_amount}")
@@ -673,7 +673,7 @@ class BotManager:
                         if trade_status == "Success":
                             profit_usdt = self.calculate_profit(trade_quantity=amount, sold_price=current_price,
                                                                 entry_price=entry_price)
-                            total_invested, stable_invested, dip_invested = self.invested_budget()
+                            stable_invested, dip_invested, total_invested = self.invested_budget()
                             self.position_manager.remove_position(position_id)
                             self.log_sold_position(position_id, trade_type, entry_price, current_price, profit_usdt, gain_loose)
                             print(f"Position {position_id} sold successfully")
