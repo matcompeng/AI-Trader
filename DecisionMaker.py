@@ -22,7 +22,7 @@ class DecisionMaker:
         :param current_price: The current market price to compare with entry prices.
         :return: Total portfolio gain in percentage for positions where dip_flag != position['dip'].
         """
-        total_invested, stable_invested, dip_invested = bot_manager.invested_budget()  # Use the existing invested_budget method
+        stable_invested, dip_invested, total_invested = bot_manager.invested_budget()  # Use the existing invested_budget method
         total_gain = 0.0
 
         # Iterate over each position and calculate gain/loss only if dip_flag != position['dip']
