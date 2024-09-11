@@ -276,6 +276,7 @@ class BotManager:
                 return
 
             stable_positions_len = len([position for position_id, position in self.position_manager.get_positions().items() if position['dip'] == 0])
+            print(f"Stable Positions Len: {stable_positions_len}")
 
             if stable_positions_len >= GAIN_POSITIONS_LEN:
                 reversed_decision = self.decision_maker.check_for_sell_due_to_reversal(bot_manager, current_price)
