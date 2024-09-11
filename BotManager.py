@@ -292,6 +292,7 @@ class BotManager:
                     logging.info(f"Selling position {position_id}")
                     trade_status, order_details = self.trader.execute_trade(final_decision, amount)
                     if trade_status == "Success":
+                        total_invested, stable_invested, dip_invested = self.invested_budget()
                         profit_usdt = self.calculate_profit(trade_quantity=amount, sold_price=current_price,
                                                             entry_price=entry_price)
                         self.position_manager.remove_position(position_id)
@@ -513,14 +514,17 @@ class BotManager:
 
                     if trade_status == "Success":
                         position_id = str(int(time.time()))
+                        total_invested, stable_invested, dip_invested = self.invested_budget()
                         self.position_manager.add_position(position_id, current_price, trading_cryptocurrency_amount, dip_flag=0)
                         print(
                             f"New position added: {position_id}, Entry Price: {current_price}, Amount: {trading_cryptocurrency_amount}")
                         logging.info(
                             f"New position added: {position_id}, Entry Price: {current_price}, Amount: {trading_cryptocurrency_amount}")
-                        self.notifier.send_notification("Trade Executed",
+                        self.notifier.send_notification("Stable Trade Executed",
                                                         f"Bought {trading_cryptocurrency_amount} {COIN} at ${current_price}\n"
-                                                        f"Total Invested: {round(self.invested_budget())} USDT")
+                                                                          f"Stable Invested: {round(stable_invested)} USDT\n"
+                                                                          f"Dip Invested: {round(dip_invested)} USDT\n"
+                                                                          f"Total Invested: {round(total_invested)} USDT")
                     else:
                         error_message = f"Failed to execute Buy order: {order_details}"
                         self.save_error_to_csv(error_message)
@@ -535,6 +539,7 @@ class BotManager:
 
                     if trade_status == "Success":
                         position_id = str(int(time.time()))
+                        total_invested, stable_invested, dip_invested = self.invested_budget()
                         self.position_manager.add_position(position_id, current_price, dip_cryptocurrency_amount, dip_flag=1)
                         print(
                             f"New position added: {position_id}, Entry Price: {current_price}, Amount: {dip_cryptocurrency_amount}")
@@ -542,7 +547,9 @@ class BotManager:
                             f"New position added: {position_id}, Entry Price: {current_price}, Amount: {dip_cryptocurrency_amount}")
                         self.notifier.send_notification("Dip Trade Executed",
                                                         f"Bought {dip_cryptocurrency_amount} {COIN} at ${current_price}\n"
-                                                        f"Total Invested: {round(self.invested_budget())} USDT")
+                                                                 f"Stable Invested: {round(stable_invested)} USDT\n"
+                                                                 f"Dip Invested: {round(dip_invested)} USDT\n"
+                                                                 f"Total Invested: {round(total_invested)} USDT")
                     else:
                         error_message = f"Failed to execute Buy order: {order_details}"
                         self.save_error_to_csv(error_message)

@@ -10,6 +10,69 @@ class DecisionMaker:
         self.amount_rsi_interval = amount_rsi_interval
         self.amount_atr_interval = amount_atr_interval
         self.min_stable_intervals = min_stable_intervals
+        self.max_gain = 0.0  # Track the maximum portfolio gain
+        self.sell_threshold = 0.25  # 25% loss from max gain to trigger sell
+
+    def calculate_stable_portfolio_gain(self, bot_manager, current_price):
+        """
+        Calculate the total portfolio gain/loss based on the current positions and the current market price,
+        only for positions where the dip_flag is not equal to position['dip'].
+        This method uses the calculate_gain_loose and invested_budget methods from BotManager class.
+        :param bot_manager: Instance of BotManager to access existing methods.
+        :param current_price: The current market price to compare with entry prices.
+        :return: Total portfolio gain in percentage for positions where dip_flag != position['dip'].
+        """
+        total_invested, stable_invested, dip_invested  = bot_manager.invested_budget()  # Use the existing invested_budget method
+        total_gain = 0.0
+
+        # Iterate over each position and calculate gain/loss only if dip_flag != position['dip']
+        for position_id, position in bot_manager.position_manager.get_positions().items():
+            dip_flag = position.get('dip', None)
+
+            # Check if the dip_flag condition is met
+            if dip_flag != position['dip']:
+                entry_price = float(position['entry_price'])
+                amount = float(position['amount'])
+                gain_loss = bot_manager.calculate_gain_loose(entry_price, current_price)
+
+                invested_amount = entry_price * amount
+                total_gain += (gain_loss / 100) * invested_amount
+
+        # Calculate the overall percentage gain/loss
+        if stable_invested > 0:
+            portfolio_gain_percent = (total_gain / stable_invested) * 100
+        else:
+            portfolio_gain_percent = 0.0
+
+        return portfolio_gain_percent
+
+    def check_for_sell_due_to_reversal(self, bot_manager, current_price):
+        """
+        Check if the portfolio gain has reached a maximum and lost 25% of that gain, triggering a sell decision.
+        :param bot_manager: Instance of BotManager to access existing methods.
+        :param current_price: The current market price.
+        :return: "Sell" if a 25% reversal is detected, otherwise "Hold".
+        """
+        try:
+            # Calculate the total portfolio gain using BotManager methods
+            total_portfolio_gain = self.calculate_stable_portfolio_gain(bot_manager, current_price)
+
+            # Check if the current gain is a new maximum
+            if total_portfolio_gain > self.max_gain:
+                self.max_gain = total_portfolio_gain  # Update the maximum gain
+                print(f"New maximum gain reached: {self.max_gain:.2f}%")
+
+            # If the current gain has decreased by 25% from the maximum, issue a sell signal
+            if total_portfolio_gain < self.max_gain * (1 - self.sell_threshold):
+                print(f"Market has reversed. Current gain: {total_portfolio_gain:.2f}%, Max gain: {self.max_gain:.2f}%")
+                return "Sell"
+            else:
+                print(f"Current portfolio gain: {total_portfolio_gain:.2f}%, No reversal detected.")
+                return "Hold"
+
+        except Exception as e:
+            print(f"Error in checking for sell due to reversal: {e}")
+            return "Hold"
 
 
     def calculate_buy_amount(self, all_features ,amount_rsi_interval, amount_atr_interval, capital):
