@@ -149,7 +149,7 @@ class DecisionMaker:
         if prediction == "Buy":
             if self.is_market_stable(all_features):
                 return "Buy", adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit
-            if self.is_there_dip(all_features):
+            elif self.is_there_dip(all_features):
                 return "Buy_Dip"
             else:
                 return "Hold", adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit
