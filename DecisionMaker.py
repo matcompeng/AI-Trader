@@ -1,6 +1,6 @@
 class DecisionMaker:
     def __init__(self, risk_tolerance=None, base_stop_loss=None, base_take_profit=None, profit_interval=None,
-                 loose_interval=None, dip_interval=None, amount_rsi_interval=None, amount_atr_interval=None, min_stable_intervals=None):
+                 loose_interval=None, dip_interval=None, amount_rsi_interval=None, amount_atr_interval=None, min_stable_intervals=None, gain_sell_threshold=None):
         self.risk_tolerance = risk_tolerance
         self.base_stop_loss = base_stop_loss
         self.base_take_profit = base_take_profit
@@ -11,7 +11,7 @@ class DecisionMaker:
         self.amount_atr_interval = amount_atr_interval
         self.min_stable_intervals = min_stable_intervals
         self.max_gain = 0.0  # Track the maximum portfolio gain
-        self.sell_threshold = 0.25  # 25% loss from max gain to trigger sell
+        self.sell_threshold = gain_sell_threshold  # 25% loss from max gain to trigger sell
 
     def calculate_stable_portfolio_gain(self, bot_manager, current_price):
         """
