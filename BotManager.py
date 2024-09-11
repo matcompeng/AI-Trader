@@ -299,7 +299,7 @@ class BotManager:
                         self.log_sold_position(position_id, trade_type, entry_price, current_price, profit_usdt, gain_loose)
                         print(f"Position {position_id} sold successfully")
                         logging.info(f"Position {position_id} sold successfully")
-                        self.notifier.send_notification("Trade Executed", f"Sold {amount} {COIN} at ${current_price}\n"
+                        self.notifier.send_notification("Stable Trade Executed", f"Sold {amount} {COIN} at ${current_price}\n"
                                                                           f"Gain/Loose: {gain_loose}%\n"
                                                                           f"Stable Invested: {round(stable_invested)} USDT\n"
                                                                           f"Dip Invested: {round(dip_invested)} USDT\n"
