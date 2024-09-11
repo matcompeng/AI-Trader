@@ -30,7 +30,7 @@ class DecisionMaker:
             dip_flag = position.get('dip', None)
 
             # Check if the dip_flag condition is met
-            if dip_flag != position['dip']:
+            if dip_flag == 0:
                 entry_price = float(position['entry_price'])
                 amount = float(position['amount'])
                 gain_loss = bot_manager.calculate_gain_loose(entry_price, current_price)
