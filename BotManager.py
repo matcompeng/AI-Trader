@@ -104,7 +104,6 @@ class BotManager:
         self.trader = Trader(symbol=TRADING_PAIR)  # Initialize the Trader class
         self.notifier = Notifier()
         self.position_manager = PositionManager()
-        self.bot_manager = BotManager()
 
     def log_time(self, process_name, start_time):
         end_time = time.time()
@@ -260,6 +259,9 @@ class BotManager:
             print(f"\n*****Stable Position check cycle started at {cycle_start_time}.*****")
             logging.info(
                 f"//---------------------Stable Position check cycle started at {cycle_start_time}--------------------//")
+
+            # Taking Bot Manager Class Instance
+            bot_manager = BotManager()
 
             # Get features and make a decision on whether to sell
             market_data = self.data_collector.collect_data()
