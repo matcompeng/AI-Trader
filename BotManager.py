@@ -275,9 +275,9 @@ class BotManager:
                 logging.info("Failed to get current price. Skipping position check.")
                 return
 
-            positions_len = len(self.position_manager.get_positions().items())
+            stable_positions_len = len([position for position_id, position in self.position_manager.get_positions().items() if position['dip'] == 0])
 
-            if positions_len >= GAIN_POSITIONS_LEN:
+            if stable_positions_len >= GAIN_POSITIONS_LEN:
                 reversed_decision = self.decision_maker.check_for_sell_due_to_reversal(bot_manager, current_price)
 
                 if reversed_decision == "Sell":
