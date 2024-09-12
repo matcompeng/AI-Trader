@@ -279,7 +279,7 @@ class BotManager:
             stable_positions_len = len([position for position_id, position in self.position_manager.get_positions().items() if position['dip'] == 0])
             print(f"Stable Positions Count: {stable_positions_len}")
 
-            if stable_positions_len >= TRAILING_POSITIONS_LEN and self.decision_maker.calculate_stable_portfolio_gain(bot_manager, current_price) > TRAILING_PERCENT:
+            if stable_positions_len >= TRAILING_POSITIONS_LEN and self.decision_maker.calculate_stable_portfolio_gain(bot_manager, current_price) >= TRAILING_PERCENT:
                 reversed_decision = self.decision_maker.check_for_sell_due_to_reversal(bot_manager, current_price)
 
                 if reversed_decision == "Sell":
