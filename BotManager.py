@@ -28,16 +28,17 @@ POSITION_CYCLE = 15             # Time in seconds to check positions
 PREDICTION_CYCLE = 5 * 60       # Time in seconds to run the Prediction bot cycle
 INTERVAL_BANDWIDTH = '5m'       # Define The Interval To calculate Prediction Bandwidth
 PREDICT_BANDWIDTH = 0.60        # Define Minimum Bandwidth % to Activate Trading
-BASE_TAKE_PROFIT = 0.45         # Define Base Take Profit Percentage %
-BASE_STOP_LOSS = 0.15           # Define Base Stop Loose  Percentage %
+BASE_TAKE_PROFIT = 0.60         # Define Base Take Profit Percentage %
+BASE_STOP_LOSS = 0.20           # Define Base Stop Loose  Percentage %
 CAPITAL_AMOUNT = 500            # Your Capital Investment
 RISK_TOLERANCE = 0.03           # The Portion Amount you want to take risk of capital for each Buying position
 AMOUNT_RSI_INTERVAL = '5m'      # Interval To get its RSI for Buying Amount Calculations Function
 AMOUNT_ATR_INTERVAL = '15m'     # Interval To get its ATR for Buying Amount Calculations Function
 USDT_DIP_AMOUNT = 5             # Amount of Currency For Buying a Dip
 MIN_STABLE_INTERVALS = 4        # Set The Minimum Stable Intervals For Market Stable Condition
-GAIN_POSITIONS_LEN = 5          # Define The Minimum Length For Stable Positions To start Gain Reversal Process
-GAIN_REVERSE_THRESHOLD = 25     # Set the Sell Threshold % for Stable Portfolio Gain Reversal (Trailing Stop)
+TRAILING_POSITIONS_LEN = 5      # Define The Minimum Length For Stable Positions To start Gain Reversal Process
+TRAILING_PERCENT = 1.5          # Set The Minimum % To Activate Trailing Stop Process
+TRAILING_GAIN_REVERSE = 0.25    # Set the Sell Threshold % for Stable Portfolio Gain Reversal (Trailing Stop)
 CHECK_POSITIONS_ON_BUY = True   # Set True If You Need Bot Manager Check The Positions During Buy Cycle
 # -------------------------------------------------------------------------------------------------
 
@@ -101,7 +102,7 @@ class BotManager:
                                             amount_atr_interval=AMOUNT_ATR_INTERVAL,
                                             amount_rsi_interval=AMOUNT_RSI_INTERVAL,
                                             min_stable_intervals=MIN_STABLE_INTERVALS,
-                                            gain_sell_threshold=GAIN_REVERSE_THRESHOLD)
+                                            gain_sell_threshold=TRAILING_GAIN_REVERSE)
         self.trader = Trader(symbol=TRADING_PAIR)  # Initialize the Trader class
         self.notifier = Notifier()
         self.position_manager = PositionManager()
@@ -275,10 +276,10 @@ class BotManager:
                 logging.info("Failed to get current price. Skipping position check.")
                 return
 
-            stable_positions_len = len([position for position_id, position in self.position_manager.get_positions().items() if position['dip'] == 0])
+            stable_positions_len = len([position for position_id, position in self.position_manager.get_positions().items() if position['dip'] == TRAILING_PERCENT])
             print(f"Stable Positions Count: {stable_positions_len}")
 
-            if stable_positions_len >= GAIN_POSITIONS_LEN and self.decision_maker.calculate_stable_portfolio_gain(bot_manager, current_price) > 0:
+            if stable_positions_len >= TRAILING_POSITIONS_LEN and self.decision_maker.calculate_stable_portfolio_gain(bot_manager, current_price) > 0:
                 reversed_decision = self.decision_maker.check_for_sell_due_to_reversal(bot_manager, current_price)
 
                 if reversed_decision == "Sell":
