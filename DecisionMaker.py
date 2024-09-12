@@ -46,6 +46,12 @@ class DecisionMaker:
             print(f"Error loading max_gain from file: {e}")
             return 0.0
 
+    def set_max_gain(self, bot_manager, current_price):
+        total_portfolio_gain = self.calculate_stable_portfolio_gain(bot_manager, current_price)
+        self.max_gain = total_portfolio_gain  # Update the maximum gain
+        self.save_max_gain()  # Save the updated max gain to the file
+
+
     def calculate_stable_portfolio_gain(self, bot_manager, current_price):
         """
         Calculate the total portfolio gain/loss based on the current positions and the current market price,
