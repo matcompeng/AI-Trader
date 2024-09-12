@@ -1,6 +1,10 @@
+import json
+import os
+
+
 class DecisionMaker:
     def __init__(self, risk_tolerance=None, base_stop_loss=None, base_take_profit=None, profit_interval=None,
-                 loose_interval=None, dip_interval=None, amount_rsi_interval=None, amount_atr_interval=None, min_stable_intervals=None, gain_sell_threshold=None):
+                 loose_interval=None, dip_interval=None, amount_rsi_interval=None, amount_atr_interval=None, min_stable_intervals=None, gain_sell_threshold=None, data_directory='data'):
         self.risk_tolerance = risk_tolerance
         self.base_stop_loss = base_stop_loss
         self.base_take_profit = base_take_profit
@@ -10,8 +14,37 @@ class DecisionMaker:
         self.amount_rsi_interval = amount_rsi_interval
         self.amount_atr_interval = amount_atr_interval
         self.min_stable_intervals = min_stable_intervals
-        self.max_gain = 0.0  # Track the maximum portfolio gain
+        self.data_directory = data_directory  # Set the data directory for file storage
+        self.max_gain_file = os.path.join(self.data_directory, 'max_gain.json')
+        self.max_gain = self.load_max_gain()  # Load max gain from the file
         self.sell_threshold = gain_sell_threshold  # 25% loss from max gain to trigger sell
+
+    def save_max_gain(self):
+        """
+        Save the max_gain value to a JSON file.
+        """
+        try:
+            with open(self.max_gain_file, 'w') as file:
+                json.dump({'max_gain': self.max_gain}, file)
+            print(f"Max gain {self.max_gain:.2f}% saved to {self.max_gain_file}")
+        except Exception as e:
+            print(f"Error saving max_gain to file: {e}")
+
+    def load_max_gain(self):
+        """
+        Load the max_gain value from a JSON file.
+        If the file does not exist, return 0.0.
+        """
+        try:
+            if os.path.exists(self.max_gain_file):
+                with open(self.max_gain_file, 'r') as file:
+                    data = json.load(file)
+                    return data.get('max_gain', 0.0)
+            else:
+                return 0.0  # Default value if the file doesn't exist
+        except Exception as e:
+            print(f"Error loading max_gain from file: {e}")
+            return 0.0
 
     def calculate_stable_portfolio_gain(self, bot_manager, current_price):
         """
@@ -57,15 +90,19 @@ class DecisionMaker:
             # Calculate the total portfolio gain using BotManager methods
             total_portfolio_gain = self.calculate_stable_portfolio_gain(bot_manager, current_price)
 
+            self.max_gain = self.load_max_gain()  # Load max gain from the file
+
             # Check if the current gain is a new maximum
             if total_portfolio_gain > self.max_gain:
                 self.max_gain = total_portfolio_gain  # Update the maximum gain
+                self.save_max_gain()  # Save the updated max gain to the file
                 print(f"New maximum gain reached: {self.max_gain:.2f}%")
 
             # If the current gain has decreased by 25% from the maximum, issue a sell signal
             if total_portfolio_gain < self.max_gain * (1 - self.sell_threshold):
                 print(f"Market has reversed. Current gain: {total_portfolio_gain:.2f}%, Max gain: {self.max_gain:.2f}%")
                 self.max_gain = 0  # Reset The Maximum Gain
+                self.save_max_gain()  # Save the reset max gain to the file
                 return "Sell"
             else:
                 print(f"Current portfolio gain: {total_portfolio_gain:.2f}%, No reversal detected.")

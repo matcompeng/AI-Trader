@@ -23,19 +23,19 @@ TRADING_INTERVAL = '1h'         # Select The Interval That Activate/Deactivate P
 PROFIT_INTERVAL = '1h'          # Select The Interval For Take Profit Calculations
 LOOSE_INTERVAL = '1h'           # Select The Interval For Stop Loose Calculations
 SR_INTERVAL = '1h'              # Select The Interval That Trader Define Support and Resistance Levels
-DIP_INTERVAL = '1h'             # Select The Interval For Buying a Dip
+DIP_INTERVAL = '15m'             # Select The Interval For Buying a Dip
 POSITION_CYCLE = 15             # Time in seconds to check positions
 PREDICTION_CYCLE = 5 * 60       # Time in seconds to run the Prediction bot cycle
 INTERVAL_BANDWIDTH = '5m'       # Define The Interval To calculate Prediction Bandwidth
 PREDICT_BANDWIDTH = 0.60        # Define Minimum Bandwidth % to Activate Trading
-BASE_TAKE_PROFIT = 0.30         # Define Base Take Profit Percentage %
-BASE_STOP_LOSS = 0.10           # Define Base Stop Loose  Percentage %
+BASE_TAKE_PROFIT = 0.45         # Define Base Take Profit Percentage %
+BASE_STOP_LOSS = 0.15           # Define Base Stop Loose  Percentage %
 CAPITAL_AMOUNT = 500            # Your Capital Investment
 RISK_TOLERANCE = 0.03           # The Portion Amount you want to take risk of capital for each Buying position
 AMOUNT_RSI_INTERVAL = '5m'      # Interval To get its RSI for Buying Amount Calculations Function
 AMOUNT_ATR_INTERVAL = '15m'     # Interval To get its ATR for Buying Amount Calculations Function
 USDT_DIP_AMOUNT = 5             # Amount of Currency For Buying a Dip
-MIN_STABLE_INTERVALS = 5        # Set The Minimum Stable Intervals For Market Stable Condition
+MIN_STABLE_INTERVALS = 4        # Set The Minimum Stable Intervals For Market Stable Condition
 GAIN_POSITIONS_LEN = 5          # Define The Minimum Length For Stable Positions To start Gain Reversal Process
 GAIN_SELL_THRESHOLD = 0.35      # Set the Sell Threshold % for Stable Portfolio Gain Reversal
 CHECK_POSITIONS_ON_BUY = True   # Set True If You Need Bot Manager Check The Positions During Buy Cycle
@@ -314,59 +314,59 @@ class BotManager:
                                 error_message = f"Failed to execute Sell order: {order_details}"
                                 self.save_error_to_csv(error_message)
                                 self.notifier.send_notification("Trade Error", error_message)
-            else:
-                # Iterate over a copy of the positions to avoid runtime errors
-                positions_copy = list(self.position_manager.get_positions().items())
-                for position_id, position in positions_copy:
-                    entry_price = position['entry_price']
-                    amount = position['amount']
-                    dip_flag = position['dip']
+                else:
+                    # Iterate over a copy of the positions to avoid runtime errors
+                    positions_copy = list(self.position_manager.get_positions().items())
+                    for position_id, position in positions_copy:
+                        entry_price = position['entry_price']
+                        amount = position['amount']
+                        dip_flag = position['dip']
 
-                    if not all_features:
-                        print("Failed to process features for position check.")
-                        logging.info("Failed to process features for position check.")
-                        return
+                        if not all_features:
+                            print("Failed to process features for position check.")
+                            logging.info("Failed to process features for position check.")
+                            return
 
-                    final_decision, adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit = self.decision_maker.make_decision(
-                        "Hold", current_price, entry_price, all_features)
-                    gain_loose = round(self.calculate_gain_loose(entry_price, current_price), 2)
+                        final_decision, adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit = self.decision_maker.make_decision(
+                            "Hold", current_price, entry_price, all_features)
+                        gain_loose = round(self.calculate_gain_loose(entry_price, current_price), 2)
 
-                    if final_decision == "Sell" and dip_flag == 0:
-                        trade_type = 'Stable'
-                        print(f"Selling position {position_id}")
-                        logging.info(f"Selling position {position_id}")
-                        trade_status, order_details = self.trader.execute_trade(final_decision, amount)
-                        if trade_status == "Success":
-                            stable_invested, dip_invested, total_invested = self.invested_budget()
-                            profit_usdt = self.calculate_profit(trade_quantity=amount, sold_price=current_price,
-                                                                entry_price=entry_price)
-                            self.position_manager.remove_position(position_id)
-                            self.log_sold_position(position_id, trade_type, entry_price, current_price, profit_usdt, gain_loose)
-                            print(f"Position {position_id} sold successfully")
-                            logging.info(f"Position {position_id} sold successfully")
-                            self.notifier.send_notification("Stable Trade Executed", f"Sold {amount} {COIN} at ${current_price}\n"
-                                                                              f"Gain/Loose: {gain_loose}%\n"
-                                                                              f"Stable Invested: {round(stable_invested)} USDT\n"
-                                                                              f"Dip Invested: {round(dip_invested)} USDT\n"
-                                                                              f"Total Invested: {round(total_invested)} USDT")
+                        if final_decision == "Sell" and dip_flag == 0:
+                            trade_type = 'Stable'
+                            print(f"Selling position {position_id}")
+                            logging.info(f"Selling position {position_id}")
+                            trade_status, order_details = self.trader.execute_trade(final_decision, amount)
+                            if trade_status == "Success":
+                                stable_invested, dip_invested, total_invested = self.invested_budget()
+                                profit_usdt = self.calculate_profit(trade_quantity=amount, sold_price=current_price,
+                                                                    entry_price=entry_price)
+                                self.position_manager.remove_position(position_id)
+                                self.log_sold_position(position_id, trade_type, entry_price, current_price, profit_usdt, gain_loose)
+                                print(f"Position {position_id} sold successfully")
+                                logging.info(f"Position {position_id} sold successfully")
+                                self.notifier.send_notification("Stable Trade Executed", f"Sold {amount} {COIN} at ${current_price}\n"
+                                                                                  f"Gain/Loose: {gain_loose}%\n"
+                                                                                  f"Stable Invested: {round(stable_invested)} USDT\n"
+                                                                                  f"Dip Invested: {round(dip_invested)} USDT\n"
+                                                                                  f"Total Invested: {round(total_invested)} USDT")
+                            else:
+                                error_message = f"Failed to execute Sell order: {order_details}"
+                                self.save_error_to_csv(error_message)
+                                self.notifier.send_notification("Trade Error", error_message)
                         else:
-                            error_message = f"Failed to execute Sell order: {order_details}"
-                            self.save_error_to_csv(error_message)
-                            self.notifier.send_notification("Trade Error", error_message)
-                    else:
-                        print(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, ((Gain/Loose: {gain_loose}%))")
-                        logging.info(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, ((Gain/Loose: {gain_loose}%))")
-                        print(f"dynamic_stop_loss_lower: {round(adjusted_stop_loss_lower, 2)}%, dynamic_stop_loss_middle: {round(adjusted_stop_loss_middle, 2)}%, dynamic_take_profit: {round(adjusted_take_profit, 2)}%\n")
-                        logging.info(f"dynamic_stop_loss_lower: {round(adjusted_stop_loss_lower, 2)}%, dynamic_stop_loss_middle: {round(adjusted_stop_loss_middle, 2)}%, dynamic_take_profit: {round(adjusted_take_profit, 2)}\n%")
+                            print(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, ((Gain/Loose: {gain_loose}%))")
+                            logging.info(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, ((Gain/Loose: {gain_loose}%))")
+                            print(f"dynamic_stop_loss_lower: {round(adjusted_stop_loss_lower, 2)}%, dynamic_stop_loss_middle: {round(adjusted_stop_loss_middle, 2)}%, dynamic_take_profit: {round(adjusted_take_profit, 2)}%\n")
+                            logging.info(f"dynamic_stop_loss_lower: {round(adjusted_stop_loss_lower, 2)}%, dynamic_stop_loss_middle: {round(adjusted_stop_loss_middle, 2)}%, dynamic_take_profit: {round(adjusted_take_profit, 2)}\n%")
 
 
-                print(f"Stable Invested: {round(stable_invested)} USDT\n"
-                                          f"Dip Invested: {round(dip_invested)} USDT\n"
-                                          f"Total Invested: {round(total_invested)} USDT")
-                logging.info(f"Stable Invested: {round(stable_invested)} USDT\n"
-                                          f"Dip Invested: {round(dip_invested)} USDT\n"
-                                          f"Total Invested: {round(total_invested)} USDT")
-                self.log_time("Position check", start_time)
+                    print(f"Stable Invested: {round(stable_invested)} USDT\n"
+                                              f"Dip Invested: {round(dip_invested)} USDT\n"
+                                              f"Total Invested: {round(total_invested)} USDT")
+                    logging.info(f"Stable Invested: {round(stable_invested)} USDT\n"
+                                              f"Dip Invested: {round(dip_invested)} USDT\n"
+                                              f"Total Invested: {round(total_invested)} USDT")
+                    self.log_time("Position check", start_time)
 
 
         except Exception as e:
