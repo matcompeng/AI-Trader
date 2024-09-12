@@ -112,7 +112,7 @@ class DecisionMaker:
                 self.save_max_gain()  # Save the reset max gain to the file
                 return "Sell"
             else:
-                print(f"Current Portfolio Gain: {total_portfolio_gain:.2f}%, Max Gain Reached{self.max_gain}% ,No reversal detected.")
+                print(f"Current Portfolio Gain: {total_portfolio_gain:.2f}%, Max Gain Reached{self.max_gain:.2f}% ,No reversal detected.")
                 return "Hold"
 
         except Exception as e:
