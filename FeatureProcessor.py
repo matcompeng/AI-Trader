@@ -198,7 +198,7 @@ class FeatureProcessor:
         """
         Load historical context data from the JSON file.
         """
-        historical_file = os.path.join(self.data_directory, f'{self.trading_interval}_dip_historical_context.json')
+        historical_file = os.path.join(self.data_directory, f'{self.dip_interval}_dip_historical_context.json')
 
         if os.path.exists(historical_file):
             with open(historical_file, 'r') as file:

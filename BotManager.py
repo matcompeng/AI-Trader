@@ -716,6 +716,7 @@ class BotManager:
             # For testing purposes
             # self.save_historical_context_for_trading()
             # self.run_prediction_cycle()
+            self.check_dip_positions()
 
             # Schedule the position check every POSITION_CYCLE seconds
             schedule.every(POSITION_CYCLE).seconds.do(self.check_stable_positions)

@@ -107,7 +107,7 @@ class Predictor:
 
         # Include historical data as one line per entry
         if historical_data:
-            prompt += "Here is the historical context for the most recent 3 days (each entry is presented on a single line):\n\n"
+            prompt += "\n\nHere is the historical context for the most recent 3 days (each entry is presented on a single line):\n\n"
             for entry in historical_data:
                 historical_prompt = (
                     f"{entry['timestamp']}, "
@@ -136,7 +136,7 @@ class Predictor:
              "1. Volatility-Based Levels (using ATR) to determine suitable stop loss and take profit levels.\n"
              "2. Fibonacci Retracement Levels to refine and validate the stop loss and take profit levels.\n\n"
              "Your task is to evaluate the average entry price of all given positions based on the historical data, using the above techniques, "
-             "to decide the appropriate course of action for the entire portfolio:\n"
+             "to decide the appropriate course of action for the entire portfolio:\n\n"
              "1. Recommend selling for take profit if the market shows signs of reaching an optimal profit level based on the average entry price.\n"
              "2. Recommend selling for stop loss if the market shows signs of potential further decline below the average entry price.\n\n"
              "Please provide a clear recommendation for the entire portfolio (use &Sell_TP& for Take Profit, &Sell_SL& for Stop Loss, or &Hold&), "
