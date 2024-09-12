@@ -23,7 +23,7 @@ TRADING_INTERVAL = '1h'         # Select The Interval That Activate/Deactivate P
 PROFIT_INTERVAL = '1h'          # Select The Interval For Take Profit Calculations
 LOOSE_INTERVAL = '1h'           # Select The Interval For Stop Loose Calculations
 SR_INTERVAL = '1h'              # Select The Interval That Trader Define Support and Resistance Levels
-DIP_INTERVAL = '15m'             # Select The Interval For Buying a Dip
+DIP_INTERVAL = '15m'            # Select The Interval For Buying a Dip
 POSITION_CYCLE = 15             # Time in seconds to check positions
 PREDICTION_CYCLE = 5 * 60       # Time in seconds to run the Prediction bot cycle
 INTERVAL_BANDWIDTH = '5m'       # Define The Interval To calculate Prediction Bandwidth
@@ -635,8 +635,9 @@ class BotManager:
             # Loading dip_positions
             if self.check_dip_flag():
                 positions_copy = [
-                    position for position_key, position in self.position_manager.get_positions().items()
-                    if position.get('dip_flag') == 1]
+                    (position_id, position) for position_id, position in self.position_manager.get_positions().items()
+                    if position.get('dip') == 1
+                ]
 
                 #Loading Dip Historical context data
                 historical_data = self.feature_processor.get_dip_historical_data()

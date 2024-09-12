@@ -100,12 +100,10 @@ class Predictor:
 
         prompt = "Below are the entry positions recorded during the market dip (each entry is presented on a single line):\n\n"
         # Iterate through the positions and format each entry
-        for position_id, position_data in dip_positions.items():
+        for position_id, position_data in dip_positions:
             timestamp = position_data['timestamp']
             entry_price = position_data['entry_price']
             prompt += f"Timestamp: {timestamp}, Position_id: {position_id},Entry Price: {entry_price}\n"
-
-
 
         # Include historical data as one line per entry
         if historical_data:
