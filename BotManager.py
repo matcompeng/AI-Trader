@@ -37,7 +37,7 @@ AMOUNT_ATR_INTERVAL = '15m'     # Interval To get its ATR for Buying Amount Calc
 USDT_DIP_AMOUNT = 5             # Amount of Currency For Buying a Dip
 MIN_STABLE_INTERVALS = 4        # Set The Minimum Stable Intervals For Market Stable Condition
 TRAILING_POSITIONS_COUNT = 5    # Define The Minimum Count For Stable Positions To start Trailing Check
-TRAILING_PERCENT = 0.80         # Set The Minimum % To Activate Trailing Stop Process
+TRAILING_PERCENT = 0.60         # Set The Minimum % To Activate Trailing Stop Process
 TRAILING_GAIN_REVERSE = 0.25    # Set the Sell Threshold % for Stable Portfolio Gain Reversal (Trailing Stop)
 CHECK_POSITIONS_ON_BUY = True   # Set True If You Need Bot Manager Check The Positions During Buy Cycle
 # -------------------------------------------------------------------------------------------------
