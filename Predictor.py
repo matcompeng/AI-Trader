@@ -7,15 +7,17 @@ import time
 from ChatGPTClient import ChatGPTClient
 from DataCollector import DataCollector
 from FeatureProcessor import FeatureProcessor
+from BotManager import BotManager
 
 class Predictor:
-    def __init__(self, chatgpt_client, data_directory='data', max_retries=3, retry_delay=5, coin=None, sr_interval=None):
+    def __init__(self, chatgpt_client, data_directory='data', max_retries=3, retry_delay=5, coin=None, sr_interval=None, bot_manager=None):
         self.chatgpt_client = chatgpt_client
         self.data_directory = data_directory
         self.max_retries = max_retries  # Maximum number of retries
         self.retry_delay = retry_delay  # Delay in seconds between retries
         self.coin = coin
         self.sr_interval = sr_interval
+        self.bot_manager = bot_manager  # Store the bot manager instance
 
         # Ensure the data directory exists
         if not os.path.exists(self.data_directory):
@@ -211,9 +213,11 @@ class Predictor:
 
             except Exception as e:
                 if "Request timed out" or "Connection aborted" in str(e):
+                    self.bot_manager.save_error_to_csv(str(e))
                     logging.error("Error in ChatGPT API call: Request timed out.")
                     print("Error in ChatGPT API call: Request timed out or connection aborted. Retrying...")
                 else:
+                    self.bot_manager.save_error_to_csv(str(e))
                     logging.error(f"Error during communication with OpenAI: {e}")
                     print(f"Attempt {attempt + 1} failed. Retrying in {self.retry_delay} seconds...")
                 time.sleep(self.retry_delay)

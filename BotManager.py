@@ -95,7 +95,7 @@ class BotManager:
         self.data_collector = DataCollector(api_key, api_secret, intervals=FEATURES_INTERVALS, symbol=TRADING_PAIR)
         self.feature_processor = FeatureProcessor(intervals=FEATURES_INTERVALS, trading_interval=TRADING_INTERVAL, dip_interval=DIP_INTERVAL)
         self.chatgpt_client = ChatGPTClient()
-        self.predictor = Predictor(self.chatgpt_client, coin=COIN, sr_interval=SR_INTERVAL)
+        self.predictor = Predictor(self.chatgpt_client, coin=COIN, sr_interval=SR_INTERVAL, bot_manager=self)
         self.decision_maker = DecisionMaker(base_take_profit=BASE_TAKE_PROFIT, base_stop_loss=BASE_STOP_LOSS,
                                             profit_interval=PROFIT_INTERVAL, loose_interval=LOOSE_INTERVAL,
                                             dip_interval=DIP_INTERVAL, risk_tolerance=RISK_TOLERANCE,
@@ -470,6 +470,10 @@ class BotManager:
 
 
     def run_prediction_cycle(self):
+
+        # Taking Bot Manager Class Instance
+        bot_manager = BotManager()
+
         attempt = 0
         while attempt < 3:
             try:
@@ -716,7 +720,7 @@ class BotManager:
             # For testing purposes
             # self.save_historical_context_for_trading()
             # self.run_prediction_cycle()
-            self.check_dip_positions()
+            # self.check_dip_positions()
 
             # Schedule the position check every POSITION_CYCLE seconds
             schedule.every(POSITION_CYCLE).seconds.do(self.check_stable_positions)
