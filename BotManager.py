@@ -27,7 +27,7 @@ DIP_INTERVAL = '15m'            # Select The Interval For Buying a Dip
 POSITION_CYCLE = 15             # Time in seconds to check positions
 PREDICTION_CYCLE = 5 * 60       # Time in seconds to run the Prediction bot cycle
 INTERVAL_BANDWIDTH = '5m'       # Define The Interval To calculate Prediction Bandwidth
-PREDICT_BANDWIDTH = 0.60        # Define Minimum Bandwidth % to Activate Trading
+PREDICT_BANDWIDTH = 0.40        # Define Minimum Bandwidth % to Activate Trading
 BASE_TAKE_PROFIT = 0.60         # Define Base Take Profit Percentage %
 BASE_STOP_LOSS = 0.20           # Define Base Stop Loose  Percentage %
 CAPITAL_AMOUNT = 500            # Your Capital Investment
@@ -35,7 +35,7 @@ RISK_TOLERANCE = 0.03           # The Portion Amount you want to take risk of ca
 AMOUNT_RSI_INTERVAL = '5m'      # Interval To get its RSI for Buying Amount Calculations Function
 AMOUNT_ATR_INTERVAL = '15m'     # Interval To get its ATR for Buying Amount Calculations Function
 USDT_DIP_AMOUNT = 5             # Amount of Currency For Buying a Dip
-MIN_STABLE_INTERVALS = 4        # Set The Minimum Stable Intervals For Market Stable Condition
+MIN_STABLE_INTERVALS = 5        # Set The Minimum Stable Intervals For Market Stable Condition
 TRAILING_POSITIONS_COUNT = 5    # Define The Minimum Count For Stable Positions To start Trailing Check
 TRAILING_PERCENT = 0.60         # Set The Minimum % To Activate Trailing Stop Process
 TRAILING_GAIN_REVERSE = 0.25    # Set the Sell Threshold % for Stable Portfolio Gain Reversal (Trailing Stop)
@@ -560,8 +560,8 @@ class BotManager:
 
                     if trade_status == "Success":
                         position_id = str(int(time.time()))
-                        stable_invested, dip_invested, total_invested = self.invested_budget()
                         self.position_manager.add_position(position_id, current_price, trading_cryptocurrency_amount, dip_flag=0)
+                        stable_invested, dip_invested, total_invested = self.invested_budget()
                         print(
                             f"New position added: {position_id}, Entry Price: {current_price}, Amount: {trading_cryptocurrency_amount}")
                         logging.info(
@@ -585,8 +585,8 @@ class BotManager:
 
                     if trade_status == "Success":
                         position_id = str(int(time.time()))
-                        stable_invested, dip_invested, total_invested = self.invested_budget()
                         self.position_manager.add_position(position_id, current_price, dip_cryptocurrency_amount, dip_flag=1)
+                        stable_invested, dip_invested, total_invested = self.invested_budget()
                         print(
                             f"New position added: {position_id}, Entry Price: {current_price}, Amount: {dip_cryptocurrency_amount}")
                         logging.info(
