@@ -7,7 +7,6 @@ import time
 from ChatGPTClient import ChatGPTClient
 from DataCollector import DataCollector
 from FeatureProcessor import FeatureProcessor
-from BotManager import BotManager
 
 class Predictor:
     def __init__(self, chatgpt_client, data_directory='data', max_retries=3, retry_delay=5, coin=None, sr_interval=None, bot_manager=None):
