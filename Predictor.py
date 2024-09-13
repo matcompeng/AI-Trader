@@ -236,9 +236,9 @@ class Predictor:
         #     return "&Sell&"
         elif "&hold&" in response.lower():
             return "Hold"
-        elif "&Sell_TP&" in response.lower():
+        elif "&sell_tp&" in response.lower():
             return "Sell"
-        elif "&Sell_SL&" in response.lower():
+        elif "&sell_sl&" in response.lower():
             return "Sell"
         else:
             return None
