@@ -19,7 +19,7 @@ import csv
 FEATURES_INTERVALS = ['1m', '5m', '15m', '30m', '1h', '1d']
 COIN = 'BNB'                    # Select Cryptocurrency
 TRADING_PAIR = 'BNBUSDT'        # Select Cryptocurrency Trading Pair
-TRADING_INTERVAL = '1h'         # Select The Interval That Activate/Deactivate Predictor through PREDICT_IN_BANDWIDTH
+TRADING_INTERVAL = '5m'         # Select The Interval For Stable Trading Process
 PROFIT_INTERVAL = '1h'          # Select The Interval For Take Profit Calculations
 LOOSE_INTERVAL = '1h'           # Select The Interval For Stop Loose Calculations
 SR_INTERVAL = '1h'              # Select The Interval That Trader Define Support and Resistance Levels
@@ -728,7 +728,7 @@ class BotManager:
             # Schedule the prediction cycle every PREDICTION_CYCLE seconds
             schedule.every(PREDICTION_CYCLE).seconds.do(self.run_prediction_cycle)
 
-            schedule.every().hour.at(":59").do(self.save_historical_context_for_stable)
+            schedule.every(5).minutes.do(self.save_historical_context_for_stable)
 
             schedule.every().hour.at(":59").do(self.save_historical_context_for_dip)
 
