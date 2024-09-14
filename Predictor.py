@@ -88,12 +88,13 @@ class Predictor:
 
         # Append final instructions for ChatGPT
         prompt += (
-            "\n\nI am looking to trade cryptocurrency in the short and intermediate term within a day.\n"
-            f"Knowing that the current price is: {current_price} for this cycle.\n"
-            f"Favor a 'Buy' decision if the price shows signs of reversal after a dip in interval {self.sr_interval}, especially when there is a strong support level below the current price. A price reversal after a dip suggests a potential upward momentum, making it a more favorable buying opportunity.\n"
-            "Always consider technical indicators, ensuring that the market momentum aligns with a buying decision.\n"
-            f"Based on this data from multiple intervals, historical context and instructions, please provide a single, clear recommendation (use &Buy& or &Hold& for the final decision) for {self.coin}."
-        )
+        "\n\nI am looking to trade cryptocurrency in the short and intermediate term within a day.\n"
+        f"Knowing that the current price is: {current_price} for this cycle.\n"
+        f"Avoid 'Buy' decisions near the resistance levels of interval {self.sr_interval}.\n"
+        f"Favor a 'Buy' decision if the price shows signs of reversal after a dip in interval {self.sr_interval}, inferred from historical context, especially when there is a strong support level below the current price. A price reversal after a dip suggests potential upward momentum, making it a more favorable buying opportunity.\n"
+        "Always consider technical indicators, ensuring that the market momentum aligns with a buying decision.\n"
+        f"Based on this data from multiple intervals, historical context, and instructions, please provide a single, clear recommendation (use &Buy& or &Hold& for the final decision) for {self.coin}."
+    )
 
         return prompt
 

@@ -17,29 +17,29 @@ import csv
 
 # Bot Configurations ------------------------------------------------------------------------------
 FEATURES_INTERVALS = ['1m', '5m', '15m', '30m', '1h', '1d']
-COIN = 'BNB'                    # Select Cryptocurrency
+COIN = 'BNB'                    # Select Cryptocurrency.
 TRADING_PAIR = 'BNBUSDT'        # Select Cryptocurrency Trading Pair
-TRADING_INTERVAL = '5m'         # Select The Interval For Stable Trading Process
-PROFIT_INTERVAL = '1h'          # Select The Interval For Take Profit Calculations
-LOOSE_INTERVAL = '1h'           # Select The Interval For Stop Loose Calculations
-SR_INTERVAL = '1h'              # Select The Interval That Trader Define Support and Resistance Levels
-DIP_INTERVAL = '15m'            # Select The Interval For Buying a Dip
-POSITION_CYCLE = 15             # Time in seconds to check positions
-PREDICTION_CYCLE = 5 * 60       # Time in seconds to run the Prediction bot cycle
-INTERVAL_BANDWIDTH = '5m'       # Define The Interval To calculate Prediction Bandwidth
-PREDICT_BANDWIDTH = 0.40        # Define Minimum Bandwidth % to Activate Trading
-BASE_TAKE_PROFIT = 0.60         # Define Base Take Profit Percentage %
-BASE_STOP_LOSS = 0.20           # Define Base Stop Loose  Percentage %
-CAPITAL_AMOUNT = 500            # Your Capital Investment
-RISK_TOLERANCE = 0.03           # The Portion Amount you want to take risk of capital for each Buying position
-AMOUNT_RSI_INTERVAL = '5m'      # Interval To get its RSI for Buying Amount Calculations Function
-AMOUNT_ATR_INTERVAL = '15m'     # Interval To get its ATR for Buying Amount Calculations Function
-USDT_DIP_AMOUNT = 5             # Amount of Currency For Buying a Dip
-MIN_STABLE_INTERVALS = 5        # Set The Minimum Stable Intervals For Market Stable Condition
-TRAILING_POSITIONS_COUNT = 5    # Define The Minimum Count For Stable Positions To start Trailing Check
-TRAILING_PERCENT = 0.60         # Set The Minimum % To Activate Trailing Stop Process
-TRAILING_GAIN_REVERSE = 0.25    # Set the Sell Threshold % for Stable Portfolio Gain Reversal (Trailing Stop)
-CHECK_POSITIONS_ON_BUY = True   # Set True If You Need Bot Manager Check The Positions During Buy Cycle
+TRADING_INTERVAL = '5m'         # Select The Interval For Stable 'Buy' Trading And Gathering Historical Context.
+PROFIT_INTERVAL = '1h'          # Select The Interval For Take Profit Calculations.
+LOSS_INTERVAL = '1h'            # Select The Interval For Stop Loose Calculations.
+SR_INTERVAL = '5m'              # Select The Interval That Trader Define Support and Resistance Levels.
+DIP_INTERVAL = '15m'            # Select The Interval For Buying a Dip.
+POSITION_CYCLE = 15             # Time in seconds to check positions.
+PREDICTION_CYCLE = 5 * 60       # Time in seconds to run the Prediction bot cycle.
+INTERVAL_BANDWIDTH = '5m'       # Define The Interval To calculate Prediction Bandwidth.
+PREDICT_BANDWIDTH = 0.40        # Define Minimum Bandwidth % to Activate Trading.
+BASE_TAKE_PROFIT = 0.60         # Define Base Take Profit Percentage %.
+BASE_STOP_LOSS = 0.20           # Define Base Stop Loose  Percentage %.
+CAPITAL_AMOUNT = 500            # Your Capital Investment.
+RISK_TOLERANCE = 0.03           # The Portion Amount you want to take risk of capital for each Buying position.
+AMOUNT_RSI_INTERVAL = '5m'      # Interval To get its RSI for Buying Amount Calculations Function.
+AMOUNT_ATR_INTERVAL = '15m'     # Interval To get its ATR for Buying Amount Calculations Function.
+USDT_DIP_AMOUNT = 5             # Amount of Currency For Buying a Dip.
+MIN_STABLE_INTERVALS = 5        # Set The Minimum Stable Intervals For Market Stable Condition.
+TRAILING_POSITIONS_COUNT = 5    # Define The Minimum Count For Stable Positions To start Trailing Check.
+TRAILING_PERCENT = 0.60         # Set The Minimum % To Activate Trailing Stop Process.
+TRAILING_GAIN_REVERSE = 0.25    # Set the Sell Threshold % for Stable Portfolio Gain Reversal (Trailing Stop).
+CHECK_POSITIONS_ON_BUY = True   # Set True If You Need Bot Manager Check The Positions During Buy Cycle.
 # -------------------------------------------------------------------------------------------------
 
 # Create the data directory if it doesn't exist
@@ -97,7 +97,7 @@ class BotManager:
         self.chatgpt_client = ChatGPTClient()
         self.predictor = Predictor(self.chatgpt_client, coin=COIN, sr_interval=SR_INTERVAL, bot_manager=self)
         self.decision_maker = DecisionMaker(base_take_profit=BASE_TAKE_PROFIT, base_stop_loss=BASE_STOP_LOSS,
-                                            profit_interval=PROFIT_INTERVAL, loose_interval=LOOSE_INTERVAL,
+                                            profit_interval=PROFIT_INTERVAL, loose_interval=LOSS_INTERVAL,
                                             dip_interval=DIP_INTERVAL, risk_tolerance=RISK_TOLERANCE,
                                             amount_atr_interval=AMOUNT_ATR_INTERVAL,
                                             amount_rsi_interval=AMOUNT_RSI_INTERVAL,
@@ -159,12 +159,6 @@ class BotManager:
         if upper_band and lower_band:
             price_change = ((upper_band - lower_band) / lower_band) * 100
             return price_change
-
-    def price_is_over_band(self, all_features, current_price):
-
-        lower_band_15m = all_features[TRADING_INTERVAL].get('lower_band')
-        if current_price >= lower_band_15m:
-            return True
 
     def calculate_gain_loose(self,entry_price, current_price):
         gain_loose = ((current_price - entry_price) / entry_price) * 100
