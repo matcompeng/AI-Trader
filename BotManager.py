@@ -807,7 +807,7 @@ class BotManager:
                     next_close_time = next_close_time + timedelta(hours=1)
 
                 # Time to trigger the dip historical context (30 seconds before close)
-                run_time = next_close_time - timedelta(seconds=30)
+                run_time = next_close_time - timedelta(seconds=15)
 
                 # Calculate how long to wait until 30 seconds before the next close
                 time_to_wait = (run_time - now).total_seconds()
@@ -823,7 +823,7 @@ class BotManager:
                 self.save_historical_context_for_dip()
 
                 # Wait for 30 seconds to let the next '15m' close before scheduling the next prediction
-                time.sleep(30)
+                time.sleep(15)
 
         except Exception as e:
             print(f"Error in dip historical prediction: {e}")
