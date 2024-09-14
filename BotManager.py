@@ -475,7 +475,7 @@ class BotManager:
                 start_time = time.time()
                 cycle_start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 print(
-                    f"\n\n*****Prediction cycle started at {cycle_start_time}, running every {PROFIT_INTERVAL}.*****")
+                    f"\n\n*****Prediction cycle started at {cycle_start_time}, running every {TRADING_INTERVAL}.*****")
                 logging.info(
                     f"//---------------------Prediction cycle started at {cycle_start_time}--------------------//")
 
@@ -767,7 +767,7 @@ class BotManager:
                     next_close_time = next_close_time + timedelta(hours=1)
 
                 # Time to trigger the prediction cycle (30 seconds before close)
-                run_time = next_close_time - timedelta(seconds=50)
+                run_time = next_close_time - timedelta(seconds=15)
 
                 # Calculate how long to wait until 30 seconds before the next close
                 time_to_wait = (run_time - now).total_seconds()
@@ -782,7 +782,7 @@ class BotManager:
                 self.save_historical_context_for_stable()
 
                 # Wait for 30 seconds to let the next '5m' close before scheduling the next prediction
-                time.sleep(50)
+                time.sleep(15)
 
         except Exception as e:
             print(f"Error in stable prediction: {e}")
