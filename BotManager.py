@@ -25,8 +25,9 @@ PROFIT_INTERVAL = '1h'          # Select The Interval For Take Profit Calculatio
 LOSS_INTERVAL = '1h'            # Select The Interval For Stop Loose Calculations.
 SR_INTERVAL = '5m'              # Select The Interval That Trader Define Support and Resistance Levels.
 DIP_INTERVAL = '15m'            # Select The Interval For Buying a Dip.
-POSITION_CYCLE = 15             # Time in seconds to check positions.
-# PREDICTION_CYCLE = 5 * 60       # Time in seconds to run the Prediction bot cycle.
+POSITION_CYCLE = 15             # Time in Seconds To Check Positions.
+PREDICTION_CYCLE = 5            # Time in Minutes to Run the Stable Prediction bot cycle.
+DIP_CYCLE = 15                  # Time in Minutes to Run the Dip Prediction bot cycle.
 INTERVAL_BANDWIDTH = '5m'       # Define The Interval To calculate Prediction Bandwidth.
 PREDICT_BANDWIDTH = 0.40        # Define Minimum Bandwidth % to Activate Trading.
 BASE_TAKE_PROFIT = 0.60         # Define Base Take Profit Percentage %.
@@ -719,7 +720,7 @@ class BotManager:
 
                 # Calculate the time until the next '5m' interval close time
                 minutes = now.minute
-                next_close_minute = (minutes // 5 + 1) * 5
+                next_close_minute = (minutes // PREDICTION_CYCLE + 1) * PREDICTION_CYCLE
                 next_close_time = now.replace(minute=next_close_minute % 60, second=0, microsecond=0)
 
                 # If the next close time goes beyond the current hour
@@ -759,7 +760,7 @@ class BotManager:
 
                 # Calculate the time until the next '5m' interval close time
                 minutes = now.minute
-                next_close_minute = (minutes // 5 + 1) * 5
+                next_close_minute = (minutes // PREDICTION_CYCLE + 1) * PREDICTION_CYCLE
                 next_close_time = now.replace(minute=next_close_minute % 60, second=0, microsecond=0)
 
                 # If the next close time goes beyond the current hour
@@ -798,7 +799,7 @@ class BotManager:
 
                 # Calculate the time until the next '15m' interval close time
                 minutes = now.minute
-                next_close_minute = (minutes // 15 + 1) * 15
+                next_close_minute = (minutes // DIP_CYCLE + 1) * DIP_CYCLE
                 next_close_time = now.replace(minute=next_close_minute % 60, second=0, microsecond=0)
 
                 # If the next close time goes beyond the current hour
