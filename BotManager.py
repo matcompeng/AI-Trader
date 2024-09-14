@@ -14,6 +14,7 @@ from DecisionMaker import DecisionMaker
 from Trader import Trader
 from Notifier import Notifier
 import csv
+import threading
 
 # Bot Configurations ------------------------------------------------------------------------------
 FEATURES_INTERVALS = ['1m', '5m', '15m', '30m', '1h', '1d']
@@ -25,7 +26,7 @@ LOSS_INTERVAL = '1h'            # Select The Interval For Stop Loose Calculation
 SR_INTERVAL = '5m'              # Select The Interval That Trader Define Support and Resistance Levels.
 DIP_INTERVAL = '15m'            # Select The Interval For Buying a Dip.
 POSITION_CYCLE = 15             # Time in seconds to check positions.
-PREDICTION_CYCLE = 5 * 60       # Time in seconds to run the Prediction bot cycle.
+# PREDICTION_CYCLE = 5 * 60       # Time in seconds to run the Prediction bot cycle.
 INTERVAL_BANDWIDTH = '5m'       # Define The Interval To calculate Prediction Bandwidth.
 PREDICT_BANDWIDTH = 0.40        # Define Minimum Bandwidth % to Activate Trading.
 BASE_TAKE_PROFIT = 0.60         # Define Base Take Profit Percentage %.
@@ -474,7 +475,7 @@ class BotManager:
                 start_time = time.time()
                 cycle_start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 print(
-                    f"\n\n*****Prediction cycle started at {cycle_start_time}, running every {PREDICTION_CYCLE} seconds.*****")
+                    f"\n\n*****Prediction cycle started at {cycle_start_time}, running every {PROFIT_INTERVAL}.*****")
                 logging.info(
                     f"//---------------------Prediction cycle started at {cycle_start_time}--------------------//")
 
@@ -708,6 +709,124 @@ class BotManager:
             logging.error(f"An error occurred during position check: {str(e)}")
             self.save_error_to_csv(str(e))
 
+    def check_prediction_timeframe(self):
+        """
+        Start the stable prediction cycle 45 seconds before the close of every '5m' interval.
+        """
+        try:
+            while True:
+                now = datetime.now()
+
+                # Calculate the time until the next '5m' interval close time
+                minutes = now.minute
+                next_close_minute = (minutes // 5 + 1) * 5
+                next_close_time = now.replace(minute=next_close_minute % 60, second=0, microsecond=0)
+
+                # If the next close time goes beyond the current hour
+                if next_close_minute >= 60:
+                    next_close_time = next_close_time + timedelta(hours=1)
+
+                # Time to trigger the prediction cycle (30 seconds before close)
+                run_time = next_close_time - timedelta(seconds=40)
+
+                # Calculate how long to wait until 30 seconds before the next close
+                time_to_wait = (run_time - now).total_seconds()
+
+                # Wait for the calculated time
+                if time_to_wait > 0:
+                    print(f"Stable Prediction Waiting for {time_to_wait} seconds until {run_time.strftime('%Y-%m-%d %H:%M:%S')}")
+                    time.sleep(time_to_wait)
+
+                # Now run the prediction cycle
+                print(f"Running prediction cycle at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                self.run_prediction_cycle()
+
+                # Wait for 30 seconds to let the next '5m' close before scheduling the next prediction
+                time.sleep(40)
+
+        except Exception as e:
+            print(f"Error in stable prediction: {e}")
+            logging.error(f"Error in stable prediction: {e}")
+
+
+    def check_stable_historical_timeframe(self):
+        """
+        Start the stable prediction cycle 45 seconds before the close of every '5m' interval.
+        """
+        try:
+            while True:
+                now = datetime.now()
+
+                # Calculate the time until the next '5m' interval close time
+                minutes = now.minute
+                next_close_minute = (minutes // 5 + 1) * 5
+                next_close_time = now.replace(minute=next_close_minute % 60, second=0, microsecond=0)
+
+                # If the next close time goes beyond the current hour
+                if next_close_minute >= 60:
+                    next_close_time = next_close_time + timedelta(hours=1)
+
+                # Time to trigger the prediction cycle (30 seconds before close)
+                run_time = next_close_time - timedelta(seconds=50)
+
+                # Calculate how long to wait until 30 seconds before the next close
+                time_to_wait = (run_time - now).total_seconds()
+
+                # Wait for the calculated time
+                if time_to_wait > 0:
+                    print(f"Stable Historical Waiting for {time_to_wait} seconds until {run_time.strftime('%Y-%m-%d %H:%M:%S')}")
+                    time.sleep(time_to_wait)
+
+                # Now run the prediction cycle
+                print(f"Running prediction cycle at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                self.save_historical_context_for_stable()
+
+                # Wait for 30 seconds to let the next '5m' close before scheduling the next prediction
+                time.sleep(50)
+
+        except Exception as e:
+            print(f"Error in stable prediction: {e}")
+            logging.error(f"Error in stable prediction: {e}")
+
+    def check_dip_historical_timeframe(self):
+        """
+        Start the dip prediction cycle 30 seconds before the close of every '15m' interval.
+        """
+        try:
+            while True:
+                now = datetime.now()
+
+                # Calculate the time until the next '15m' interval close time
+                minutes = now.minute
+                next_close_minute = (minutes // 15 + 1) * 15
+                next_close_time = now.replace(minute=next_close_minute % 60, second=0, microsecond=0)
+
+                # If the next close time goes beyond the current hour
+                if next_close_minute >= 60:
+                    next_close_time = next_close_time + timedelta(hours=1)
+
+                # Time to trigger the dip historical context (30 seconds before close)
+                run_time = next_close_time - timedelta(seconds=30)
+
+                # Calculate how long to wait until 30 seconds before the next close
+                time_to_wait = (run_time - now).total_seconds()
+
+                # Wait for the calculated time
+                if time_to_wait > 0:
+                    print(
+                        f"Dip Historical Waiting for {time_to_wait} seconds until {run_time.strftime('%Y-%m-%d %H:%M:%S')}")
+                    time.sleep(time_to_wait)
+
+                # Now run the dip historical context saving
+                print(f"Running dip historical context at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                self.save_historical_context_for_dip()
+
+                # Wait for 30 seconds to let the next '15m' close before scheduling the next prediction
+                time.sleep(30)
+
+        except Exception as e:
+            print(f"Error in dip historical prediction: {e}")
+            logging.error(f"Error in dip historical prediction: {e}")
 
     def start(self):
         try:
@@ -719,12 +838,17 @@ class BotManager:
             # Schedule the position check every POSITION_CYCLE seconds
             schedule.every(POSITION_CYCLE).seconds.do(self.check_stable_positions)
 
-            # Schedule the prediction cycle every PREDICTION_CYCLE seconds
-            schedule.every(PREDICTION_CYCLE).seconds.do(self.run_prediction_cycle)
+            # Start the historical context cycle in a separate thread
+            prediction_thread = threading.Thread(target=self.check_prediction_timeframe, daemon=True)
+            prediction_thread.start()
 
-            schedule.every(5).minutes.do(self.save_historical_context_for_stable)
+            # Start the stable prediction cycle in a separate thread
+            prediction_thread = threading.Thread(target=self.check_stable_historical_timeframe, daemon=True)
+            prediction_thread.start()
 
-            schedule.every().hour.at(":59").do(self.save_historical_context_for_dip)
+            # Start the stable prediction cycle in a separate thread
+            prediction_thread = threading.Thread(target=self.check_dip_historical_timeframe, daemon=True)
+            prediction_thread.start()
 
             schedule.every().hour.do(self.check_dip_positions)
 

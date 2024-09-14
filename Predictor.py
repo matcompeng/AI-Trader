@@ -80,8 +80,8 @@ class Predictor:
                     f"Stoch RSI %D: {entry['stoch_rsi_d']:.2f}, "
                     f"ATR: {entry['ATR']:.2f}, "
                     f"VWAP: {entry['VWAP']:.2f}, "
-                    f"Support: {entry['support_level']:.2f}, "
-                    f"Resistance: {entry['resistance_level']:.2f}, "
+                    f"Support: {entry['support_level']}, "
+                    f"Resistance: {entry['resistance_level']}, "
                     f"Last Price: {entry['last_price']:.2f}\n"
                 )
                 prompt += historical_prompt
