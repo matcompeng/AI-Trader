@@ -710,7 +710,7 @@ class BotManager:
             logging.error(f"An error occurred during position check: {str(e)}")
             self.save_error_to_csv(str(e))
 
-    def check_prediction_timeframe(self):
+    def check_stable_prediction_timeframe(self):
         """
         Start the stable prediction cycle 45 seconds before the close of every '5m' interval.
         """
@@ -840,7 +840,7 @@ class BotManager:
             schedule.every(POSITION_CYCLE).seconds.do(self.check_stable_positions)
 
             # Start the historical context cycle in a separate thread
-            prediction_thread = threading.Thread(target=self.check_prediction_timeframe, daemon=True)
+            prediction_thread = threading.Thread(target=self.check_stable_prediction_timeframe, daemon=True)
             prediction_thread.start()
 
             # Start the stable prediction cycle in a separate thread
