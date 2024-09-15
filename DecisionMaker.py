@@ -262,6 +262,9 @@ class DecisionMaker:
             else:
                 return "Hold", adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit
 
+        elif prediction == "Hold" and self.is_there_dip(all_features) and not self.is_market_stable(all_features):
+            return "Buy_Dip"
+
         elif prediction == "Hold" and entry_price:
             if self.should_sell(current_price, entry_price, adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit, middle_band_loss, lower_band_loss):
                 return "Sell", adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit
