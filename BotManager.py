@@ -373,8 +373,8 @@ class BotManager:
     def save_historical_context_for_stable(self):
         """
         Saves historical context of the processed features for a specific interval,
-        while ensuring that only the latest 1 day of data is stored. Data older than
-        1 day will be cleared.
+        while ensuring that only the latest 6 hours of data is stored. Data older than
+        6 hours will be cleared.
         """
         try:
             historical_file = os.path.join(data_directory, f'{TRADING_INTERVAL}_stable_historical_context.json')
@@ -399,10 +399,10 @@ class BotManager:
             # Append the current feature data
             historical_data.append(trading_feature)
 
-            # Filter the data to only keep entries from the last 24 hours
-            one_day_ago = current_time - timedelta(days=1)
+            # Filter the data to only keep entries from the last 6 hours
+            six_hours_ago = current_time - timedelta(hours=6)
             historical_data = [entry for entry in historical_data
-                               if datetime.strptime(entry['timestamp'], '%Y-%m-%d %H:%M:%S') > one_day_ago]
+            if datetime.strptime(entry['timestamp'], '%Y-%m-%d %H:%M:%S') > six_hours_ago]
 
             # Save the updated historical data back to the JSON file
             with open(historical_file, 'w') as file:
