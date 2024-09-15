@@ -408,11 +408,11 @@ class BotManager:
             with open(historical_file, 'w') as file:
                 json.dump(historical_data, file, indent=4)
 
-            print(f"Historical context for interval '{TRADING_INTERVAL}' saved successfully.")
-            logging.info(f"Historical context for interval '{TRADING_INTERVAL}' saved successfully.")
+            print(f"Stable Historical context for interval '{TRADING_INTERVAL}' saved successfully.")
+            logging.info(f"Stable Historical context for interval '{TRADING_INTERVAL}' saved successfully.")
         except Exception as e:
-            print(f"Error saving historical context for interval '{TRADING_INTERVAL}': {e}")
-            logging.info(f"Error saving historical context for interval '{TRADING_INTERVAL}': {e}")
+            print(f"Error saving Stable historical context for interval '{TRADING_INTERVAL}': {e}")
+            logging.info(f"Error saving Stable historical context for interval '{TRADING_INTERVAL}': {e}")
 
     def check_dip_flag(self):
         positions_copy = list(self.position_manager.get_positions().items())
@@ -458,11 +458,11 @@ class BotManager:
             with open(historical_file, 'w') as file:
                 json.dump(historical_data, file, indent=4)
 
-            print(f"Historical context for interval '{DIP_INTERVAL}' saved successfully.")
-            logging.info(f"Historical context for interval '{DIP_INTERVAL}' saved successfully.")
+            print(f"Dip Historical context for interval '{DIP_INTERVAL}' saved successfully.")
+            logging.info(f"Dip Historical context for interval '{DIP_INTERVAL}' saved successfully.")
         except Exception as e:
-            print(f"Error saving historical context for interval '{DIP_INTERVAL}': {e}")
-            logging.info(f"Error saving historical context for interval '{DIP_INTERVAL}': {e}")
+            print(f"Error saving Dip historical context for interval '{DIP_INTERVAL}': {e}")
+            logging.info(f"Error saving Dip historical context for interval '{DIP_INTERVAL}': {e}")
 
 
     def run_prediction_cycle(self):
