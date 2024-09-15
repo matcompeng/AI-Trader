@@ -7,6 +7,7 @@ import time
 from ChatGPTClient import ChatGPTClient
 from DataCollector import DataCollector
 from FeatureProcessor import FeatureProcessor
+from Notifier import Notifier
 
 class Predictor:
     def __init__(self, chatgpt_client, data_directory='data', max_retries=3, retry_delay=5, coin=None, sr_interval=None, bot_manager=None):
@@ -17,6 +18,7 @@ class Predictor:
         self.coin = coin
         self.sr_interval = sr_interval
         self.bot_manager = bot_manager  # Store the bot manager instance
+        self.notifier = Notifier()
 
         # Ensure the data directory exists
         if not os.path.exists(self.data_directory):
@@ -90,8 +92,8 @@ class Predictor:
         prompt += (
         "\n\nI am looking to trade cryptocurrency in the short and intermediate term within a day.\n"
         f"Knowing that the current price is: {current_price} for this cycle.\n"
-        f"Avoid 'Buy' decisions near the resistance levels of interval {self.sr_interval}.\n"
-        f"Favor a 'Buy' decision if the price shows signs of reversal after a dip in interval {self.sr_interval}, inferred from historical context, especially when there is a strong support level below the current price. A price reversal after a dip suggests potential upward momentum, making it a more favorable buying opportunity.\n"
+        f"Avoid 'Buy' decisions near the last resistance level inferred from historical context.\n"
+        f"Favor a 'Buy' decision if the price shows signs of reversal after a dip, inferred from historical context, especially when there is a strong support level below the current price. A price reversal after a dip suggests potential upward momentum, making it a more favorable buying opportunity.\n"
         "Always consider technical indicators, ensuring that the market momentum aligns with a buying decision.\n"
         f"Based on this data from multiple intervals, historical context, and instructions, please provide a single, clear recommendation (use &Buy& or &Hold& for the final decision) for {self.coin}."
     )
@@ -209,6 +211,7 @@ class Predictor:
                     self.save_dip_response(decision, explanation)
                     return decision, explanation
                 else:
+                    self.notifier.send_notification("Predictor Error", message=f"{response}")
                     raise ValueError("No valid decision found in the response.")
 
             except Exception as e:

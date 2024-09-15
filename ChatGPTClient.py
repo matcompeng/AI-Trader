@@ -26,4 +26,4 @@ class ChatGPTClient:
             return response['choices'][0]['message']['content'].strip()
         except Exception as e:
             print(f"Error in ChatGPT API call: {e}")
-            return None
+            return str(e)
