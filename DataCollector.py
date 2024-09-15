@@ -97,8 +97,9 @@ class DataCollector:
                 order_book_path = os.path.join(self.data_directory, f'order_book_data_{interval}.csv')
                 order_book_df.to_csv(order_book_path, mode='w', header=True, index=False)
 
-                print(f"Collected data saved to {file_path}")
-                print(f"Order book data saved to {order_book_path}")
+                # print(f"Collected data saved to {file_path}")
+                # print(f"Order book data saved to {order_book_path}")
+            print("Collected Data and Order Book Saved to CSV Files")
         except Exception as e:
             print(f"Error saving to CSV: {e}")
 
