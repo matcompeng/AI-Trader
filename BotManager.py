@@ -254,7 +254,7 @@ class BotManager:
         try:
             start_time = time.time()
             cycle_start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            print(f"\n*****Stable Position check cycle started at {cycle_start_time}.*****")
+            print(f"\n----------Stable Position check cycle started at {cycle_start_time}.----------")
             logging.info(
                 f"//---------------------Stable Position check cycle started at {cycle_start_time}--------------------//")
 
@@ -487,9 +487,9 @@ class BotManager:
                 start_time = time.time()
                 cycle_start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 print(
-                    f"\n\n*****Prediction cycle started at {cycle_start_time}, running every {TRADING_INTERVAL}.*****")
+                    f"\n\n&&&&&&&&&&Prediction cycle started at {cycle_start_time}, running every {TRADING_INTERVAL}.&&&&&&&&&&")
                 logging.info(
-                    f"//---------------------Prediction cycle started at {cycle_start_time}--------------------//")
+                    f"//&&&&&&&&&&&&&&&&&&&Prediction cycle started at {cycle_start_time}&&&&&&&&&&&&&&&&&&&//")
 
                 # Collect market data
                 market_data_start = time.time()
@@ -639,9 +639,9 @@ class BotManager:
         try:
             start_time = time.time()
             cycle_start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            print(f"\n*****Dip Position check cycle started at {cycle_start_time}.*****")
+            print(f"\n^^^^^^^^^^Dip Position check cycle started at {cycle_start_time}.^^^^^^^^^^")
             logging.info(
-                f"//---------------------Dip Position check cycle started at {cycle_start_time}--------------------//")
+                f"//^^^^^^^^^^^^^^^^^^^^Dip Position check cycle started at {cycle_start_time}^^^^^^^^^^^^^^^^^^^^//")
 
             # Loading dip_positions
             if self.dip_position():
