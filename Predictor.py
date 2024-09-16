@@ -101,7 +101,7 @@ class Predictor:
         prompt += (
             "\n\nI am looking to trade cryptocurrency in the short and intermediate term within a day.\n"
             f"Knowing that the current price is: {current_price} for this cycle.\n"
-            f"Based on provided data from multiple intervals, historical context and Trading Strategy, please provide a single, clear recommendation (use &Buy& or &Hold& for the final decision) for {self.coin}."
+            f"Based on provided data from multiple intervals, historical context and Trading Strategy, please provide a single, clear recommendation (use &Buy& for 'Buy' or &Hold& for 'Hold' in final decision) for {self.coin}."
         )
 
         return prompt
