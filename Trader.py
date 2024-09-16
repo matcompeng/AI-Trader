@@ -23,7 +23,7 @@ class Trader:
                 return "Error", "Failed to fetch current price."
 
             # Execute the trade based on the decision
-            if decision == "Buy":
+            if decision == "Buy" or "Buy_Dip":
                 order = self.exchange.create_market_buy_order(self.symbol, amount)
                 print(f"Buy Order Executed: {order}")
                 return "Success", order
