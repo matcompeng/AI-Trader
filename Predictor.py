@@ -26,9 +26,10 @@ class Predictor:
 
     def format_stable_prompt(self, all_features, current_price, historical_data):
 
+        # Start with the market data header
         prompt = "Here is the current market data across different intervals:\n"
 
-        # Include the current market data
+        # Include the current market data from different intervals
         for interval, features in all_features.items():
             if features:
                 interval_prompt = (
@@ -45,7 +46,7 @@ class Predictor:
                     f"MACD Slow: {features['MACD_slow']:.2f}\n"
                     f"MACD Signal: {features['MACD_signal']:.2f}\n"
                     f"Bollinger Bands: {features['upper_band']:.2f}, {features['middle_band']:.2f}, {features['lower_band']:.2f}\n"
-                    # f"ADX: {features['ADX']:.2f}\n"
+                    # f"ADX: {features['ADX']:.2f}\n"  # Keeping comments intact
                     f"Stochastic RSI %K: {features['stoch_rsi_k']:.2f}\n"  # Updated to reflect stochRSI
                     f"Stochastic RSI %D: {features['stoch_rsi_d']:.2f}\n"  # Updated to reflect stochRSI
                     f"ATR: {features['ATR']:.2f}\n"
@@ -64,9 +65,17 @@ class Predictor:
                 )
                 prompt += interval_prompt
 
-        # Include historical data as one line per entry
+        # Append the trading strategy section before historical context
+        prompt += (
+            "\n\n### Trading Strategy:\n"
+            "1. Avoid 'Buy' decisions if the current price is near or below the most recent significant resistance level from the historical context. Focus on key resistance levels from longer intervals, and avoid considering short-term resistance levels.\n"
+            "2. Only consider 'Buy' decisions if the price shows signs of reversal after a dip, especially when the price is near a strong support level and supported by upward momentum in technical indicators.\n"
+            "3. Ensure that the market momentum from key technical indicators aligns with a buying decision. Favor upward momentum indicated by these indicators crossing into positive zones.\n"
+        )
+
+        # Include the historical context as one line per entry
         if historical_data:
-            prompt += "Here is the historical context for the most recent day (one line per entry):\n\n"
+            prompt += "\n\n### Historical Context:\n"
             for entry in historical_data:
                 historical_prompt = (
                     f"{entry['timestamp']}, "
@@ -88,15 +97,12 @@ class Predictor:
                 )
                 prompt += historical_prompt
 
-        # Append final instructions for ChatGPT
+        # Append final instructions for ChatGPT at the end
         prompt += (
-        "\n\nI am looking to trade cryptocurrency in the short and intermediate term within a day.\n"
-        f"Knowing that the current price is: {current_price} for this cycle.\n"
-        f"Avoid 'Buy' decisions near the last resistance level inferred from historical context.\n"
-        f"Favor a 'Buy' decision if the price shows signs of reversal after a dip, inferred from historical context, especially when there is a strong support level below the current price. A price reversal after a dip suggests potential upward momentum, making it a more favorable buying opportunity.\n"
-        "Always consider technical indicators, ensuring that the market momentum aligns with a buying decision.\n"
-        f"Based on this data from multiple intervals, historical context, and instructions, please provide a single, clear recommendation (use &Buy& or &Hold& for the final decision) for {self.coin}."
-    )
+            "\n\nI am looking to trade cryptocurrency in the short and intermediate term within a day.\n"
+            f"Knowing that the current price is: {current_price} for this cycle.\n"
+            f"Based on provided data from multiple intervals, historical context and Trading Strategy, please provide a single, clear recommendation (use &Buy& or &Hold& for the final decision) for {self.coin}."
+        )
 
         return prompt
 
