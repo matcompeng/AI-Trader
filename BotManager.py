@@ -258,7 +258,7 @@ class BotManager:
             logging.info(
                 f"//---------------------Stable Position check cycle started at {cycle_start_time}--------------------//")
 
-
+            print("\nChecking if there is Stable Entries:")
             if self.stable_position():
                 # Taking Bot Manager Class Instance
                 bot_manager = BotManager()
@@ -368,6 +368,26 @@ class BotManager:
                     self.log_time("Position check", start_time)
             else:
                 print("No Stable Entry Founds")
+
+            if self.dip_position():
+                print("\nChecking if there is Dip Entries:")
+                current_price = self.trader.get_current_price()
+                positions_copy = [
+                    (position_id, position) for position_id, position in self.position_manager.get_positions().items()
+                    if position.get('dip') == 1
+                ]
+                for position_id, position in positions_copy:
+                    entry_price = position['entry_price']
+                    gain_loose = round(self.calculate_gain_loose(entry_price, current_price), 2)
+                    amount = position['amount']
+                    print(
+                        f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
+                    logging.info(
+                        f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
+            else:
+                print("No Dip Entry Founds")
+
+
 
         except Exception as e:
             logging.error(f"An error occurred during position check: {str(e)}")
