@@ -52,8 +52,8 @@ class Predictor:
                     f"ATR: {features['ATR']:.2f}\n"
                     f"VWAP: {features['VWAP']:.2f}\n"  # Include VWAP in the prompt
                     # f"OBV: {features['OBV']:.2f}\n"  # Include OBV in the prompt
-                    f"Support Level: {features['support_level']:.2f}\n"
-                    f"Resistance Level: {features['resistance_level']:.2f}\n"
+                    # f"Support Level: {features['support_level']:.2f}\n"
+                    # f"Resistance Level: {features['resistance_level']:.2f}\n"
                 )
 
                 interval_prompt += (
@@ -68,7 +68,7 @@ class Predictor:
         # Append the trading strategy section before historical context
         prompt += (
             "\n\n### Trading Strategy:\n"
-            "1. Avoid 'Buy' decisions if the current price is near the most recent significant resistance level from the historical context. Focus on key resistance levels from longer intervals, and avoid considering short-term resistance levels.\n"
+            "1. Avoid 'Buy' decisions if the current price is near the most recent significant resistance level from the historical context.\n"
             "2. Only consider 'Buy' decisions if the price shows signs of reversal after a dip, especially when the price is near a strong support level and supported by upward momentum in technical indicators.\n"
             "3. Ensure that the market momentum from key technical indicators aligns with a buying decision. Favor upward momentum indicated by these indicators crossing into positive zones.\n"
         )

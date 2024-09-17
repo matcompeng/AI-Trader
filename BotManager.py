@@ -423,7 +423,7 @@ class BotManager:
             historical_data.append(trading_feature)
 
             # Filter the data to only keep entries from the last 6 hours
-            six_hours_ago = current_time - timedelta(hours=6)
+            six_hours_ago = current_time - timedelta(days=1)
             historical_data = [entry for entry in historical_data
             if datetime.strptime(entry['timestamp'], '%Y-%m-%d %H:%M:%S') > six_hours_ago]
 
