@@ -68,7 +68,7 @@ class Predictor:
         # Append the trading strategy section before historical context
         prompt += (
             "\n\n### Trading Strategy:\n"
-            "1. Avoid 'Buy' decisions if the current price is near or below the most recent significant resistance level from the historical context. Focus on key resistance levels from longer intervals, and avoid considering short-term resistance levels.\n"
+            "1. Avoid 'Buy' decisions if the current price is near the most recent significant resistance level from the historical context. Focus on key resistance levels from longer intervals, and avoid considering short-term resistance levels.\n"
             "2. Only consider 'Buy' decisions if the price shows signs of reversal after a dip, especially when the price is near a strong support level and supported by upward momentum in technical indicators.\n"
             "3. Ensure that the market momentum from key technical indicators aligns with a buying decision. Favor upward momentum indicated by these indicators crossing into positive zones.\n"
         )
@@ -101,7 +101,7 @@ class Predictor:
         prompt += (
             "\n\nI am looking to trade cryptocurrency in the short and intermediate term within a day.\n"
             f"Knowing that the current price is: {current_price} for this cycle.\n"
-            f"Please provide a single, clear recommendation based on this data (must use format &Buy& or &Hold& for the final decision). for {self.coin}."
+            f"Please provide a single, clear recommendation based on Current market data, Historical Context and Trading Strategy (must use format &Buy& or &Hold& for the final decision). for {self.coin}."
         )
 
         return prompt
