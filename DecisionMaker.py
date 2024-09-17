@@ -199,7 +199,7 @@ class DecisionMaker:
 
                 return -adjusted_stop_loss_middle
 
-            return 0
+            return -self.base_stop_loss
         return 0
 
     def calculate_adjusted_stop_lower(self, entry_price, lower_band_loss, middle_band_loss):
@@ -228,7 +228,7 @@ class DecisionMaker:
 
                 return -adjusted_stop_loss_lower
 
-            return 0
+            return -self.base_stop_loss
         return 0
 
     def make_decision(self, prediction, current_price, entry_price, all_features):
