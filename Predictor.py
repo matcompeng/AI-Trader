@@ -68,9 +68,9 @@ class Predictor:
         # Append the trading strategy section before historical context
         prompt += (
             "\n\n### Trading Strategy:\n"
-            "1. Avoid 'Buy' decisions if the current price is near the most recent significant resistance level from the historical context.\n"
-            "2. Only consider 'Buy' decisions if the price shows signs of reversal after a dip, especially when the price is near a strong support level and supported by upward momentum in technical indicators.\n"
-            "3. Ensure that the market momentum from key technical indicators aligns with a buying decision. Favor upward momentum indicated by these indicators crossing into positive zones.\n"
+            "1. Consider 'Buy' decisions primarily when the price demonstrates a clear reversal pattern following a dip, especially when the price is stabilizing near a strong support level. Pay close attention to dips from previously observed resistance levels in the historical context, as these could indicate potential buying opportunities if accompanied by positive signals from key technical indicators.\n"
+            "2. Consider 'Buy' decisions when the price breaks through a most recent significant resistance level in the historical context, as this could indicate a continuation of upward momentum, especially if supported by positive market indicators.\n"
+            "3. Ensure that the overall market momentum supports a buying decision by looking for upward movement in key indicators, particularly when these indicators are transitioning from neutral or negative zones to more positive trends.\n"
         )
 
         # Include the historical context as one line per entry
@@ -101,7 +101,7 @@ class Predictor:
         prompt += (
             "\n\nI am looking to trade cryptocurrency in the short and intermediate term within a day.\n"
             f"Knowing that the current price is: {current_price} for this cycle.\n"
-            f"Please provide a single, clear recommendation based on Current market data, Historical Context and Trading Strategy (must use format &Buy& or &Hold& for the final decision). for {self.coin}."
+            f"Please provide a single, clear recommendation based on Current market data, Historical Context and Trading Strategy (must use format &Buy& or &Hold& for the final decision) for {self.coin}."
         )
 
         return prompt
