@@ -277,7 +277,10 @@ class BotManager:
                 stable_positions_len = len([position for position_id, position in self.position_manager.get_positions().items() if position['dip'] == 0])
                 print(f"Stable Positions Count: {stable_positions_len}")
 
-                if stable_positions_len >= TRAILING_POSITIONS_COUNT and self.decision_maker.calculate_stable_portfolio_gain(bot_manager, current_price) >= TRAILING_PERCENT:
+                portfolio_gain = self.decision_maker.calculate_stable_portfolio_gain(bot_manager, current_price)
+
+                if stable_positions_len >= TRAILING_POSITIONS_COUNT and portfolio_gain >= TRAILING_PERCENT:
+                    print("Portfolio Initiated under Trailing Stop Level")
                     reversed_decision = self.decision_maker.check_for_sell_due_to_reversal(bot_manager, current_price)
 
                     if reversed_decision == "Sell":
@@ -313,6 +316,8 @@ class BotManager:
                                     error_message = f"Failed to execute Sell order: {order_details}"
                                     self.save_error_to_csv(error_message)
                                     self.notifier.send_notification("Trade Error", error_message)
+                    else:
+                        print(f"Portfolio Gain/Loss Percentage: {portfolio_gain}% ")
                 else:
                     # Iterate over a copy of the positions to avoid runtime errors
                     positions_copy = list(self.position_manager.get_positions().items())
@@ -443,15 +448,14 @@ class BotManager:
             dip_flag = position['dip']
             if dip_flag == 1:
                 return True
-            return False
+        return False
 
     def stable_position(self):
         positions_copy = list(self.position_manager.get_positions().items())
         for position_id, position in positions_copy:
-            dip_flag = position['dip']
-            if dip_flag == 0:
+            if position['dip'] == 0:
                 return True
-            return False
+        return False
 
     def save_historical_context_for_dip(self):
         """
