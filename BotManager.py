@@ -33,7 +33,7 @@ PREDICT_BANDWIDTH = 0.40        # Define Minimum Bandwidth % to Activate Trading
 BASE_TAKE_PROFIT = 0.35         # Define Base Take Profit Percentage %.
 BASE_STOP_LOSS = 0.01           # Define Base Stop Loose  Percentage %.
 CAPITAL_AMOUNT = 500            # Your Capital Investment.
-RISK_TOLERANCE = 0.02           # The Portion Amount you want to take risk of capital for each Buying position.
+RISK_TOLERANCE = 0.05           # The Portion Amount you want to take risk of capital for each Buying position.
 AMOUNT_RSI_INTERVAL = '5m'      # Interval To get its RSI for Buying Amount Calculations Function.
 AMOUNT_ATR_INTERVAL = '30m'     # Interval To get its ATR for Buying Amount Calculations Function.
 USDT_DIP_AMOUNT = 5             # Amount of Currency For Buying a Dip.
@@ -358,11 +358,11 @@ class BotManager:
                                 self.save_error_to_csv(error_message)
                                 self.notifier.send_notification("Trade Error", error_message)
                         else:
-                            print(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, ((Gain/Loose: {gain_loose}%))")
-                            logging.info(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, ((Gain/Loose: {gain_loose}%))")
-                            print(f"dynamic_stop_loss_lower: {round(adjusted_stop_loss_lower, 2)}%, dynamic_stop_loss_middle: {round(adjusted_stop_loss_middle, 2)}%, dynamic_take_profit: {round(adjusted_take_profit, 2)}%\n")
-                            logging.info(f"dynamic_stop_loss_lower: {round(adjusted_stop_loss_lower, 2)}%, dynamic_stop_loss_middle: {round(adjusted_stop_loss_middle, 2)}%, dynamic_take_profit: {round(adjusted_take_profit, 2)}\n%")
-
+                            if dip_flag == 0:
+                                print(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, ((Gain/Loose: {gain_loose}%))")
+                                logging.info(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, ((Gain/Loose: {gain_loose}%))")
+                                print(f"dynamic_stop_loss_lower: {round(adjusted_stop_loss_lower, 2)}%, dynamic_stop_loss_middle: {round(adjusted_stop_loss_middle, 2)}%, dynamic_take_profit: {round(adjusted_take_profit, 2)}%\n")
+                                logging.info(f"dynamic_stop_loss_lower: {round(adjusted_stop_loss_lower, 2)}%, dynamic_stop_loss_middle: {round(adjusted_stop_loss_middle, 2)}%, dynamic_take_profit: {round(adjusted_take_profit, 2)}\n%")
 
                     print(f"Stable Invested: {round(stable_invested)} USDT\n"
                                               f"Dip Invested: {round(dip_invested)} USDT\n"
