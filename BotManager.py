@@ -38,8 +38,8 @@ AMOUNT_RSI_INTERVAL = '5m'      # Interval To get its RSI for Buying Amount Calc
 AMOUNT_ATR_INTERVAL = '30m'     # Interval To get its ATR for Buying Amount Calculations Function.
 USDT_DIP_AMOUNT = 5             # Amount of Currency For Buying a Dip.
 MIN_STABLE_INTERVALS = 5        # Set The Minimum Stable Intervals For Market Stable Condition.
-TRAILING_POSITIONS_COUNT = 3    # Define The Minimum Count For Stable Positions To start Trailing Check.
-TRAILING_PERCENT = 0.60         # Set The Minimum % To Activate Trailing Stop Process.
+TRAILING_POSITIONS_COUNT = 2    # Define The Minimum Count For Stable Positions To start Trailing Check.
+TRAILING_PERCENT = 0.05         # Set The Minimum % To Activate Trailing Stop Process.
 TRAILING_GAIN_REVERSE = 0.25    # Set the Sell Threshold % for Stable Portfolio Gain Reversal (Trailing Stop).
 CHECK_POSITIONS_ON_BUY = True   # Set True If You Need Bot Manager Check The Positions During Buy Cycle.
 # -------------------------------------------------------------------------------------------------
@@ -250,6 +250,25 @@ class BotManager:
             print(f"Error calculating invested budget: {e}")
             return 0.0, 0.0, 0.0
 
+    def check_macd_signal(self, all_features, interval):
+        """
+        Checks if the MACD fast value is greater than the MACD signal for the given interval.
+
+        :param all_features: A dictionary containing processed features for each interval.
+        :param interval: The specific interval to check (e.g., '5m', '15m', '1h').
+        :return: True if MACD fast > MACD signal, otherwise raises an error.
+        """
+        if interval in all_features:
+            macd_fast = all_features[interval].get('MACD_fast')
+            macd_signal = all_features[interval].get('MACD_signal')
+
+            if macd_fast is not None and macd_signal is not None:
+                return macd_fast > macd_signal
+            else:
+                raise ValueError(f"MACD values are not available for the interval {interval}.")
+        else:
+            raise ValueError(f"Interval {interval} not found in all_features.")
+
     def check_stable_positions(self):
         try:
             start_time = time.time()
@@ -278,9 +297,10 @@ class BotManager:
                 print(f"Stable Positions Count: {stable_positions_len}")
 
                 portfolio_gain = self.decision_maker.calculate_stable_portfolio_gain(bot_manager, current_price)
+                above_macd_signal = self.check_macd_signal(all_features, TRADING_INTERVAL)
 
-                if stable_positions_len >= TRAILING_POSITIONS_COUNT and portfolio_gain >= TRAILING_PERCENT:
-                    print("Portfolio Initiated under Trailing Stop Level")
+                if stable_positions_len >= TRAILING_POSITIONS_COUNT and portfolio_gain >= TRAILING_PERCENT and above_macd_signal:
+                    print("Portfolio Now Processing Under Trailing Stop Level:\n")
                     reversed_decision = self.decision_maker.check_for_sell_due_to_reversal(bot_manager, current_price)
 
                     if reversed_decision == "Sell":
@@ -319,6 +339,7 @@ class BotManager:
                     else:
                         print(f"Portfolio Gain/Loss Percentage: {portfolio_gain}% ")
                 else:
+                    print("positions Now Processing Under Fixed Profit-Loss:\n")
                     # Iterate over a copy of the positions to avoid runtime errors
                     positions_copy = list(self.position_manager.get_positions().items())
                     for position_id, position in positions_copy:
