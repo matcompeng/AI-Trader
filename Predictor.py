@@ -68,7 +68,7 @@ class Predictor:
         # Append the trading strategy section before historical context
         prompt += (
             "\n\n### Trading Strategy:\n"
-            "1. Consider 'Buy' decisions primarily when the price demonstrates a clear reversal pattern following a dip, especially when the price is stabilizing near a strong support level. Pay close attention to dips from previously observed resistance levels in the historical context, as these could indicate potential buying opportunities if accompanied by positive signals from key technical indicators.\n"
+            "1. Consider 'Buy' decisions primarily when the price demonstrates a clear reversal pattern following a dip, especially when the price is stabilizing near a strong support level. Pay close attention to dips from previously observed resistance levels in the historical context, particularly in intervals longer than '1m', as these could indicate potential buying opportunities if accompanied by positive signals from key technical indicators.\n"
             "2. Consider 'Buy' decisions when the price breaks through a most recent significant resistance level in the historical context, as this could indicate a continuation of upward momentum, especially if supported by positive market indicators.\n"
             "3. Ensure that the overall market momentum supports a buying decision by looking for upward movement in key indicators, particularly when these indicators are transitioning from neutral or negative zones to more positive trends.\n"
         )
