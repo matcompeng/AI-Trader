@@ -193,7 +193,7 @@ class DecisionMaker:
                 price_change_ratio = ((entry_price - middle_band_loss) / band_width)
 
                 # Calculate the adjusted take profit
-                adjusted_stop_loss_middle = self.base_stop_loss + price_change_ratio
+                adjusted_stop_loss_middle = self.base_stop_loss * (1 + price_change_ratio)
                 if adjusted_stop_loss_middle < self.base_stop_loss:
                     return -self.base_stop_loss
 
@@ -222,7 +222,7 @@ class DecisionMaker:
                 price_change_ratio = ((entry_price - lower_band_loss) / band_width)
 
                 # Calculate the adjusted take profit
-                adjusted_stop_loss_lower = self.base_stop_loss + price_change_ratio
+                adjusted_stop_loss_lower = self.base_stop_loss * (1 + price_change_ratio)
                 if adjusted_stop_loss_lower < self.base_stop_loss:
                     return -self.base_stop_loss
 
