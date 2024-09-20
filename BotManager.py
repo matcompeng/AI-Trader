@@ -301,7 +301,7 @@ class BotManager:
 
             # Calculate the average take profit across all relevant positions
             average_take_profit = total_take_profit / count
-            print(f"Portfolio Average Take Profit: {average_take_profit:.2f}%")
+            print(f"Portfolio Trailing Percentage: {average_take_profit:.2f}%")
             return average_take_profit
 
         except Exception as e:
