@@ -26,7 +26,7 @@ LOSS_INTERVAL = '1h'           # Select The Interval For Stop Loose Calculations
 SR_INTERVAL = '15m'             # Select The Interval That Trader Define Support and Resistance Levels.
 DIP_INTERVAL = '1h'             # Select The Interval For Buying a Dip.
 POSITION_CYCLE = 15             # Time in Seconds To Check Positions.
-PREDICTION_CYCLE = 15           # Time in Minutes to Run the Stable Prediction bot cycle.
+PREDICTION_CYCLE = 30           # Time in Minutes to Run the Stable Prediction bot cycle.
 DIP_CYCLE = 60                  # Time in Minutes to Run the Dip Prediction bot cycle.
 INTERVAL_BANDWIDTH = '5m'       # Define The Interval To calculate Prediction Bandwidth.
 PREDICT_BANDWIDTH = 0.40        # Define Minimum Bandwidth % to Activate Trading.
@@ -38,9 +38,9 @@ AMOUNT_RSI_INTERVAL = '5m'      # Interval To get its RSI for Buying Amount Calc
 AMOUNT_ATR_INTERVAL = '30m'     # Interval To get its ATR for Buying Amount Calculations Function.
 USDT_DIP_AMOUNT = 5             # Amount of Currency For Buying a Dip.
 MIN_STABLE_INTERVALS = 5        # Set The Minimum Stable Intervals For Market Stable Condition.
-TRAILING_POSITIONS_COUNT = 2    # Define The Minimum Count For Stable Positions To start Trailing Check.
-TRAILING_PERCENT = 0.25         # Set The Minimum % To Activate Trailing Stop Process.
-TRAILING_GAIN_REVERSE = 0.25    # Set the Sell Threshold % for Stable Portfolio Gain Reversal (Trailing Stop).
+TRAILING_POSITIONS_COUNT = 1    # Define The Minimum Count For Stable Positions To start Trailing Check.
+# TRAILING_PERCENT = 0.25         # Set The Minimum % To Activate Trailing Stop Process.
+TRAILING_GAIN_REVERSE = 0.10    # Set the Sell Threshold % for Stable Portfolio Gain Reversal (Trailing Stop).
 CHECK_POSITIONS_ON_BUY = True   # Set True If You Need Bot Manager Check The Positions During Buy Cycle.
 # -------------------------------------------------------------------------------------------------
 
@@ -269,6 +269,46 @@ class BotManager:
         else:
             raise ValueError(f"Interval {interval} not found in all_features.")
 
+    def calculate_portfolio_take_profit(self, all_features):
+        """
+        Calculate the average take profit for the portfolio where 'dip' = 0.
+        Uses the existing 'calculate_adjusted_take_profit' function from the DecisionMaker class.
+        :return: The average take profit for stable positions in percentage.
+        """
+        try:
+            positions = self.position_manager.get_positions()
+            total_take_profit = 0.0
+            count = 0
+
+            # Iterate over each position where 'dip' = 0
+            for position_id, position in positions.items():
+                if position['dip'] == 0:
+                    entry_price = float(position['entry_price'])
+
+                    # Assuming you have the relevant bands (upper and lower) stored in all_features
+                    upper_band_profit = all_features[PROFIT_INTERVAL].get('upper_band', None)
+                    lower_band_profit = all_features[PROFIT_INTERVAL].get('lower_band', None)
+
+                    # Calculate the adjusted take profit for this position
+                    adjusted_take_profit = self.decision_maker.calculate_adjusted_take_profit(
+                        entry_price, upper_band_profit, lower_band_profit)
+
+                    total_take_profit += adjusted_take_profit
+                    count += 1
+
+            if count == 0:
+                return 0.0
+
+            # Calculate the average take profit across all relevant positions
+            average_take_profit = total_take_profit / count
+            print(f"Average Portfolio Take Profit: {average_take_profit:.2f}%")
+            return average_take_profit
+
+        except Exception as e:
+            logging.error(f"Error calculating portfolio take profit: {e}")
+            print(f"Error calculating portfolio take profit: {e}")
+            return 0.0
+
     def check_stable_positions(self):
         try:
             start_time = time.time()
@@ -298,8 +338,9 @@ class BotManager:
 
                 portfolio_gain = self.decision_maker.calculate_stable_portfolio_gain(bot_manager, current_price)
                 above_macd_signal = self.check_macd_signal(all_features, TRADING_INTERVAL)
+                portfolio_take_profit_avg = self.calculate_portfolio_take_profit(all_features)
 
-                if stable_positions_len >= TRAILING_POSITIONS_COUNT and portfolio_gain >= TRAILING_PERCENT and above_macd_signal:
+                if stable_positions_len >= TRAILING_POSITIONS_COUNT and portfolio_gain >= portfolio_take_profit_avg and above_macd_signal:
                     print("Portfolio Now Processing Under Trailing Stop Level:\n")
                     reversed_decision = self.decision_maker.check_for_sell_due_to_reversal(bot_manager, current_price)
 
