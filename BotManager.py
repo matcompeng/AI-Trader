@@ -29,19 +29,20 @@ POSITION_CYCLE = 30             # Time in Seconds To Check Positions.
 PREDICTION_CYCLE = 15           # Time in Minutes to Run the Stable Prediction bot cycle.
 DIP_CYCLE = 60                  # Time in Minutes to Run the Dip Prediction bot cycle.
 INTERVAL_BANDWIDTH = '5m'       # Define The Interval To calculate Prediction Bandwidth.
-PREDICT_BANDWIDTH = 0.40        # Define Minimum Bandwidth % to Activate Trading.
+PREDICT_BANDWIDTH = 0.45        # Define Minimum Bandwidth % to Activate Trading.
 BASE_TAKE_PROFIT = 0.30         # Define Base Take Profit Percentage %.
 BASE_STOP_LOSS = 0.10           # Define Base Stop Loose  Percentage %.
 CAPITAL_AMOUNT = 500            # Your Capital Investment.
-RISK_TOLERANCE = 0.15           # The Portion Amount you want to take risk of capital for each Buying position.
+RISK_TOLERANCE = 0.10           # The Portion Amount you want to take risk of capital for each Buying position.
 AMOUNT_RSI_INTERVAL = '5m'      # Interval To get its RSI for Buying Amount Calculations Function.
 AMOUNT_ATR_INTERVAL = '30m'     # Interval To get its ATR for Buying Amount Calculations Function.
-USDT_DIP_AMOUNT = 5             # Amount of Currency For Buying a Dip.
-MIN_STABLE_INTERVALS = 5        # Set The Minimum Stable Intervals For Market Stable Condition.
+USDT_DIP_AMOUNT = 5             # Amount of Currency For Buying a Dip. # TODO : make base dip amount and create function to calculate dynamic amount with fear and greed returns
+MIN_STABLE_INTERVALS = 3        # Set The Minimum Stable Intervals For Market Stable Condition.
 TRAILING_POSITIONS_COUNT = 1    # Define The Minimum Count For Stable Positions To start Trailing Check.
 # TRAILING_PERCENT = 0.25         # Set The Minimum % To Activate Trailing Stop Process.
-TRAILING_GAIN_REVERSE = 0.10    # Set the Sell Threshold % for Stable Portfolio Gain Reversal (Trailing Stop).
+TRAILING_GAIN_REVERSE = 0.20    # Set the Sell Threshold % for Stable Portfolio Gain Reversal (Trailing Stop).
 CHECK_POSITIONS_ON_BUY = True   # Set True If You Need Bot Manager Check The Positions During Buy Cycle.
+# TODO : add position timeout
 # -------------------------------------------------------------------------------------------------
 
 # Create the data directory if it doesn't exist
@@ -308,6 +309,8 @@ class BotManager:
             logging.error(f"Error calculating portfolio take profit: {e}")
             print(f"Error calculating portfolio take profit: {e}")
             return 0.0
+
+    # TODO : create function finds the timeout positions.
 
     def check_stable_positions(self):
         try:
@@ -966,6 +969,4 @@ class BotManager:
 if __name__ == "__main__":
     bot_manager = BotManager()
     bot_manager.start()
-
-
 

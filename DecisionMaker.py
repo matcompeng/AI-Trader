@@ -130,6 +130,7 @@ class DecisionMaker:
         :param all_features: A dictionary of dataframes for different intervals (e.g., '1m', '5m', '15m', '30m', '1h', '1d')
         :return: Recommended buy amount
         """
+        # TODO: develop fear and greed index returns with amount calculation
 
         # Extract data for each interval
         current_atr = all_features[self.amount_atr_interval].get('ATR', None)
@@ -231,6 +232,7 @@ class DecisionMaker:
             return -self.base_stop_loss
         return 0
 
+
     def make_decision(self, prediction, current_price, entry_price, all_features):
         """
         Make a final trading decision based on the prediction and risk management rules.
@@ -255,18 +257,20 @@ class DecisionMaker:
         adjusted_take_profit = self.calculate_adjusted_take_profit(entry_price, upper_band_profit, lower_band_profit)
 
         if prediction == "Buy":
-            if self.is_market_stable(all_features):
+            if self.market_stable(all_features):
                 return "Buy", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
             elif self.is_there_dip(all_features):
                 return "Buy_Dip", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
             else:
                 return "Hold", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
 
-        elif prediction == "Hold" and self.is_there_dip(all_features) and not self.is_market_stable(all_features):
+        elif prediction == "Hold" and self.is_there_dip(all_features) and not self.market_downtrend_stable(
+                all_features):
             return "Buy_Dip", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
 
         elif prediction == "Hold" and entry_price:
-            if self.should_sell(current_price, entry_price, adjusted_stop_loss_lower,adjusted_stop_loss_middle, adjusted_take_profit, middle_band_loss, lower_band_loss):
+            if self.should_sell(current_price, entry_price, adjusted_stop_loss_lower, adjusted_stop_loss_middle,
+                                adjusted_take_profit, middle_band_loss, lower_band_loss, all_features):
                 return "Sell", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
             else:
                 return "Hold", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
@@ -277,7 +281,7 @@ class DecisionMaker:
         else:
             return "Hold", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
 
-    def is_market_stable(self, all_features):
+    def market_stable(self, all_features):
         """
         Check if the market is stable based on volatility and other criteria across multiple intervals.
         :param all_features: Dictionary containing features for multiple intervals.
@@ -304,7 +308,43 @@ class DecisionMaker:
             upper_band = features.get('upper_band', None)
             lower_band = features.get('lower_band', None)
             if upper_band and lower_band and close_price:
-                if lower_band < close_price < upper_band:
+                if lower_band <= close_price <= upper_band:
+                    stable_intervals += 1
+
+        # Consider the market stable if a majority of intervals indicate stability
+        # if stable_intervals >= (total_intervals * 2 * 0.75):  # e.g., 4 out of 5 intervals must be stable
+        if total_intervals - (total_intervals - (stable_intervals / 2)) >= self.min_stable_intervals:  # e.g., 5 out of 6 intervals must be stable
+            return True
+
+        return False
+
+    def market_downtrend_stable(self, all_features):
+        """
+        Check if the market is stable based on volatility and other criteria across multiple intervals.
+        :param all_features: Dictionary containing features for multiple intervals.
+        :return: True if the market is stable, False otherwise.
+        """
+        stable_intervals = 0
+        total_intervals = len(all_features)
+
+        for interval, features in all_features.items():
+            # Check ATR (Average True Range) to measure volatility
+            # atr = features.get('ATR', None)
+            # close_price = features.get('close', None)
+            # if atr and close_price:
+            #     relative_atr = atr / close_price
+            #     if relative_atr <= self.volatility_threshold:
+            #         stable_intervals += 1
+
+            # Additional checks for stability could include:
+            rsi = features.get('RSI', None)
+            if rsi >= 30:
+                stable_intervals += 1
+
+            close_price = features.get('close', None)
+            lower_band = features.get('lower_band', None)
+            if  lower_band and close_price:
+                if close_price >= lower_band:
                     stable_intervals += 1
 
         # Consider the market stable if a majority of intervals indicate stability
@@ -325,22 +365,27 @@ class DecisionMaker:
 
 
     def should_sell(self, current_price, entry_price, adjusted_stop_loss_lower, adjusted_stop_loss_middle,
-                    adjusted_take_profit, middle_band_loss, lower_band_loss):
+                    adjusted_take_profit, middle_band_loss, lower_band_loss, all_features):
         # Calculate the percentage change from the entry price
         price_change = ((current_price - entry_price) / entry_price) * 100
 
         # Check if the price has hit the take-profit threshold
         if price_change >= adjusted_take_profit:
             return True
-        elif entry_price > middle_band_loss:
-            # Sell only if current_price is below adjusted_stop_loss_middle
-            if price_change < adjusted_stop_loss_middle:
-                return True
-        # Check stop-loss conditions
-        elif entry_price > lower_band_loss:
-            # Sell only if current_price is below adjusted_stop_loss_lower
-            if price_change < adjusted_stop_loss_lower:
-                return True
 
+        # elif entry_price > middle_band_loss:
+        #     # Sell only if current_price is below adjusted_stop_loss_middle
+        #     if price_change < adjusted_stop_loss_middle:
+        #         return True
+        # # Check stop-loss conditions
+        # elif entry_price > lower_band_loss:
+        #     # Sell only if current_price is below adjusted_stop_loss_lower
+        #     if price_change < adjusted_stop_loss_lower:
+        #         return True
+
+        elif not self.market_downtrend_stable(all_features):
+            return True
         # If none of the above conditions are met, do not sell
         return False
+
+    # TODO : add condition for positions with timeout and return sell decision.
