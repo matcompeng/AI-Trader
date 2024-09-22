@@ -1,6 +1,8 @@
 import json
 import os
 import time
+from xml.sax.handler import all_features
+
 import schedule
 import logging
 import traceback
@@ -42,7 +44,7 @@ USDT_DIP_AMOUNT = 1500          # Amount of Currency For Buying a Dip.
 MIN_STABLE_INTERVALS = 3        # Set The Minimum Stable Intervals For Market Stable Condition.
 TRAILING_POSITIONS_COUNT = 1    # Define The Minimum Count For Stable Positions To start Trailing Check.
 # TRAILING_PERCENT = 0.25         # Set The Minimum % To Activate Trailing Stop Process.
-TRAILING_GAIN_REVERSE = 0.10    # Set the Sell Threshold % for Stable Portfolio Gain Reversal (Trailing Stop).
+TRAILING_GAIN_REVERSE = 0.15    # Set the Sell Threshold % for Stable Portfolio Gain Reversal (Trailing Stop).
 CHECK_POSITIONS_ON_BUY = True   # Set True If You Need Bot Manager Check The Positions During Buy Cycle.
 # -------------------------------------------------------------------------------------------------
 
@@ -355,6 +357,8 @@ class BotManager:
                 all_features = self.feature_processor.process(market_data)
                 stable_invested, dip_invested, total_invested = self.invested_budget()
 
+                self.decision_maker.market_stable(all_features)
+
                 current_price = self.trader.get_current_price()
                 if current_price is None:
                     print("Failed to get current price. Skipping position check.")
@@ -450,8 +454,8 @@ class BotManager:
                                 self.notifier.send_notification("Trade Error", error_message)
                         else:
                             if dip_flag == 0:
-                                print(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, ((Gain/Loose: {gain_loose}%))")
-                                logging.info(f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, ((Gain/Loose: {gain_loose}%))")
+                                print(f"Holding position: {position_id}, timestamp: {timestamp},Entry Price: {entry_price}, Current Price: {current_price}, ((Gain/Loose: {gain_loose}%))")
+                                logging.info(f"Holding position: {position_id}, timestamp: {timestamp}, Entry Price: {entry_price}, Current Price: {current_price}, ((Gain/Loose: {gain_loose}%))")
                                 print(f"dynamic_stop_loss_lower: {round(adjusted_stop_loss_lower, 2)}%, dynamic_stop_loss_middle: {round(adjusted_stop_loss_middle, 2)}%, dynamic_take_profit: {round(adjusted_take_profit, 2)}%\n")
                                 logging.info(f"dynamic_stop_loss_lower: {round(adjusted_stop_loss_lower, 2)}%, dynamic_stop_loss_middle: {round(adjusted_stop_loss_middle, 2)}%, dynamic_take_profit: {round(adjusted_take_profit, 2)}\n%")
 

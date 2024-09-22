@@ -315,6 +315,7 @@ class DecisionMaker:
         # Consider the market stable if a majority of intervals indicate stability
         # if stable_intervals >= (total_intervals * 2 * 0.75):  # e.g., 4 out of 5 intervals must be stable
         if total_intervals - (total_intervals - (stable_intervals / 2)) >= self.min_stable_intervals:  # e.g., 5 out of 6 intervals must be stable
+            print(f"Stable Intervals = {total_intervals - (total_intervals - (stable_intervals / 2))}")
             return True
 
         return False
