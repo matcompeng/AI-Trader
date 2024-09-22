@@ -16,6 +16,7 @@ from Notifier import Notifier
 import csv
 import threading
 
+# TODO : make base dip amount and create function to calculate dynamic amount with fear and greed returns
 # Bot Configurations ------------------------------------------------------------------------------
 FEATURES_INTERVALS = ['1m', '5m', '15m', '30m', '1h', '1d']
 COIN = 'BNB'                    # Select Cryptocurrency.
@@ -26,23 +27,23 @@ LOSS_INTERVAL = '1h'            # Select The Interval For Stop Loose Calculation
 SR_INTERVAL = '15m'             # Select The Interval That Trader Define Support and Resistance Levels.
 DIP_INTERVAL = '1h'             # Select The Interval For Buying a Dip.
 POSITION_CYCLE = 30             # Time in Seconds To Check Positions.
+POSITION_TIMEOUT = 24           # Set The Timeout In Hours for Position.
 PREDICTION_CYCLE = 15           # Time in Minutes to Run the Stable Prediction bot cycle.
 DIP_CYCLE = 60                  # Time in Minutes to Run the Dip Prediction bot cycle.
 INTERVAL_BANDWIDTH = '5m'       # Define The Interval To calculate Prediction Bandwidth.
 PREDICT_BANDWIDTH = 0.45        # Define Minimum Bandwidth % to Activate Trading.
 BASE_TAKE_PROFIT = 0.30         # Define Base Take Profit Percentage %.
-BASE_STOP_LOSS = 0.10           # Define Base Stop Loose  Percentage %.
-CAPITAL_AMOUNT = 500            # Your Capital Investment.
+BASE_STOP_LOSS = 0.20           # Define Base Stop Loose  Percentage %.
+CAPITAL_AMOUNT = 30500          # Your Capital Investment.
 RISK_TOLERANCE = 0.10           # The Portion Amount you want to take risk of capital for each Buying position.
 AMOUNT_RSI_INTERVAL = '5m'      # Interval To get its RSI for Buying Amount Calculations Function.
 AMOUNT_ATR_INTERVAL = '30m'     # Interval To get its ATR for Buying Amount Calculations Function.
-USDT_DIP_AMOUNT = 5             # Amount of Currency For Buying a Dip. # TODO : make base dip amount and create function to calculate dynamic amount with fear and greed returns
+USDT_DIP_AMOUNT = 1500          # Amount of Currency For Buying a Dip.
 MIN_STABLE_INTERVALS = 3        # Set The Minimum Stable Intervals For Market Stable Condition.
 TRAILING_POSITIONS_COUNT = 1    # Define The Minimum Count For Stable Positions To start Trailing Check.
 # TRAILING_PERCENT = 0.25         # Set The Minimum % To Activate Trailing Stop Process.
-TRAILING_GAIN_REVERSE = 0.20    # Set the Sell Threshold % for Stable Portfolio Gain Reversal (Trailing Stop).
+TRAILING_GAIN_REVERSE = 0.10    # Set the Sell Threshold % for Stable Portfolio Gain Reversal (Trailing Stop).
 CHECK_POSITIONS_ON_BUY = True   # Set True If You Need Bot Manager Check The Positions During Buy Cycle.
-# TODO : add position timeout
 # -------------------------------------------------------------------------------------------------
 
 # Create the data directory if it doesn't exist
@@ -310,7 +311,31 @@ class BotManager:
             print(f"Error calculating portfolio take profit: {e}")
             return 0.0
 
-    # TODO : create function finds the timeout positions.
+    def position_expired(self, timestamp, timeout):
+        """
+        Check if the given timestamp has timed out based on the timeout parameter in hours.
+
+        :param timestamp: The timestamp in the format '%Y-%m-%d %H:%M:%S' (as stored in position.json).
+        :param timeout: The timeout duration in hours.
+        :return: True if the timestamp has timed out, False otherwise.
+        """
+        try:
+            # Convert the timestamp string to a datetime object
+            position_time = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
+
+            # Calculate the expiration time by adding the timeout period to the position time
+            expiration_time = position_time + timedelta(hours=timeout)
+
+            # Get the current time
+            current_time = datetime.now()
+
+            # Check if the current time is greater than or equal to the expiration time
+            return current_time >= expiration_time
+
+        except Exception as e:
+            # Raise a ValueError with a detailed error message
+            raise ValueError(f"Error checking position timeout: {e}")
+
 
     def check_stable_positions(self):
         try:
@@ -390,6 +415,7 @@ class BotManager:
                         entry_price = position['entry_price']
                         amount = position['amount']
                         dip_flag = position['dip']
+                        timestamp = position['timestamp']
 
                         if not all_features:
                             print("Failed to process features for position check.")
@@ -397,7 +423,7 @@ class BotManager:
                             return
 
                         final_decision, adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit = self.decision_maker.make_decision(
-                            "Hold", current_price, entry_price, all_features)
+                            "Hold", current_price, entry_price, all_features, self.position_expired(timestamp, POSITION_TIMEOUT))
                         gain_loose = round(self.calculate_gain_loose(entry_price, current_price), 2)
 
                         if final_decision == "Sell" and dip_flag == 0:
@@ -647,7 +673,7 @@ class BotManager:
                 dip_cryptocurrency_amount = self.convert_usdt_to_crypto(current_price, USDT_DIP_AMOUNT)
 
                 final_decision, adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit = self.decision_maker.make_decision(
-                    prediction, current_price, None, all_features)
+                    prediction, current_price, None, all_features, position_expired=None)
                 self.log_time("Trade decision making", trade_decision_start)
 
                 # Handle Buy and Sell decisions

@@ -300,7 +300,7 @@ if __name__ == "__main__":
     api_key = 'your_binance_api_key'
     api_secret = 'your_binance_api_secret'
 
-    data_collector = DataCollector(api_key, api_secret, intervals=['1m', '5m', '15m', '1h', '1d'])
+    data_collector = DataCollector(api_key, api_secret, intervals=['1m', '5m', '15m','30m', '1h', '1d'])
     market_data = data_collector.collect_data()
 
     if market_data is not None:

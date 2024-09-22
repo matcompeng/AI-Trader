@@ -233,9 +233,10 @@ class DecisionMaker:
         return 0
 
 
-    def make_decision(self, prediction, current_price, entry_price, all_features):
+    def make_decision(self, prediction, current_price, entry_price, all_features, position_expired):
         """
         Make a final trading decision based on the prediction and risk management rules.
+        :param position_expired:
         :param prediction: The initial prediction from the Predictor (Buy, Sell, Hold).
         :param current_price: The current market price of the asset.
         :param entry_price: The price at which the current position was entered (if any).
@@ -270,7 +271,7 @@ class DecisionMaker:
 
         elif prediction == "Hold" and entry_price:
             if self.should_sell(current_price, entry_price, adjusted_stop_loss_lower, adjusted_stop_loss_middle,
-                                adjusted_take_profit, middle_band_loss, lower_band_loss, all_features):
+                                adjusted_take_profit, middle_band_loss, lower_band_loss, all_features, position_expired):
                 return "Sell", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
             else:
                 return "Hold", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
@@ -365,7 +366,7 @@ class DecisionMaker:
 
 
     def should_sell(self, current_price, entry_price, adjusted_stop_loss_lower, adjusted_stop_loss_middle,
-                    adjusted_take_profit, middle_band_loss, lower_band_loss, all_features):
+                    adjusted_take_profit, middle_band_loss, lower_band_loss, all_features, position_expired):
         # Calculate the percentage change from the entry price
         price_change = ((current_price - entry_price) / entry_price) * 100
 
@@ -373,19 +374,18 @@ class DecisionMaker:
         if price_change >= adjusted_take_profit:
             return True
 
-        # elif entry_price > middle_band_loss:
-        #     # Sell only if current_price is below adjusted_stop_loss_middle
-        #     if price_change < adjusted_stop_loss_middle:
-        #         return True
-        # # Check stop-loss conditions
-        # elif entry_price > lower_band_loss:
-        #     # Sell only if current_price is below adjusted_stop_loss_lower
-        #     if price_change < adjusted_stop_loss_lower:
-        #         return True
-
+        #Check is the market has unstable downtrend condition for position settlement
         elif not self.market_downtrend_stable(all_features):
             return True
+
+        #Check if the position expired
+        elif position_expired:
+            if entry_price > middle_band_loss:
+                if price_change < adjusted_stop_loss_middle:
+                    return True
+            elif entry_price > lower_band_loss:
+                if price_change < adjusted_stop_loss_lower:
+                    return True
+
         # If none of the above conditions are met, do not sell
         return False
-
-    # TODO : add condition for positions with timeout and return sell decision.
