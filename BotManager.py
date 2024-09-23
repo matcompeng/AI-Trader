@@ -732,7 +732,7 @@ class BotManager:
                         logging.error(f"Failed to execute Buy order: {order_details}")
 
                 elif prediction == "Buy" and final_decision == "Hold":
-                    self.notifier.send_notification(title="Decision Maker", message="Decision Maker Hold The Buy Prediction")
+                    self.notifier.send_notification(title="Decision Maker", message=f"Decision Maker Hold The Buy Prediction Prediction at {current_price}")
                     print(f"Decision Maker Hold The Buy Prediction at {current_price}")
                     logging.info(f"Decision Maker Hold The Buy Prediction at {current_price}")
 
