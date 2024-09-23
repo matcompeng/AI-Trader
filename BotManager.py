@@ -733,8 +733,8 @@ class BotManager:
 
                 elif prediction == "Buy" and final_decision == "Hold":
                     self.notifier.send_notification(title="Decision Maker", message="Decision Maker Hold The Buy Prediction")
-                    print("Decision Maker Hold The Buy Prediction")
-                    logging.info("Decision Maker Hold The Buy Prediction")
+                    print(f"Decision Maker Hold The Buy Prediction at {current_price}")
+                    logging.info(f"Decision Maker Hold The Buy Prediction at {current_price}")
 
                 else:
                     print("No Trade Executed")
