@@ -258,7 +258,7 @@ class DecisionMaker:
         adjusted_take_profit = self.calculate_adjusted_take_profit(entry_price, upper_band_profit, lower_band_profit)
 
         if prediction == "Buy":
-            if self.market_stable(all_features):
+            if self.market_downtrend_stable(all_features):
                 return "Buy", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
             elif self.is_there_dip(all_features):
                 return "Buy_Dip", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
