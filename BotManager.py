@@ -402,6 +402,7 @@ class BotManager:
                                     self.notifier.send_notification("Stable Trade Executed",
                                                                     f"Sold {amount} {COIN} at ${current_price}\n"
                                                                     f"Gain/Loose: {gain_loose}%\n"
+                                                                    "Sell Mode: Trailing\n"
                                                                     f"Stable Invested: {round(stable_invested)} USDT\n"
                                                                     f"Dip Invested: {round(dip_invested)} USDT\n"
                                                                     f"Total Invested: {round(total_invested)} USDT")
@@ -445,6 +446,7 @@ class BotManager:
                                 logging.info(f"Position {position_id} sold successfully")
                                 self.notifier.send_notification("Stable Trade Executed", f"Sold {amount} {COIN} at ${current_price}\n"
                                                                                   f"Gain/Loose: {gain_loose}%\n"
+                                                                                  "Sell Mode: Fix-Loss/Profit\n"       
                                                                                   f"Stable Invested: {round(stable_invested)} USDT\n"
                                                                                   f"Dip Invested: {round(dip_invested)} USDT\n"
                                                                                   f"Total Invested: {round(total_invested)} USDT")
@@ -817,6 +819,7 @@ class BotManager:
                             logging.info(f"Position {position_id} sold successfully")
                             self.notifier.send_notification("Dip Trade Executed", f"Sold {amount} {COIN} at ${current_price}\n"
                                                                               f"Gain/Loose: {gain_loose}%\n"
+                                                                              "Sell Mode: Dip\n"
                                                                               f"Stable Invested: {round(stable_invested)} USDT\n"
                                                                               f"Dip Invested: {round(dip_invested)} USDT\n"
                                                                               f"Total Invested: {round(total_invested)} USDT")
