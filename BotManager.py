@@ -1,6 +1,7 @@
 import json
 import os
 import time
+from idlelib.debugobj_r import remote_object_tree_item
 from xml.sax.handler import all_features
 
 import schedule
@@ -44,7 +45,7 @@ USDT_DIP_AMOUNT = 1500          # Amount of Currency For Buying a Dip.
 MIN_STABLE_INTERVALS = 3        # Set The Minimum Stable Intervals For Market Stable Condition.
 TRAILING_POSITIONS_COUNT = 1    # Define The Minimum Count For Stable Positions To start Trailing Check.
 # TRAILING_PERCENT = 0.25         # Set The Minimum % To Activate Trailing Stop Process.
-TRAILING_GAIN_REVERSE = 0.20    # Set the Sell Threshold % for Stable Portfolio Gain Reversal (Trailing Stop).
+TRAILING_GAIN_REVERSE = 0.10    # Set the Sell Threshold % for Stable Portfolio Gain Reversal (Trailing Stop).
 CHECK_POSITIONS_ON_BUY = True   # Set True If You Need Bot Manager Check The Positions During Buy Cycle.
 # -------------------------------------------------------------------------------------------------
 
@@ -313,6 +314,22 @@ class BotManager:
             print(f"Error calculating portfolio take profit: {e}")
             return 0.0
 
+    def breaking_upper_bands(self, all_features, current_price):
+
+        upper_band_5m = all_features['5m'].get('upper_band', None)
+        upper_band_15m = all_features['15m'].get('upper_band', None)
+        upper_band_30m = all_features['30m'].get('upper_band', None)
+        upper_band_1h = all_features['1h'].get('upper_band', None)
+
+        if current_price > upper_band_5m and current_price > upper_band_15m:
+            return True
+        elif current_price > upper_band_15m and current_price > upper_band_30m:
+            return True
+        elif current_price > upper_band_30m and current_price > upper_band_1h:
+            return True
+        return False
+
+
     def position_expired(self, timestamp, timeout):
         """
         Check if the given timestamp has timed out based on the timeout parameter in hours.
@@ -371,8 +388,9 @@ class BotManager:
                 portfolio_gain = self.decision_maker.calculate_stable_portfolio_gain(bot_manager, current_price)
                 above_macd_signal = self.check_macd_signal(all_features, TRADING_INTERVAL)
                 portfolio_take_profit_avg = self.calculate_portfolio_take_profit(all_features)
+                breaking_upper_bands = self.breaking_upper_bands(all_features, current_price)
 
-                if stable_positions_len >= TRAILING_POSITIONS_COUNT and portfolio_gain >= portfolio_take_profit_avg and above_macd_signal:
+                if stable_positions_len >= TRAILING_POSITIONS_COUNT and above_macd_signal and (portfolio_gain >= portfolio_take_profit_avg or breaking_upper_bands):
                     print("Portfolio Now Processing Under Trailing Stop Level:\n")
                     reversed_decision = self.decision_maker.check_for_sell_due_to_reversal(bot_manager, current_price)
 
