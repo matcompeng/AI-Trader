@@ -66,7 +66,7 @@ class Predictor:
 
         # Append the trading strategy section before historical context
         prompt += (
-            "\n\n### Trading Strategy:\n"
+            "\n### Trading Strategy:\n"
             "1. Consider 'Buy' decisions primarily when the price enters an oversold condition, particularly when technical indicators like RSI or StochasticRSI show oversold signals in intervals longer than '1m'. This condition is especially compelling if the price is stabilizing near a strong support level after entering the oversold state.\n"
             "2. Consider 'Buy' decisions when the price breaks through a significant resistance level in the historical context, as this could indicate a continuation of upward momentum, especially if supported by positive market indicators.\n"
             "3. Ensure that the overall market momentum supports a buying decision by looking for upward movement in key indicators, particularly when these indicators are transitioning from neutral or negative zones to more positive trends.\n"
