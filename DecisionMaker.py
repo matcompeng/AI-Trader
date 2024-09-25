@@ -130,7 +130,6 @@ class DecisionMaker:
         :param all_features: A dictionary of dataframes for different intervals (e.g., '1m', '5m', '15m', '30m', '1h', '1d')
         :return: Recommended buy amount
         """
-        # TODO: develop fear and greed index returns with amount calculation
 
         # Extract data for each interval
         current_atr = all_features[self.amount_atr_interval].get('ATR', None)
@@ -391,3 +390,5 @@ class DecisionMaker:
 
         # If none of the above conditions are met, do not sell
         return False
+
+#  TODO: develop function calculate Dip amount dynamically with intervals RSI and FearGreed Index

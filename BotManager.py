@@ -16,7 +16,7 @@ from Notifier import Notifier
 import csv
 import threading
 
-# TODO : make base dip amount and create function to calculate dynamic amount with fear and greed returns
+# TODO : make base dip amount to be used in dynamic function under decision manager
 # Bot Configurations ------------------------------------------------------------------------------
 FEATURES_INTERVALS = ['1m', '5m', '15m', '30m', '1h', '1d']
 COIN = 'BNB'                    # Select Cryptocurrency.
@@ -35,7 +35,7 @@ PREDICT_BANDWIDTH = 0.45        # Define Minimum Bandwidth % to Activate Trading
 BASE_TAKE_PROFIT = 0.35         # Define Base Take Profit Percentage %.
 BASE_STOP_LOSS = 0.20           # Define Base Stop Loose  Percentage %.
 CAPITAL_AMOUNT = 30500          # Your Capital Investment.
-RISK_TOLERANCE = 0.10           # The Portion Amount you want to take risk of capital for each Buying position.
+RISK_TOLERANCE = 0.125          # The Portion Amount you want to take risk of capital for each Buying position.
 AMOUNT_RSI_INTERVAL = '5m'      # Interval To get its RSI for Buying Amount Calculations Function.
 AMOUNT_ATR_INTERVAL = '30m'     # Interval To get its ATR for Buying Amount Calculations Function.
 USDT_DIP_AMOUNT = 1500          # Amount of Currency For Buying a Dip.
