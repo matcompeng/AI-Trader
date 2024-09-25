@@ -313,14 +313,11 @@ class BotManager:
 
     def breaking_upper_bands(self, all_features, current_price):
 
-        upper_band_5m = all_features['5m'].get('upper_band', None)
         upper_band_15m = all_features['15m'].get('upper_band', None)
         upper_band_30m = all_features['30m'].get('upper_band', None)
         upper_band_1h = all_features['1h'].get('upper_band', None)
 
-        if current_price > upper_band_5m and current_price > upper_band_15m:
-            return True
-        elif current_price > upper_band_15m and current_price > upper_band_30m:
+        if current_price > upper_band_15m and current_price > upper_band_30m:
             return True
         elif current_price > upper_band_30m and current_price > upper_band_1h:
             return True
