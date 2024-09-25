@@ -1,9 +1,6 @@
 import json
 import os
 import time
-from idlelib.debugobj_r import remote_object_tree_item
-from xml.sax.handler import all_features
-
 import schedule
 import logging
 import traceback
@@ -42,7 +39,7 @@ RISK_TOLERANCE = 0.10           # The Portion Amount you want to take risk of ca
 AMOUNT_RSI_INTERVAL = '5m'      # Interval To get its RSI for Buying Amount Calculations Function.
 AMOUNT_ATR_INTERVAL = '30m'     # Interval To get its ATR for Buying Amount Calculations Function.
 USDT_DIP_AMOUNT = 1500          # Amount of Currency For Buying a Dip.
-MIN_STABLE_INTERVALS = 3        # Set The Minimum Stable Intervals For Market Stable Condition.
+MIN_STABLE_INTERVALS = 3.5      # Set The Minimum Stable Intervals For Market Stable Condition.
 TRAILING_POSITIONS_COUNT = 1    # Define The Minimum Count For Stable Positions To start Trailing Check.
 # TRAILING_PERCENT = 0.25         # Set The Minimum % To Activate Trailing Stop Process.
 TRAILING_GAIN_REVERSE = 0.10    # Set the Sell Threshold % for Stable Portfolio Gain Reversal (Trailing Stop).
@@ -374,7 +371,7 @@ class BotManager:
                 all_features = self.feature_processor.process(market_data)
                 stable_invested, dip_invested, total_invested = self.invested_budget()
 
-                self.decision_maker.market_stable(all_features)
+                market_stable,stable_intervals = self.decision_maker.market_downtrend_stable(all_features)
 
                 current_price = self.trader.get_current_price()
                 if current_price is None:
@@ -382,8 +379,12 @@ class BotManager:
                     logging.info("Failed to get current price. Skipping position check.")
                     return
 
+                print(f"Stable Intervals= {stable_intervals}")
+                logging.info(f"Stable Intervals= {stable_intervals}")
+
                 stable_positions_len = len([position for position_id, position in self.position_manager.get_positions().items() if position['dip'] == 0])
                 print(f"Stable Positions Count: {stable_positions_len}")
+                logging.info(f"Stable Positions Count: {stable_positions_len}")
 
                 portfolio_gain = self.decision_maker.calculate_stable_portfolio_gain(bot_manager, current_price)
                 above_macd_signal = self.check_macd_signal(all_features, TRADING_INTERVAL)
@@ -392,6 +393,7 @@ class BotManager:
 
                 if stable_positions_len >= TRAILING_POSITIONS_COUNT and above_macd_signal and (portfolio_gain >= portfolio_take_profit_avg or breaking_upper_bands):
                     print("Portfolio Now Processing Under Trailing Stop Level:\n")
+                    logging.info("Portfolio Now Processing Under Trailing Stop Level:\n")
                     reversed_decision = self.decision_maker.check_for_sell_due_to_reversal(bot_manager, current_price)
 
                     if reversed_decision == "Sell":
@@ -429,9 +431,11 @@ class BotManager:
                                     self.save_error_to_csv(error_message)
                                     self.notifier.send_notification("Trade Error", error_message)
                     else:
-                        print(f"Portfolio Gain/Loss Percentage: {portfolio_gain}% ")
+                        print(f"Portfolio Gain/Loss Percentage: {portfolio_gain}%")
+                        logging.info(f"Portfolio Gain/Loss Percentage: {portfolio_gain}%")
                 else:
                     print("positions Now Processing Under Fixed Profit-Loss:\n")
+                    logging.info("positions Now Processing Under Fixed Profit-Loss:\n")
                     # Iterate over a copy of the positions to avoid runtime errors
                     positions_copy = list(self.position_manager.get_positions().items())
                     for position_id, position in positions_copy:
@@ -1002,7 +1006,7 @@ class BotManager:
             prediction_thread = threading.Thread(target=self.check_dip_historical_timeframe, daemon=True)
             prediction_thread.start()
 
-            schedule.every().hour.do(self.check_dip_positions)
+            schedule.every(6).hours.do(self.check_dip_positions)
 
             # Continuously run the scheduled tasks
             while True:

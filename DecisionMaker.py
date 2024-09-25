@@ -249,6 +249,8 @@ class DecisionMaker:
         lower_band_loss = all_features[self.loose_interval].get('lower_band', None)
         middle_band_loss = all_features[self.loose_interval].get('middle_band', None)
         upper_band_loss = all_features[self.loose_interval].get('upper_band', None)
+        market_stable, stable_intervals = self.market_downtrend_stable(all_features)
+        is_there_dip = self.is_there_dip(all_features)
 
         # Adjust stop_loss based
         adjusted_stop_loss_middle = self.calculate_adjusted_stop_middle(entry_price, upper_band_loss, middle_band_loss)
@@ -258,15 +260,14 @@ class DecisionMaker:
         adjusted_take_profit = self.calculate_adjusted_take_profit(entry_price, upper_band_profit, lower_band_profit)
 
         if prediction == "Buy":
-            if self.market_downtrend_stable(all_features):
+            if market_stable:
                 return "Buy", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
-            elif self.is_there_dip(all_features):
+            elif is_there_dip:
                 return "Buy_Dip", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
             else:
                 return "Hold", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
 
-        elif prediction == "Hold" and self.is_there_dip(all_features) and not self.market_downtrend_stable(
-                all_features):
+        elif prediction == "Hold" and is_there_dip and not market_stable:
             return "Buy_Dip", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
 
         elif prediction == "Hold" and entry_price:
@@ -315,8 +316,7 @@ class DecisionMaker:
         # Consider the market stable if a majority of intervals indicate stability
         # if stable_intervals >= (total_intervals * 2 * 0.75):  # e.g., 4 out of 5 intervals must be stable
         if total_intervals - (total_intervals - (stable_intervals / 2)) >= self.min_stable_intervals:  # e.g., 5 out of 6 intervals must be stable
-            print(f"Stable Intervals = {total_intervals - (total_intervals - (stable_intervals / 2))}")
-            return True
+            return True, stable_intervals
 
         return False
 
@@ -326,7 +326,7 @@ class DecisionMaker:
         :param all_features: Dictionary containing features for multiple intervals.
         :return: True if the market is stable, False otherwise.
         """
-        stable_intervals = 0
+        stable_count = 0
         total_intervals = len(all_features)
 
         for interval, features in all_features.items():
@@ -336,25 +336,26 @@ class DecisionMaker:
             # if atr and close_price:
             #     relative_atr = atr / close_price
             #     if relative_atr <= self.volatility_threshold:
-            #         stable_intervals += 1
+            #         stable_count += 1
 
             # Additional checks for stability could include:
             rsi = features.get('RSI', None)
             if rsi >= 30:
-                stable_intervals += 1
+                stable_count += 1
 
             close_price = features.get('close', None)
             lower_band = features.get('lower_band', None)
             if  lower_band and close_price:
                 if close_price >= lower_band:
-                    stable_intervals += 1
+                    stable_count += 1
 
         # Consider the market stable if a majority of intervals indicate stability
-        # if stable_intervals >= (total_intervals * 2 * 0.75):  # e.g., 4 out of 5 intervals must be stable
-        if total_intervals - (total_intervals - (stable_intervals / 2)) >= self.min_stable_intervals:  # e.g., 5 out of 6 intervals must be stable
-            return True
+        # if stable_count >= (total_intervals * 2 * 0.75):  # e.g., 4 out of 5 intervals must be stable
+        stable_intervals = total_intervals - (total_intervals - (stable_count / 2))
+        if stable_intervals >= self.min_stable_intervals:  # e.g., 5 out of 6 intervals must be stable
+            return True, stable_intervals
 
-        return False
+        return False, stable_intervals
 
     def is_there_dip(self, all_features):
 
