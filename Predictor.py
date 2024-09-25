@@ -47,8 +47,8 @@ class Predictor:
                     f"MACD Signal: {features['MACD_signal']:.2f}\n"
                     f"Bollinger Bands: {features['upper_band']:.2f}, {features['middle_band']:.2f}, {features['lower_band']:.2f}\n"
                     # f"ADX: {features['ADX']:.2f}\n"  # Keeping comments intact
-                    f"Stochastic RSI %K: {features['stoch_rsi_k']:.2f}\n"  # Updated to reflect stochRSI
-                    f"Stochastic RSI %D: {features['stoch_rsi_d']:.2f}\n"  # Updated to reflect stochRSI
+                    f"StochRSI %K: {features['stoch_rsi_k']:.2f}\n"  # Updated to reflect stochRSI
+                    f"StochRSI %D: {features['stoch_rsi_d']:.2f}\n"  # Updated to reflect stochRSI
                     f"ATR: {features['ATR']:.2f}\n"
                     f"VWAP: {features['VWAP']:.2f}\n"  # Include VWAP in the prompt
                     # f"OBV: {features['OBV']:.2f}\n"  # Include OBV in the prompt
@@ -57,8 +57,7 @@ class Predictor:
                 )
 
                 interval_prompt += (
-                    f"Top Bid: {features['top_bid']:.2f}\n"
-                    f"Top Ask: {features['top_ask']:.2f}\n"
+                    f"Top Bid/Ask {features['top_bid']:.2f}/{features['top_ask']:.2f}"
                     f"Bid-Ask Spread: {features['bid_ask_spread']:.2f}\n"
                     f"Bid Volume: {features['bid_volume']:.2f}\n"
                     f"Ask Volume: {features['ask_volume']:.2f}\n\n"
@@ -87,8 +86,8 @@ class Predictor:
                     f"MACD Fast: {entry['MACD_fast']:.2f}, "
                     f"MACD Signal: {entry['MACD_signal']:.2f}, "
                     f"Bollinger Bands: {entry['upper_band']:.2f}, {entry['middle_band']:.2f}, {entry['lower_band']:.2f}, "
-                    f"Stoch RSI %K: {entry['stoch_rsi_k']:.2f}, "
-                    f"Stoch RSI %D: {entry['stoch_rsi_d']:.2f}, "
+                    f"StochRSI %K:: {entry['stoch_rsi_k']:.2f}, "
+                    f"StochRSI %D:: {entry['stoch_rsi_d']:.2f}, "
                     f"ATR: {entry['ATR']:.2f}, "
                     f"VWAP: {entry['VWAP']:.2f}, "
                     f"Support: {entry['support_level']}, "
