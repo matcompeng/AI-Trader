@@ -27,39 +27,39 @@ class Predictor:
     def format_stable_prompt(self, all_features, current_price, historical_data):
 
         # Start with the market data header
-        prompt = "Here is the current market data across different intervals:\n"
+        prompt = "Here is the current market data across different intervals:\n\n"
 
         # Include the current market data from different intervals
         for interval, features in all_features.items():
             if features:
                 interval_prompt = (
-                    f"\nInterval: {interval}\n"
-                    f"Price Change: {features['price_change']:.2f}%\n"
-                    f"RSI: {features['RSI']:.2f}\n"
-                    f"SMA (7): {features['SMA_7']:.2f}\n"
-                    f"SMA (25): {features['SMA_25']:.2f}\n"
-                    f"SMA (100): {features['SMA_100']:.2f}\n"
-                    f"EMA (7): {features['EMA_7']:.2f}\n"
-                    f"EMA (25): {features['EMA_25']:.2f}\n"
-                    f"EMA (100): {features['EMA_100']:.2f}\n"
-                    f"MACD Fast: {features['MACD_fast']:.2f}\n"
-                    f"MACD Slow: {features['MACD_slow']:.2f}\n"
-                    f"MACD Signal: {features['MACD_signal']:.2f}\n"
-                    f"Bollinger Bands: {features['upper_band']:.2f}, {features['middle_band']:.2f}, {features['lower_band']:.2f}\n"
-                    # f"ADX: {features['ADX']:.2f}\n"  # Keeping comments intact
-                    f"StochRSI %K: {features['stoch_rsi_k']:.2f}\n"  # Updated to reflect stochRSI
-                    f"StochRSI %D: {features['stoch_rsi_d']:.2f}\n"  # Updated to reflect stochRSI
-                    f"ATR: {features['ATR']:.2f}\n"
-                    f"VWAP: {features['VWAP']:.2f}\n"  # Include VWAP in the prompt
-                    # f"OBV: {features['OBV']:.2f}\n"  # Include OBV in the prompt
-                    # f"Support Level: {features['support_level']:.2f}\n"
-                    # f"Resistance Level: {features['resistance_level']:.2f}\n"
+                    f"Interval: {interval}\n"
+                    f"Price Change: {features['price_change']:.2f}%, "
+                    f"RSI: {features['RSI']:.2f}, "
+                    f"SMA (7): {features['SMA_7']:.2f}, "
+                    f"SMA (25): {features['SMA_25']:.2f}, "
+                    f"SMA (100): {features['SMA_100']:.2f}, "
+                    f"EMA (7): {features['EMA_7']:.2f}, "
+                    f"EMA (25): {features['EMA_25']:.2f}, "
+                    f"EMA (100): {features['EMA_100']:.2f}, "
+                    f"MACD Fast: {features['MACD_fast']:.2f}, "
+                    f"MACD Slow: {features['MACD_slow']:.2f}, "
+                    f"MACD Signal: {features['MACD_signal']:.2f}, "
+                    f"Bollinger Bands: {features['upper_band']:.2f}, {features['middle_band']:.2f}, {features['lower_band']:.2f}, "
+                    # f"ADX: {features['ADX']:.2f},"  # Keeping comments intact
+                    f"StochRSI %K: {features['stoch_rsi_k']:.2f}, "  # Updated to reflect stochRSI
+                    f"StochRSI %D: {features['stoch_rsi_d']:.2f}, "  # Updated to reflect stochRSI
+                    f"ATR: {features['ATR']:.2f}, "
+                    f"VWAP: {features['VWAP']:.2f}, "  # Include VWAP in the prompt
+                    # f"OBV: {features['OBV']:.2f}, "  # Include OBV in the prompt
+                    # f"Support Level: {features['support_level']:.2f}, "
+                    # f"Resistance Level: {features['resistance_level']:.2f}, "
                 )
 
                 interval_prompt += (
-                    f"Top Bid/Ask {features['top_bid']:.2f}/{features['top_ask']:.2f}"
-                    f"Bid-Ask Spread: {features['bid_ask_spread']:.2f}\n"
-                    f"Bid Volume: {features['bid_volume']:.2f}\n"
+                    f"Top Bid/Ask: {features['top_bid']:.2f}/{features['top_ask']:.2f}, "
+                    f"Bid-Ask Spread: {features['bid_ask_spread']:.2f}, "
+                    f"Bid Volume: {features['bid_volume']:.2f}, "
                     f"Ask Volume: {features['ask_volume']:.2f}\n\n"
                 )
                 prompt += interval_prompt
