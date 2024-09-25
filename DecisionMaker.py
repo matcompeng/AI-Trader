@@ -371,12 +371,14 @@ class DecisionMaker:
         # Calculate the percentage change from the entry price
         price_change = ((current_price - entry_price) / entry_price) * 100
 
+        market_stable, stable_intervals = self.market_downtrend_stable(all_features)
+
         # Check if the price has hit the take-profit threshold
         if price_change >= adjusted_take_profit:
             return True
 
         #Check is the market has unstable downtrend condition for position settlement
-        elif not self.market_downtrend_stable(all_features):
+        elif not market_stable:
             return True
 
         #Check if the position expired
