@@ -379,7 +379,12 @@ class DecisionMaker:
 
         #Check is the market has unstable downtrend condition for position settlement
         elif not market_stable:
-            return True
+            if entry_price > middle_band_loss:
+                if price_change < adjusted_stop_loss_middle:
+                    return True
+            elif entry_price > lower_band_loss:
+                if price_change < adjusted_stop_loss_lower:
+                    return True
 
         #Check if the position expired
         elif position_expired:

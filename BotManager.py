@@ -26,7 +26,7 @@ PROFIT_INTERVAL = '1h'          # Select The Interval For Take Profit Calculatio
 LOSS_INTERVAL = '1h'            # Select The Interval For Stop Loose Calculations.
 SR_INTERVAL = '15m'             # Select The Interval That Trader Define Support and Resistance Levels.
 DIP_INTERVAL = '1h'             # Select The Interval For Buying a Dip.
-POSITION_CYCLE = 30             # Time in Seconds To Check Positions.
+POSITION_CYCLE = 60             # Time in Seconds To Check Positions.
 POSITION_TIMEOUT = 24           # Set The Timeout In Hours for Position.
 PREDICTION_CYCLE = 15           # Time in Minutes to Run the Stable Prediction bot cycle.
 DIP_CYCLE = 60                  # Time in Minutes to Run the Dip Prediction bot cycle.
@@ -39,7 +39,7 @@ RISK_TOLERANCE = 0.125          # The Portion Amount you want to take risk of ca
 AMOUNT_RSI_INTERVAL = '5m'      # Interval To get its RSI for Buying Amount Calculations Function.
 AMOUNT_ATR_INTERVAL = '30m'     # Interval To get its ATR for Buying Amount Calculations Function.
 USDT_DIP_AMOUNT = 1500          # Amount of Currency For Buying a Dip.
-MIN_STABLE_INTERVALS = 3.5      # Set The Minimum Stable Intervals For Market Stable Condition.
+MIN_STABLE_INTERVALS = 2        # Set The Minimum Stable Intervals For Market Stable Condition.
 TRAILING_POSITIONS_COUNT = 1    # Define The Minimum Count For Stable Positions To start Trailing Check.
 # TRAILING_PERCENT = 0.25         # Set The Minimum % To Activate Trailing Stop Process.
 TRAILING_GAIN_REVERSE = 0.10    # Set the Sell Threshold % for Stable Portfolio Gain Reversal (Trailing Stop).
@@ -376,8 +376,8 @@ class BotManager:
                     logging.info("Failed to get current price. Skipping position check.")
                     return
 
-                print(f"Stable Intervals= {stable_intervals}")
-                logging.info(f"Stable Intervals= {stable_intervals}")
+                print(f"Stable Intervals= {stable_intervals} ,{market_stable}")
+                logging.info(f"Stable Intervals= {stable_intervals} ,{market_stable}")
 
                 stable_positions_len = len([position for position_id, position in self.position_manager.get_positions().items() if position['dip'] == 0])
                 print(f"Stable Positions Count: {stable_positions_len}")
