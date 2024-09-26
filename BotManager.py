@@ -26,14 +26,14 @@ PROFIT_INTERVAL = '1h'          # Select The Interval For Take Profit Calculatio
 LOSS_INTERVAL = '1h'            # Select The Interval For Stop Loose Calculations.
 SR_INTERVAL = '15m'             # Select The Interval That Trader Define Support and Resistance Levels.
 DIP_INTERVAL = '1h'             # Select The Interval For Buying a Dip.
-POSITION_CYCLE = 60             # Time in Seconds To Check Positions.
+POSITION_CYCLE = 30             # Time in Seconds To Check Positions.
 POSITION_TIMEOUT = 24           # Set The Timeout In Hours for Position.
 PREDICTION_CYCLE = 15           # Time in Minutes to Run the Stable Prediction bot cycle.
-DIP_CYCLE = 60                  # Time in Minutes to Run the Dip Prediction bot cycle.
+DIP_CYCLE = 60                  # Time in Minutes to Run the Dip Historical Context Process.
 INTERVAL_BANDWIDTH = '5m'       # Define The Interval To calculate Prediction Bandwidth.
 PREDICT_BANDWIDTH = 0.45        # Define Minimum Bandwidth % to Activate Trading.
 BASE_TAKE_PROFIT = 0.35         # Define Base Take Profit Percentage %.
-BASE_STOP_LOSS = 0.20           # Define Base Stop Loose  Percentage %.
+BASE_STOP_LOSS = 0.25           # Define Base Stop Loose  Percentage %.
 CAPITAL_AMOUNT = 30500          # Your Capital Investment.
 RISK_TOLERANCE = 0.125          # The Portion Amount you want to take risk of capital for each Buying position.
 AMOUNT_RSI_INTERVAL = '5m'      # Interval To get its RSI for Buying Amount Calculations Function.
@@ -42,7 +42,7 @@ USDT_DIP_AMOUNT = 1500          # Amount of Currency For Buying a Dip.
 MIN_STABLE_INTERVALS = 2        # Set The Minimum Stable Intervals For Market Stable Condition.
 TRAILING_POSITIONS_COUNT = 1    # Define The Minimum Count For Stable Positions To start Trailing Check.
 # TRAILING_PERCENT = 0.25         # Set The Minimum % To Activate Trailing Stop Process.
-TRAILING_GAIN_REVERSE = 0.10    # Set the Sell Threshold % for Stable Portfolio Gain Reversal (Trailing Stop).
+# TRAILING_GAIN_REVERSE = 0.20    # Set the Sell Threshold % for Stable Portfolio Gain Reversal (Trailing Stop).
 CHECK_POSITIONS_ON_BUY = True   # Set True If You Need Bot Manager Check The Positions During Buy Cycle.
 # -------------------------------------------------------------------------------------------------
 
@@ -105,8 +105,7 @@ class BotManager:
                                             dip_interval=DIP_INTERVAL, risk_tolerance=RISK_TOLERANCE,
                                             amount_atr_interval=AMOUNT_ATR_INTERVAL,
                                             amount_rsi_interval=AMOUNT_RSI_INTERVAL,
-                                            min_stable_intervals=MIN_STABLE_INTERVALS,
-                                            gain_sell_threshold=TRAILING_GAIN_REVERSE)
+                                            min_stable_intervals=MIN_STABLE_INTERVALS)
         self.trader = Trader(symbol=TRADING_PAIR)  # Initialize the Trader class
         self.notifier = Notifier()
         self.position_manager = PositionManager()
