@@ -26,7 +26,7 @@ PROFIT_INTERVAL = '1h'          # Select The Interval For Take Profit Calculatio
 LOSS_INTERVAL = '1h'            # Select The Interval For Stop Loose Calculations.
 SR_INTERVAL = '15m'             # Select The Interval That Trader Define Support and Resistance Levels.
 DIP_INTERVAL = '1h'             # Select The Interval For Buying a Dip.
-POSITION_CYCLE = 30             # Time in Seconds To Check Positions.
+POSITION_CYCLE = 60 * 5         # Time in Seconds To Check Positions.
 POSITION_TIMEOUT = 24           # Set The Timeout In Hours for Position.
 PREDICTION_CYCLE = 15           # Time in Minutes to Run the Stable Prediction bot cycle.
 DIP_CYCLE = 60                  # Time in Minutes to Run the Dip Historical Context Process.
@@ -387,12 +387,17 @@ class BotManager:
                 portfolio_take_profit_avg = self.calculate_portfolio_take_profit(all_features)
                 breaking_upper_bands = self.breaking_upper_bands(all_features, current_price)
 
+                print(f"Portfolio Gain/Loss Percentage: {portfolio_gain}%")
+                logging.info(f"Portfolio Gain/Loss Percentage: {portfolio_gain}%")
+
                 if stable_positions_len >= TRAILING_POSITIONS_COUNT and above_macd_signal and (portfolio_gain >= portfolio_take_profit_avg or breaking_upper_bands):
                     print("Portfolio Now Processing Under Trailing Stop Level:\n")
                     logging.info("Portfolio Now Processing Under Trailing Stop Level:\n")
-                    reversed_decision = self.decision_maker.check_for_sell_due_to_reversal(bot_manager, current_price)
+                    reversed_decision ,message = self.decision_maker.check_for_sell_due_to_reversal(bot_manager, current_price)
 
                     if reversed_decision == "Sell":
+                        print(message)
+                        logging.info(message)
                         positions_copy = list(self.position_manager.get_positions().items())
                         for position_id, position in positions_copy:
                             entry_price = position['entry_price']
@@ -427,8 +432,8 @@ class BotManager:
                                     self.save_error_to_csv(error_message)
                                     self.notifier.send_notification("Trade Error", error_message)
                     else:
-                        print(f"Portfolio Gain/Loss Percentage: {portfolio_gain}%")
-                        logging.info(f"Portfolio Gain/Loss Percentage: {portfolio_gain}%")
+                        print(message)
+                        logging.info(message)
                 else:
                     print("positions Now Processing Under Fixed Profit-Loss:\n")
                     logging.info("positions Now Processing Under Fixed Profit-Loss:\n")

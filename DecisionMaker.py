@@ -107,17 +107,17 @@ class DecisionMaker:
 
             # If the current gain has decreased by 25% from the maximum, issue a sell signal
             if total_portfolio_gain < self.max_gain * (1 - total_portfolio_gain):
-                print(f"Market has reversed. Current gain: {total_portfolio_gain:.2f}%, Max gain: {self.max_gain:.2f}%")
+                message = f"Market has reversed. Current gain: {total_portfolio_gain:.2f}%, Max gain: {self.max_gain:.2f}%"
                 self.max_gain = 0  # Reset The Maximum Gain
                 self.save_max_gain()  # Save the reset max gain to the file
-                return "Sell"
+                return "Sell" ,message
             else:
-                print(f"Current Portfolio Gain: {total_portfolio_gain:.2f}%, Max Gain Reached{self.max_gain:.2f}% ,No reversal detected.")
-                return "Hold"
+                message = f"Current Portfolio Gain: {total_portfolio_gain:.2f}%, Max Gain Reached{self.max_gain:.2f}% ,No reversal detected (Hold)."
+                return "Hold" ,message
 
         except Exception as e:
-            print(f"Error in checking for sell due to reversal: {e}")
-            return "Hold"
+            message = f"Error in checking for sell due to reversal: {e}"
+            return "Hold" ,message
 
 
     def calculate_buy_amount(self, all_features ,amount_rsi_interval, amount_atr_interval, capital):
