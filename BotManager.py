@@ -17,6 +17,8 @@ import csv
 import threading
 
 # TODO : make base dip amount to be used in dynamic function under decision manager
+# TODO : Study ranging MIN_STABLE_INTERVALS with FearGreedIndex value
+# TODO : study ranging RISK_TOLERANCE with FearGreedIndex value
 # Bot Configurations ------------------------------------------------------------------------------
 FEATURES_INTERVALS = ['1m', '5m', '15m', '30m', '1h', '1d']
 COIN = 'BNB'                    # Select Cryptocurrency.
