@@ -39,7 +39,7 @@ RISK_TOLERANCE = 0.125          # The Portion Amount you want to take risk of ca
 AMOUNT_RSI_INTERVAL = '5m'      # Interval To get its RSI for Buying Amount Calculations Function.
 AMOUNT_ATR_INTERVAL = '30m'     # Interval To get its ATR for Buying Amount Calculations Function.
 USDT_DIP_AMOUNT = 1500          # Amount of Currency For Buying a Dip.
-MIN_STABLE_INTERVALS = 2        # Set The Minimum Stable Intervals For Market Stable Condition.
+MIN_STABLE_INTERVALS = 4.5      # Set The Minimum Stable Intervals For Market Stable Condition.
 TRAILING_POSITIONS_COUNT = 1    # Define The Minimum Count For Stable Positions To start Trailing Check.
 # TRAILING_PERCENT = 0.25         # Set The Minimum % To Activate Trailing Stop Process.
 # TRAILING_GAIN_REVERSE = 0.20    # Set the Sell Threshold % for Stable Portfolio Gain Reversal (Trailing Stop).
@@ -303,6 +303,7 @@ class BotManager:
             # Calculate the average take profit across all relevant positions
             average_take_profit = total_take_profit / count
             print(f"Portfolio Trailing Percentage: {average_take_profit:.2f}%")
+            logging.info(f"Portfolio Trailing Percentage: {average_take_profit:.2f}%")
             return average_take_profit
 
         except Exception as e:
@@ -387,8 +388,8 @@ class BotManager:
                 portfolio_take_profit_avg = self.calculate_portfolio_take_profit(all_features)
                 breaking_upper_bands = self.breaking_upper_bands(all_features, current_price)
 
-                print(f"Portfolio Gain/Loss Percentage: {portfolio_gain}%")
-                logging.info(f"Portfolio Gain/Loss Percentage: {portfolio_gain}%")
+                print(f"Portfolio Gain/Loss Percentage: {portfolio_gain:.2f}%")
+                logging.info(f"Portfolio Gain/Loss Percentage: {portfolio_gain:.2f}%")
 
                 if stable_positions_len >= TRAILING_POSITIONS_COUNT and above_macd_signal and (portfolio_gain >= portfolio_take_profit_avg or breaking_upper_bands):
                     print("Portfolio Now Processing Under Trailing Stop Level:\n")

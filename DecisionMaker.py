@@ -82,7 +82,6 @@ class DecisionMaker:
             portfolio_gain_percent = (total_gain / stable_invested) * 100
         else:
             portfolio_gain_percent = 0.0
-        print(f"Portfolio Gain Percentage : {round(portfolio_gain_percent, 2)}%")
 
         return portfolio_gain_percent
 
