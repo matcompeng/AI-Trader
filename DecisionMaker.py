@@ -231,9 +231,10 @@ class DecisionMaker:
         return 0
 
 
-    def make_decision(self, prediction, current_price, entry_price, all_features, position_expired):
+    def make_decision(self, prediction, current_price, entry_price, all_features, position_expired, macd_positive):
         """
         Make a final trading decision based on the prediction and risk management rules.
+        :param macd_positive:
         :param position_expired:
         :param prediction: The initial prediction from the Predictor (Buy, Sell, Hold).
         :param current_price: The current market price of the asset.
@@ -265,7 +266,7 @@ class DecisionMaker:
 
         elif prediction == "Suspended" and entry_price:
             if self.should_sell(current_price, entry_price, adjusted_stop_loss_lower, adjusted_stop_loss_middle,
-                                adjusted_take_profit, middle_band_loss, lower_band_loss, all_features, position_expired):
+                                adjusted_take_profit, middle_band_loss, lower_band_loss, all_features, position_expired, macd_positive):
                 return "Sell", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
 
         elif prediction == "Hold" and is_there_dip and not market_stable:
@@ -361,7 +362,7 @@ class DecisionMaker:
 
 
     def should_sell(self, current_price, entry_price, adjusted_stop_loss_lower, adjusted_stop_loss_middle,
-                    adjusted_take_profit, middle_band_loss, lower_band_loss, all_features, position_expired):
+                    adjusted_take_profit, middle_band_loss, lower_band_loss, all_features, position_expired, macd_positive):
         # Calculate the percentage change from the entry price
         price_change = ((current_price - entry_price) / entry_price) * 100
 
@@ -372,7 +373,7 @@ class DecisionMaker:
             return True
 
         #Check is the market has unstable downtrend condition for position settlement
-        elif not market_stable:
+        elif not market_stable and not macd_positive:
             if entry_price > middle_band_loss:
                 if price_change < adjusted_stop_loss_middle:
                     return True

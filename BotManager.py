@@ -35,13 +35,13 @@ DIP_CYCLE = 60                  # Time in Minutes to Run the Dip Historical Cont
 INTERVAL_BANDWIDTH = '5m'       # Define The Interval To calculate Prediction Bandwidth.
 PREDICT_BANDWIDTH = 0.45        # Define Minimum Bandwidth % to Activate Trading.
 BASE_TAKE_PROFIT = 0.35         # Define Base Take Profit Percentage %.
-BASE_STOP_LOSS = 0.25           # Define Base Stop Loose  Percentage %.
+BASE_STOP_LOSS = 0.35           # Define Base Stop Loose  Percentage %.
 CAPITAL_AMOUNT = 30500          # Your Capital Investment.
 RISK_TOLERANCE = 0.15           # The Portion Amount you want to take risk of capital for each Buying position.
 AMOUNT_RSI_INTERVAL = '5m'      # Interval To get its RSI for Buying Amount Calculations Function.
 AMOUNT_ATR_INTERVAL = '30m'     # Interval To get its ATR for Buying Amount Calculations Function.
 USDT_DIP_AMOUNT = 1500          # Amount of Currency For Buying a Dip.
-MIN_STABLE_INTERVALS = 4.5      # Set The Minimum Stable Intervals For Market Stable Condition.
+MIN_STABLE_INTERVALS = 5        # Set The Minimum Stable Intervals For Market Stable Condition.
 TRAILING_POSITIONS_COUNT = 1    # Define The Minimum Count For Stable Positions To start Trailing Check.
 # TRAILING_PERCENT = 0.25         # Set The Minimum % To Activate Trailing Stop Process.
 # TRAILING_GAIN_REVERSE = 0.20    # Set the Sell Threshold % for Stable Portfolio Gain Reversal (Trailing Stop).
@@ -253,7 +253,7 @@ class BotManager:
             print(f"Error calculating invested budget: {e}")
             return 0.0, 0.0, 0.0
 
-    def check_macd_signal(self, all_features, interval):
+    def macd_positive(self, all_features, interval):
         """
         Checks if the MACD fast value is greater than the MACD signal for the given interval.
 
@@ -386,14 +386,14 @@ class BotManager:
                 logging.info(f"Stable Positions Count: {stable_positions_len}")
 
                 portfolio_gain = self.decision_maker.calculate_stable_portfolio_gain(bot_manager, current_price)
-                above_macd_signal = self.check_macd_signal(all_features, TRADING_INTERVAL)
+                macd_positive = self.macd_positive(all_features, TRADING_INTERVAL)
                 portfolio_take_profit_avg = self.calculate_portfolio_take_profit(all_features)
                 breaking_upper_bands = self.breaking_upper_bands(all_features, current_price)
 
                 print(f"Portfolio Gain/Loss Percentage: {portfolio_gain:.2f}%")
                 logging.info(f"Portfolio Gain/Loss Percentage: {portfolio_gain:.2f}%")
 
-                if stable_positions_len >= TRAILING_POSITIONS_COUNT and above_macd_signal and (portfolio_gain >= portfolio_take_profit_avg or breaking_upper_bands):
+                if stable_positions_len >= TRAILING_POSITIONS_COUNT and macd_positive and (portfolio_gain >= portfolio_take_profit_avg or breaking_upper_bands):
                     print("Portfolio Now Processing Under Trailing Stop Level:\n")
                     logging.info("Portfolio Now Processing Under Trailing Stop Level:\n")
                     reversed_decision ,message = self.decision_maker.check_for_sell_due_to_reversal(bot_manager, current_price)
@@ -454,7 +454,7 @@ class BotManager:
                             return
 
                         final_decision, adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit = self.decision_maker.make_decision(
-                            "Suspended", current_price, entry_price, all_features, self.position_expired(timestamp, POSITION_TIMEOUT))
+                            "Suspended", current_price, entry_price, all_features, self.position_expired(timestamp, POSITION_TIMEOUT), macd_positive)
                         gain_loose = round(self.calculate_gain_loose(entry_price, current_price), 2)
 
                         if final_decision == "Sell" and dip_flag == 0:
@@ -705,7 +705,7 @@ class BotManager:
                 dip_cryptocurrency_amount = self.convert_usdt_to_crypto(current_price, USDT_DIP_AMOUNT)
 
                 final_decision, adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit = self.decision_maker.make_decision(
-                    prediction, current_price, None, all_features, position_expired=None)
+                    prediction, current_price, None, all_features, position_expired=None, macd_positive=None)
                 self.log_time("Trade decision making", trade_decision_start)
 
                 # Handle Buy and Sell decisions
@@ -1010,7 +1010,7 @@ class BotManager:
             prediction_thread = threading.Thread(target=self.check_dip_historical_timeframe, daemon=True)
             prediction_thread.start()
 
-            schedule.every(6).hours.do(self.check_dip_positions)
+            schedule.every(12).hours.do(self.check_dip_positions)
 
             # Continuously run the scheduled tasks
             while True:
