@@ -454,7 +454,7 @@ class BotManager:
                             return
 
                         final_decision, adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit = self.decision_maker.make_decision(
-                            "Hold", current_price, entry_price, all_features, self.position_expired(timestamp, POSITION_TIMEOUT))
+                            "Fixed", current_price, entry_price, all_features, self.position_expired(timestamp, POSITION_TIMEOUT))
                         gain_loose = round(self.calculate_gain_loose(entry_price, current_price), 2)
 
                         if final_decision == "Sell" and dip_flag == 0:

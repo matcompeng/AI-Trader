@@ -257,29 +257,24 @@ class DecisionMaker:
         # adjust take_profit base
         adjusted_take_profit = self.calculate_adjusted_take_profit(entry_price, upper_band_profit, lower_band_profit)
 
-        if prediction == "Buy":
-            if market_stable:
-                return "Buy", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
-            elif is_there_dip:
-                return "Buy_Dip", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
-            else:
-                return "Hold", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
+        if prediction == "Buy" and market_stable:
+            return "Buy", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
+
+        elif prediction == "Buy" and is_there_dip:
+            return "Buy_Dip", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
+
+        elif prediction == "Fixed" and entry_price:
+            if self.should_sell(current_price, entry_price, adjusted_stop_loss_lower, adjusted_stop_loss_middle,
+                                adjusted_take_profit, middle_band_loss, lower_band_loss, all_features, position_expired):
+                return "Sell", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
 
         elif prediction == "Hold" and is_there_dip and not market_stable:
             return "Buy_Dip", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
 
-        elif prediction == "Hold" and entry_price:
-            if self.should_sell(current_price, entry_price, adjusted_stop_loss_lower, adjusted_stop_loss_middle,
-                                adjusted_take_profit, middle_band_loss, lower_band_loss, all_features, position_expired):
-                return "Sell", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
-            else:
-                return "Hold", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
-
         elif prediction == "Sell" and entry_price:
             return "Sell", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
 
-        else:
-            return "Hold", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
+        return "Hold", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
 
     def market_stable(self, all_features):
         """
