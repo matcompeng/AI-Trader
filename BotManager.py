@@ -28,7 +28,7 @@ PROFIT_INTERVAL = '1h'          # Select The Interval For Take Profit Calculatio
 LOSS_INTERVAL = '1h'            # Select The Interval For Stop Loose Calculations.
 SR_INTERVAL = '15m'             # Select The Interval That Trader Define Support and Resistance Levels.
 DIP_INTERVAL = '1h'             # Select The Interval For Buying a Dip.
-POSITION_CYCLE = [60,300]       # Time periods in Seconds To Check Positions [Short,Long].
+POSITION_CYCLE = [60, 300]      # Time periods in Seconds To Check Positions [Short,Long].
 POSITION_TIMEOUT = 24           # Set The Timeout In Hours for Position.
 PREDICTION_CYCLE = 15           # Time in Minutes to Run the Stable Prediction bot cycle.
 DIP_CYCLE = 60                  # Time in Minutes to Run the Dip Historical Context Process.
@@ -412,8 +412,8 @@ class BotManager:
                 f"//---------------------Stable Position check cycle started at {cycle_start_time}--------------------//")
 
             position_period = self.load_position_period()
-            print(f"\nrescheduled to run every {position_period}")
-            logging.info(f"\nrescheduled to run every {position_period}")
+            print(f"\nrescheduled to run every {position_period} Seconds")
+            logging.info(f"\nrescheduled to run every {position_period} Seconds")
 
             print("\nChecking if there is Stable Entries:")
             if self.stable_position():
