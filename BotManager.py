@@ -28,7 +28,7 @@ PROFIT_INTERVAL = '1h'          # Select The Interval For Take Profit Calculatio
 LOSS_INTERVAL = '1h'            # Select The Interval For Stop Loose Calculations.
 SR_INTERVAL = '15m'             # Select The Interval That Trader Define Support and Resistance Levels.
 DIP_INTERVAL = '1h'             # Select The Interval For Buying a Dip.
-POSITION_CYCLE = 60 * 5         # Time in Seconds To Check Positions.
+POSITION_CYCLE = [60,300]       # Time periods in Seconds To Check Positions [Short,Long].
 POSITION_TIMEOUT = 24           # Set The Timeout In Hours for Position.
 PREDICTION_CYCLE = 15           # Time in Minutes to Run the Stable Prediction bot cycle.
 DIP_CYCLE = 60                  # Time in Minutes to Run the Dip Historical Context Process.
@@ -111,6 +111,7 @@ class BotManager:
         self.trader = Trader(symbol=TRADING_PAIR)  # Initialize the Trader class
         self.notifier = Notifier()
         self.position_manager = PositionManager()
+        self.initialize_position_period()
 
     def log_time(self, process_name, start_time):
         end_time = time.time()
@@ -352,6 +353,56 @@ class BotManager:
             raise ValueError(f"Error checking position timeout: {e}")
 
 
+    def position_period(self, macd_positive):
+        if macd_positive:
+            return POSITION_CYCLE[1]
+        return POSITION_CYCLE[0]
+
+    def initialize_position_period(self):
+        """
+        Initialize the position_period.json file with a default value of 60 if the file doesn't exist.
+        """
+        try:
+            position_period_file = os.path.join(data_directory, 'position_period.json')
+            if not os.path.exists(position_period_file):
+                with open(position_period_file, 'w') as file:
+                    json.dump({"position_period": 60}, file)  # Default value set to 60
+                logging.info("Position period file initialized with default value: 60")
+            else:
+                logging.info("Position period file already exists.")
+        except Exception as e:
+            logging.error(f"Failed to initialize position period file: {e}")
+
+    def save_position_period(self, position_period):
+        """
+        Save the position_period value to a file in the data directory.
+        :param position_period: Integer value representing the position period.
+        """
+        try:
+            position_period_file = os.path.join(data_directory, 'position_period.json')
+            with open(position_period_file, 'w') as file:
+                json.dump({"position_period": position_period}, file)
+            logging.info(f"Position period value saved: {position_period}")
+        except Exception as e:
+            logging.error(f"Failed to save position period value: {e}")
+
+    def load_position_period(self):
+        """
+        Load the position_period value from the file in the data directory.
+        :return: The position_period value if the file exists, otherwise None.
+        """
+        try:
+            position_period_file = os.path.join(data_directory, 'position_period.json')
+            if os.path.exists(position_period_file):
+                with open(position_period_file, 'r') as file:
+                    data = json.load(file)
+                    return data.get("position_period", None)
+            return None
+        except Exception as e:
+            logging.error(f"Failed to load position period value: {e}")
+            return None
+
+
     def check_stable_positions(self):
         try:
             start_time = time.time()
@@ -387,6 +438,8 @@ class BotManager:
 
                 portfolio_gain = self.decision_maker.calculate_stable_portfolio_gain(bot_manager, current_price)
                 macd_positive = self.macd_positive(all_features, TRADING_INTERVAL)
+                position_period = self.position_period(macd_positive)
+                self.save_position_period(position_period)
                 portfolio_take_profit_avg = self.calculate_portfolio_take_profit(all_features)
                 breaking_upper_bands = self.breaking_upper_bands(all_features, current_price)
 
@@ -990,13 +1043,25 @@ class BotManager:
 
     def start(self):
         try:
-            # For testing purposes
-            # self.save_historical_context_for_trading()
-            # self.run_prediction_cycle()
-            # self.check_dip_positions()
+            # Load the last saved position_period value
+            last_position_period = self.load_position_period()
+            if last_position_period is not None:
+                print(f"Loaded last position period value: {last_position_period}")
+                logging.info(f"Loaded last position period value: {last_position_period}")
+            else:
+                last_position_period = 60  # Default value
+                print("No previous position period value found, using default: 60.")
+                logging.info("No previous position period value found, using default: 60.")
 
-            # Schedule the position check every POSITION_CYCLE seconds
-            schedule.every(POSITION_CYCLE).seconds.do(self.check_stable_positions)
+            # Schedule the stable position check based on the last_position_period
+            print(f"Scheduling position checks every {last_position_period} seconds.")
+            logging.info(f"Scheduling position checks every {last_position_period} seconds.")
+
+            # Cancel any previous scheduled jobs before rescheduling
+            schedule.clear('position_check')  # Use a tag to identify the job
+
+            # Reschedule the job with the new interval
+            schedule.every(last_position_period).seconds.do(self.check_stable_positions).tag('position_check')
 
             # Start the historical context cycle in a separate thread
             prediction_thread = threading.Thread(target=self.check_stable_prediction_timeframe, daemon=True)
@@ -1010,12 +1075,33 @@ class BotManager:
             prediction_thread = threading.Thread(target=self.check_dip_historical_timeframe, daemon=True)
             prediction_thread.start()
 
+            # Schedule the dip check to run every 12 hours
             schedule.every(12).hours.do(self.check_dip_positions)
 
-            # Continuously run the scheduled tasks
+            # Continuously monitor position_period and run the scheduled tasks
             while True:
                 schedule.run_pending()
-                time.sleep(1)
+
+                # Continuously check for updates in position_period
+                current_position_period = self.load_position_period()  # Load the latest value
+
+                if current_position_period != last_position_period:
+                    print(
+                        f"Detected change in position period from {last_position_period} to {current_position_period}")
+                    logging.info(
+                        f"Detected change in position period from {last_position_period} to {current_position_period}")
+
+                    # Update last_position_period
+                    last_position_period = current_position_period
+
+                    # Reschedule the job with the new interval
+                    schedule.clear('position_check')  # Clear the previous job with the 'position_check' tag
+                    schedule.every(current_position_period).seconds.do(self.check_stable_positions).tag(
+                        'position_check')
+                    print(f"Position check rescheduled to run every {current_position_period} seconds.")
+                    logging.info(f"Position check rescheduled to run every {current_position_period} seconds.")
+
+                time.sleep(1)  # Add a small delay to avoid tight looping
 
         except Exception as e:
             logging.error(f"Bot encountered a critical error and is stopping: {e}")
