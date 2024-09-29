@@ -411,6 +411,10 @@ class BotManager:
             logging.info(
                 f"//---------------------Stable Position check cycle started at {cycle_start_time}--------------------//")
 
+            position_period = self.load_position_period()
+            print(f"\nrescheduled to run every {position_period}")
+            logging.info(f"\nrescheduled to run every {position_period}")
+
             print("\nChecking if there is Stable Entries:")
             if self.stable_position():
                 # Taking Bot Manager Class Instance
@@ -1083,7 +1087,7 @@ class BotManager:
             prediction_thread.start()
 
             # Schedule the dip check to run every 12 hours
-            schedule.every(12).hours.do(self.check_dip_positions)
+            schedule.every(4).hours.do(self.check_dip_positions)
 
             # Continuously monitor position_period and run the scheduled tasks
             while True:
