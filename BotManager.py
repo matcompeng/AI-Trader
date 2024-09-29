@@ -850,6 +850,11 @@ class BotManager:
                     if position.get('dip') == 1
                 ]
 
+                # Loading market data
+                market_data = self.data_collector.collect_data()
+                all_features = self.feature_processor.process(market_data)
+                macd_positive = self.macd_positive(all_features, DIP_INTERVAL)
+
                 #Loading Dip Historical context data
                 historical_data = self.feature_processor.get_dip_historical_data()
 
@@ -866,17 +871,19 @@ class BotManager:
 
                 # Generate Dip Prediction
                 prediction_start = time.time()
-                print("Generating prediction...")
-                logging.info("Generating prediction...")
-                prediction, explanation = self.predictor.get_prediction(current_price=current_price,
-                                                                        historical_data=historical_data,
-                                                                        prediction_type='Dip', positions=positions_copy)
-                self.log_time("Prediction generation", prediction_start)
-                print(f"Predictor Recommends To  ///{prediction}///")
-                logging.info(f"Prediction: {prediction}. Explanation: {explanation}")
+                if macd_positive:
+                    print("Generating prediction...")
+                    logging.info("Generating prediction...")
+                    prediction, explanation = self.predictor.get_prediction(current_price=current_price,
+                                                                            historical_data=historical_data,
+                                                                            prediction_type='Dip', positions=positions_copy)
+                    self.log_time("Prediction generation", prediction_start)
+                    print(f"Predictor Recommends To  ///{prediction}///")
+                    logging.info(f"Prediction: {prediction}. Explanation: {explanation}")
+                else:
+                    prediction = 'Hold'
 
                 # Dip Trade Execution
-
                 for position_id, position in positions_copy:
                     entry_price = position['entry_price']
                     amount = position['amount']
@@ -914,8 +921,8 @@ class BotManager:
                             f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
 
             else:
-                print("No Dip Entry Founds")
-                logging.info("No Dip Entry Founds")
+                print("\nNo Dip Entry Founds")
+                logging.info("\nNo Dip Entry Founds")
 
 
         except Exception as e:
