@@ -579,7 +579,7 @@ class BotManager:
                         f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
 
                 stable_invested, dip_invested, total_invested = self.invested_budget()
-                print(f"Stable Invested: {round(stable_invested)} USDT\n"
+                print(f"\nStable Invested: {round(stable_invested)} USDT\n"
                       f"Dip Invested: {round(dip_invested)} USDT\n"
                       f"Total Invested: {round(total_invested)} USDT")
                 logging.info(f"Stable Invested: {round(stable_invested)} USDT\n"

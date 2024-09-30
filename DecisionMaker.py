@@ -261,16 +261,13 @@ class DecisionMaker:
         if prediction == "Buy" and market_stable:
             return "Buy", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
 
-        elif prediction == "Buy" and is_there_dip:
+        elif prediction == "Buy" and not market_stable and is_there_dip:
             return "Buy_Dip", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
 
         elif prediction == "Suspended" and entry_price:
             if self.should_sell(current_price, entry_price, adjusted_stop_loss_lower, adjusted_stop_loss_middle,
                                 adjusted_take_profit, middle_band_loss, lower_band_loss, all_features, position_expired, macd_positive):
                 return "Sell", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
-
-        elif prediction == "Hold" and is_there_dip and not market_stable:
-            return "Buy_Dip", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
 
         elif prediction == "Sell" and entry_price:
             return "Sell", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
