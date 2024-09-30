@@ -561,6 +561,14 @@ class BotManager:
                     (position_id, position) for position_id, position in self.position_manager.get_positions().items()
                     if position.get('dip') == 1
                 ]
+
+                # Calculate the average entry price using the new function
+                avg_entry_price = self.calculate_average_entry_price(positions_copy)
+
+                # Print and log the average entry price
+                print(f"Average Entry Price for Dip Positions: {avg_entry_price:.2f}")
+                logging.info(f"Average Entry Price for Dip Positions: {avg_entry_price:.2f}")
+
                 for position_id, position in positions_copy:
                     entry_price = position['entry_price']
                     gain_loose = round(self.calculate_gain_loose(entry_price, current_price), 2)
@@ -839,6 +847,27 @@ class BotManager:
                     print("Bot has stopped due to repeated errors.")
                     raise
 
+    def calculate_average_entry_price(self, positions_copy):
+        """
+        Calculate the average entry price for all positions with a 'dip' flag set to 1.
+        :param positions_copy: List of positions to calculate the average for.
+        :return: The average entry price.
+        """
+        total_entry_price = 0
+        position_count = 0
+
+        for position_id, position in positions_copy:
+            total_entry_price += position['entry_price']
+            position_count += 1
+
+        # Avoid division by zero by returning 0 if no positions are found
+        if position_count > 0:
+            avg_entry_price = total_entry_price / position_count
+        else:
+            avg_entry_price = 0
+
+        return avg_entry_price
+
     def check_dip_positions(self):
         try:
             start_time = time.time()
@@ -854,12 +883,19 @@ class BotManager:
                     if position.get('dip') == 1
                 ]
 
+                # Calculate the average entry price
+                avg_entry_price = self.calculate_average_entry_price(positions_copy)
+
+                # Print and log the average entry price
+                print(f"Average Entry Price for Dip Positions: {avg_entry_price:.2f}")
+                logging.info(f"Average Entry Price for Dip Positions: {avg_entry_price:.2f}")
+
                 # Loading market data
                 market_data = self.data_collector.collect_data()
                 all_features = self.feature_processor.process(market_data)
                 macd_positive = self.macd_positive(all_features, DIP_INTERVAL)
 
-                #Loading Dip Historical context data
+                # Loading Dip Historical context data
                 historical_data = self.feature_processor.get_dip_historical_data()
 
                 # Get current price
@@ -880,7 +916,8 @@ class BotManager:
                     logging.info("Generating prediction...")
                     prediction, explanation = self.predictor.get_prediction(current_price=current_price,
                                                                             historical_data=historical_data,
-                                                                            prediction_type='Dip', positions=positions_copy)
+                                                                            prediction_type='Dip',
+                                                                            positions=positions_copy)
                     self.log_time("Prediction generation", prediction_start)
                     print(f"Predictor Recommends To  ///{prediction}///")
                     logging.info(f"Prediction: {prediction}. Explanation: {explanation}")
@@ -904,15 +941,17 @@ class BotManager:
                                                                 entry_price=entry_price)
                             stable_invested, dip_invested, total_invested = self.invested_budget()
                             self.position_manager.remove_position(position_id)
-                            self.log_sold_position(position_id, trade_type, entry_price, current_price, profit_usdt, gain_loose)
+                            self.log_sold_position(position_id, trade_type, entry_price, current_price, profit_usdt,
+                                                   gain_loose)
                             print(f"Position {position_id} sold successfully")
                             logging.info(f"Position {position_id} sold successfully")
-                            self.notifier.send_notification("Dip Trade Executed", f"Sold {amount} {COIN} at ${current_price}\n"
-                                                                              f"Gain/Loose: {gain_loose}%\n"
-                                                                              "Sell Mode: Dip\n"
-                                                                              f"Stable Invested: {round(stable_invested)} USDT\n"
-                                                                              f"Dip Invested: {round(dip_invested)} USDT\n"
-                                                                              f"Total Invested: {round(total_invested)} USDT")
+                            self.notifier.send_notification("Dip Trade Executed",
+                                                            f"Sold {amount} {COIN} at ${current_price}\n"
+                                                            f"Gain/Loose: {gain_loose}%\n"
+                                                            "Sell Mode: Dip\n"
+                                                            f"Stable Invested: {round(stable_invested)} USDT\n"
+                                                            f"Dip Invested: {round(dip_invested)} USDT\n"
+                                                            f"Total Invested: {round(total_invested)} USDT")
                         else:
                             error_message = f"Failed to execute Sell order: {order_details}"
                             self.save_error_to_csv(error_message)
@@ -927,7 +966,6 @@ class BotManager:
             else:
                 print("\nNo Dip Entry Founds")
                 logging.info("\nNo Dip Entry Founds")
-
 
         except Exception as e:
             logging.error(f"An error occurred during position check: {str(e)}")
