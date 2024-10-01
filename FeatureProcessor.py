@@ -46,7 +46,7 @@ class FeatureProcessor:
                 df['EMA_25'] = talib.EMA(df['close'], timeperiod=25)
                 df['EMA_100'] = talib.EMA(df['close'], timeperiod=100)
 
-                df['MACD_slow'], df['MACD_fast'], df['MACD_signal'] = talib.MACD(df['close'])
+                df['MACD'], df['MACD_signal'], df['MACD_hist'] = talib.MACD(df['close'], fastperiod=12, slowperiod=26, signalperiod=9)
                 df['upper_band'], df['middle_band'], df['lower_band'] = talib.BBANDS(df['close'], timeperiod=20)
                 # df['ADX'] = talib.ADX(df['high'], df['low'], df['close'], timeperiod=14)
 

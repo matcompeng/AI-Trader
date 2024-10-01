@@ -40,7 +40,7 @@ CAPITAL_AMOUNT = 30500          # Your Capital Investment.
 RISK_TOLERANCE = 0.15           # The Portion Amount you want to take risk of capital for each Buying position.
 AMOUNT_RSI_INTERVAL = '5m'      # Interval To get its RSI for Buying Amount Calculations Function.
 AMOUNT_ATR_INTERVAL = '30m'     # Interval To get its ATR for Buying Amount Calculations Function.
-USDT_DIP_AMOUNT = 1500          # Amount of Currency For Buying a Dip.
+USDT_DIP_AMOUNT = 2500          # Amount of Currency For Buying a Dip.
 MIN_STABLE_INTERVALS = 5        # Set The Minimum Stable Intervals For Market Stable Condition.
 TRAILING_POSITIONS_COUNT = 1    # Define The Minimum Count For Stable Positions To start Trailing Check.
 # TRAILING_PERCENT = 0.25         # Set The Minimum % To Activate Trailing Stop Process.
@@ -263,11 +263,11 @@ class BotManager:
         :return: True if MACD fast > MACD signal, otherwise raises an error.
         """
         if interval in all_features:
-            macd_fast = all_features[interval].get('MACD_fast')
+            macd = all_features[interval].get('MACD')
             macd_signal = all_features[interval].get('MACD_signal')
 
-            if macd_fast is not None and macd_signal is not None:
-                return macd_fast > macd_signal
+            if macd is not None and macd_signal is not None:
+                return macd > macd_signal
             else:
                 raise ValueError(f"MACD values are not available for the interval {interval}.")
         else:
@@ -446,6 +446,9 @@ class BotManager:
                 self.save_position_period(position_period)
                 portfolio_take_profit_avg = self.calculate_portfolio_take_profit(all_features)
                 breaking_upper_bands = self.breaking_upper_bands(all_features, current_price)
+
+                print(f"MACD Status: {macd_positive}")
+                logging.info(f"MACD Status: {macd_positive}")
 
                 print(f"Portfolio Gain/Loss Percentage: {portfolio_gain:.2f}%")
                 logging.info(f"Portfolio Gain/Loss Percentage: {portfolio_gain:.2f}%")
@@ -932,6 +935,8 @@ class BotManager:
                     logging.info(f"Prediction: {prediction}. Explanation: {explanation}")
                 else:
                     prediction = 'Hold'
+                    print("Prediction Suspended ,MACD negative")
+                    logging.info("Prediction Suspended ,MACD negative")
 
                 # Dip Trade Execution
                 for position_id, position in positions_copy:
@@ -967,6 +972,8 @@ class BotManager:
                             self.notifier.send_notification("Trade Error", error_message)
 
                     else:
+                        print("Prediction: ///Hold///")
+                        logging.info("Prediction: ///Hold///")
                         print(
                             f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
                         logging.info(
