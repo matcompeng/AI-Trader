@@ -265,9 +265,10 @@ class BotManager:
         if interval in all_features:
             macd = all_features[interval].get('MACD')
             macd_signal = all_features[interval].get('MACD_signal')
+            macd_hist = all_features[interval].get('MACD_hist')
 
             if macd is not None and macd_signal is not None:
-                return macd > macd_signal
+                return macd >= macd_signal and macd_hist > 0
             else:
                 raise ValueError(f"MACD values are not available for the interval {interval}.")
         else:
@@ -752,9 +753,10 @@ class BotManager:
                     logging.info("Failed to get current price. Skipping this cycle.")
                     return
 
-                # Check if the price change is greater than PREDICT_IN_BANDWIDTH%
+                # Check if the price change is greater than PREDICT_IN_BANDWIDTH% and check MACD status
                 bandwidth_price_change = self.calculate_prediction_bandwidth(all_features)
-                if bandwidth_price_change > PREDICT_BANDWIDTH:
+                macd_positive = self.macd_positive(all_features, TRADING_INTERVAL)
+                if bandwidth_price_change > PREDICT_BANDWIDTH and macd_positive:
                     prediction_start = time.time()
                     print("Generating prediction...")
                     logging.info("Generating prediction...")
