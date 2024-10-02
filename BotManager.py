@@ -305,8 +305,6 @@ class BotManager:
 
             # Calculate the average take profit across all relevant positions
             average_take_profit = total_take_profit / count
-            print(f"Portfolio Trailing Percentage: {average_take_profit:.2f}%")
-            logging.info(f"Portfolio Trailing Percentage: {average_take_profit:.2f}%")
             return average_take_profit
 
         except Exception as e:
@@ -449,6 +447,9 @@ class BotManager:
 
                 print(f"MACD Status: {macd_positive}")
                 logging.info(f"MACD Status: {macd_positive}")
+
+                print(f"Portfolio Trailing Percentage: {portfolio_take_profit_avg:.2f}%")
+                logging.info(f"Portfolio Trailing Percentage: {portfolio_take_profit_avg:.2f}%")
 
                 print(f"Portfolio Gain/Loss Percentage: {portfolio_gain:.2f}%")
                 logging.info(f"Portfolio Gain/Loss Percentage: {portfolio_gain:.2f}%")
@@ -1135,7 +1136,7 @@ class BotManager:
             prediction_thread.start()
 
             # Schedule the dip check to run every 12 hours
-            schedule.every(4).hours.do(self.check_dip_positions)
+            schedule.every(1).hours.do(self.check_dip_positions)
 
             # Continuously monitor position_period and run the scheduled tasks
             while True:
