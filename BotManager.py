@@ -458,7 +458,7 @@ class BotManager:
                 if stable_positions_len >= TRAILING_POSITIONS_COUNT and macd_positive and (portfolio_gain >= portfolio_take_profit_avg or breaking_upper_bands):
                     print("Portfolio Now Processing Under Trailing Stop Level:\n")
                     logging.info("Portfolio Now Processing Under Trailing Stop Level:\n")
-                    reversed_decision ,message = self.decision_maker.check_for_sell_due_to_reversal(bot_manager, current_price)
+                    reversed_decision ,message = self.decision_maker.check_for_sell_due_to_reversal(bot_manager, current_price, portfolio_take_profit_avg)
 
                     if reversed_decision == "Sell":
                         print(message)
@@ -756,7 +756,7 @@ class BotManager:
                 # Check if the price change is greater than PREDICT_IN_BANDWIDTH% and check MACD status
                 bandwidth_price_change = self.calculate_prediction_bandwidth(all_features)
                 macd_positive = self.macd_positive(all_features, TRADING_INTERVAL)
-                if bandwidth_price_change > PREDICT_BANDWIDTH and macd_positive:
+                if bandwidth_price_change > PREDICT_BANDWIDTH:
                     prediction_start = time.time()
                     print("Generating prediction...")
                     logging.info("Generating prediction...")
@@ -785,7 +785,7 @@ class BotManager:
                 dip_cryptocurrency_amount = self.convert_usdt_to_crypto(current_price, USDT_DIP_AMOUNT)
 
                 final_decision, adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit = self.decision_maker.make_decision(
-                    prediction, current_price, None, all_features, position_expired=None, macd_positive=None)
+                    prediction, current_price, None, all_features, position_expired=None, macd_positive=macd_positive)
                 self.log_time("Trade decision making", trade_decision_start)
 
                 # Handle Buy and Sell decisions
