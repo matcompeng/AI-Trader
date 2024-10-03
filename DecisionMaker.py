@@ -259,7 +259,7 @@ class DecisionMaker:
         # adjust take_profit base
         adjusted_take_profit = self.calculate_adjusted_take_profit(entry_price, upper_band_profit, lower_band_profit)
 
-        if prediction == "Buy" and market_stable and macd_positive:
+        if prediction == "Buy" and market_stable:
             return "Buy", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
 
         elif prediction == "Buy" and not market_stable and is_there_dip:
