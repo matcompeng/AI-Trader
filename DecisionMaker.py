@@ -85,10 +85,10 @@ class DecisionMaker:
 
         return portfolio_gain_percent
 
-    def check_for_sell_due_to_reversal(self, bot_manager, current_price, portfolio_take_profit_avg):
+    def check_for_sell_due_to_reversal(self, bot_manager, current_price, portfolio_stop_loss_avg):
         """
         Check if the portfolio gain has reached a maximum and lost 25% of that gain, triggering a sell decision.
-        :param portfolio_take_profit_avg:
+        :param portfolio_stop_loss_avg:
         :param bot_manager: Instance of BotManager to access existing methods.
         :param current_price: The current market price.
         :return: "Sell" if a 25% reversal is detected, otherwise "Hold".
@@ -106,7 +106,7 @@ class DecisionMaker:
                 print(f"New maximum gain reached: {self.max_gain:.2f}%")
 
             # If the current gain has decreased by 25% from the maximum, issue a sell signal
-            if total_portfolio_gain < self.max_gain * (1 - portfolio_take_profit_avg):
+            if total_portfolio_gain < self.max_gain * (1 - portfolio_stop_loss_avg):
                 message = f"Market has reversed. Current gain: {total_portfolio_gain:.2f}%, Max gain: {self.max_gain:.2f}%"
                 self.max_gain = 0  # Reset The Maximum Gain
                 self.save_max_gain()  # Save the reset max gain to the file

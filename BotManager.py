@@ -313,6 +313,54 @@ class BotManager:
             print(f"Error calculating portfolio take profit: {e}")
             return 0.0
 
+    def calculate_portfolio_adjusted_stop_loss(self, all_features):
+        """
+        Calculate the average adjusted stop loss for the portfolio where 'dip' = 0.
+        Uses the existing 'calculate_adjusted_stop_lower' and 'calculate_adjusted_stop_middle' functions from the DecisionMaker class.
+        :return: The average adjusted stop loss for stable positions in percentage.
+        """
+        try:
+            positions = self.position_manager.get_positions()
+            total_stop_loss = 0.0
+            count = 0
+
+            # Iterate over each position where 'dip' = 0 (stable positions)
+            for position_id, position in positions.items():
+                if position['dip'] == 0:
+                    entry_price = float(position['entry_price'])
+
+                    # Get the relevant Bollinger Bands from all_features for stop loss calculation
+                    lower_band_loss = all_features[LOSS_INTERVAL].get('lower_band', None)
+                    middle_band_loss = all_features[LOSS_INTERVAL].get('middle_band', None)
+                    upper_band_loss = all_features[LOSS_INTERVAL].get('upper_band', None)
+
+                    # Check the position of entry_price and calculate stop loss accordingly
+                    if lower_band_loss is not None and middle_band_loss is not None and entry_price > lower_band_loss and entry_price < middle_band_loss:
+                        # Entry price is between lower_band and middle_band -> use calculate_adjusted_stop_lower
+                        adjusted_stop_loss = self.decision_maker.calculate_adjusted_stop_lower(
+                            entry_price, lower_band_loss, middle_band_loss)
+                        total_stop_loss += adjusted_stop_loss
+                        count += 1
+
+                    elif middle_band_loss is not None and upper_band_loss is not None and entry_price > middle_band_loss and entry_price < upper_band_loss:
+                        # Entry price is between middle_band and upper_band -> use calculate_adjusted_stop_middle
+                        adjusted_stop_loss = self.decision_maker.calculate_adjusted_stop_middle(
+                            entry_price, upper_band_loss, middle_band_loss)
+                        total_stop_loss += adjusted_stop_loss
+                        count += 1
+
+            if count == 0:
+                return 0.0
+
+            # Calculate the average stop loss across all relevant positions
+            average_stop_loss = total_stop_loss / count
+            return average_stop_loss
+
+        except Exception as e:
+            print(f"Error calculating portfolio adjusted stop loss: {e}")
+            logging.error(f"Error calculating portfolio adjusted stop loss: {e}")
+            return 0.0
+
     def breaking_upper_bands(self, all_features, current_price):
 
         upper_band_15m = all_features['15m'].get('upper_band', None)
@@ -444,6 +492,7 @@ class BotManager:
                 position_period = self.position_period(macd_positive)
                 self.save_position_period(position_period)
                 portfolio_take_profit_avg = self.calculate_portfolio_take_profit(all_features)
+                portfolio_stop_loss_avg = self.calculate_portfolio_adjusted_stop_loss(all_features)
                 breaking_upper_bands = self.breaking_upper_bands(all_features, current_price)
 
                 print(f"MACD Status: {macd_positive}")
@@ -458,7 +507,7 @@ class BotManager:
                 if stable_positions_len >= TRAILING_POSITIONS_COUNT and macd_positive and (portfolio_gain >= portfolio_take_profit_avg or breaking_upper_bands):
                     print("Portfolio Now Processing Under Trailing Stop Level:\n")
                     logging.info("Portfolio Now Processing Under Trailing Stop Level:\n")
-                    reversed_decision ,message = self.decision_maker.check_for_sell_due_to_reversal(bot_manager, current_price, portfolio_take_profit_avg)
+                    reversed_decision ,message = self.decision_maker.check_for_sell_due_to_reversal(bot_manager, current_price, portfolio_stop_loss_avg)
 
                     if reversed_decision == "Sell":
                         print(message)
