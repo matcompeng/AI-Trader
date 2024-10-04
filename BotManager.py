@@ -501,8 +501,8 @@ class BotManager:
                 print(f"Trailing Percentage: {portfolio_take_profit_avg:.2f}% ,Reverse Percentage: {portfolio_stop_loss_avg}%")
                 logging.info(f"Trailing Percentage: {portfolio_take_profit_avg:.2f}% ,Reverse Percentage: {portfolio_stop_loss_avg}%")
 
-                print(f"Portfolio Gain/Loss Percentage: {portfolio_gain:.2f}%")
-                logging.info(f"Portfolio Gain/Loss Percentage: {portfolio_gain:.2f}%")
+                print(f"Portfolio Percentage: {portfolio_gain:.2f}%")
+                logging.info(f"Portfolio Percentage: {portfolio_gain:.2f}%")
 
                 if stable_positions_len >= TRAILING_POSITIONS_COUNT and macd_positive and (portfolio_gain >= portfolio_take_profit_avg or breaking_upper_bands):
                     print("Portfolio Now Processing Under Trailing Stop Level:\n")
