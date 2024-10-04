@@ -28,14 +28,14 @@ PROFIT_INTERVAL = '1h'          # Select The Interval For Take Profit Calculatio
 LOSS_INTERVAL = '1h'            # Select The Interval For Stop Loose Calculations.
 SR_INTERVAL = '15m'             # Select The Interval That Trader Define Support and Resistance Levels.
 DIP_INTERVAL = '1h'             # Select The Interval For Buying a Dip.
-POSITION_CYCLE = [60, 300]      # Time periods in Seconds To Check Positions [Short,Long].
+POSITION_CYCLE = [30, 150]      # Time periods in Seconds To Check Positions [Short,Long].
 POSITION_TIMEOUT = 24           # Set The Timeout In Hours for Position.
 PREDICTION_CYCLE = 15           # Time in Minutes to Run the Stable Prediction bot cycle.
 DIP_CYCLE = 60                  # Time in Minutes to Run the Dip Historical Context Process.
 INTERVAL_BANDWIDTH = '5m'       # Define The Interval To calculate Prediction Bandwidth.
 PREDICT_BANDWIDTH = 0.45        # Define Minimum Bandwidth % to Activate Trading.
 BASE_TAKE_PROFIT = 0.35         # Define Base Take Profit Percentage %.
-BASE_STOP_LOSS = 0.35           # Define Base Stop Loose  Percentage %.
+BASE_STOP_LOSS = 0.25           # Define Base Stop Loose  Percentage %.
 CAPITAL_AMOUNT = 30500          # Your Capital Investment.
 RISK_TOLERANCE = 0.15           # The Portion Amount you want to take risk of capital for each Buying position.
 AMOUNT_RSI_INTERVAL = '5m'      # Interval To get its RSI for Buying Amount Calculations Function.
@@ -413,8 +413,8 @@ class BotManager:
             position_period_file = os.path.join(data_directory, 'position_period.json')
             if not os.path.exists(position_period_file):
                 with open(position_period_file, 'w') as file:
-                    json.dump({"position_period": 60}, file)  # Default value set to 60
-                logging.info("Position period file initialized with default value: 60")
+                    json.dump({"position_period": POSITION_CYCLE[0]}, file)  # Default value
+                logging.info(f"Position period file initialized with default value: {POSITION_CYCLE[0]}")
             else:
                 logging.info("Position period file already exists.")
         except Exception as e:

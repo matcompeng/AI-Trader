@@ -44,7 +44,7 @@ class Predictor:
                     f"EMA (100): {features['EMA_100']:.2f}, "
                     f"MACD: {features['MACD']:.2f}, "
                     f"MACD Signal: {features['MACD_signal']:.2f}, "
-                    f"MACD Hist: {features['MACD_hist']:.2f}, "
+                    # f"MACD Hist: {features['MACD_hist']:.2f}, "
                     f"Bollinger Bands: {features['upper_band']:.2f}, {features['middle_band']:.2f}, {features['lower_band']:.2f}, "
                     # f"ADX: {features['ADX']:.2f},"  # Keeping comments intact
                     f"StochRSI %K: {features['stoch_rsi_k']:.2f}, "  # Updated to reflect stochRSI
@@ -69,7 +69,7 @@ class Predictor:
             "\n### Trading Strategy:\n"
             "1. Consider 'Buy' decisions primarily when the price enters an oversold condition, particularly when technical indicators like RSI or StochasticRSI show oversold signals in intervals longer than '1m'. This condition is especially compelling if the price is stabilizing near a strong support level after entering the oversold state.\n"
             "2. Consider 'Buy' decisions when the price breaks through a significant resistance level in the historical context, as this could indicate a continuation of upward momentum, especially if supported by positive market indicators.\n"
-            "3. Confirm the buying decision by checking for an uptrend in the MACD Histogram. This includes either consecutive higher bars or a reduction in lower bars, signaling a potential bullish momentum shift in historical context data.\n"
+            "3. Must confirm the buying decision that considered in point '1' and '2' by checking for an uptrend in the MACD Histogram in the Historical Context data section. This includes either consecutive higher bars or a reduction in lower bars, signaling a potential bullish momentum ,The buy decision should not be made unless this confirmation is satisfied.\n"
             "4. Ensure that the overall market momentum supports a buying decision by looking for upward movement in key indicators, particularly when these indicators are transitioning from neutral or negative zones to more positive trends.\n"
         )
 
@@ -101,7 +101,7 @@ class Predictor:
         prompt += (
             f"\n\nI am looking to trade {self.coin} cryptocurrency in the short and intermediate term within a day.\n"
             f"Knowing that the current price is: {current_price} for this cycle.\n"
-             "Please provide a single, clear recommendation based on Current market data, Historical Context and Trading Strategy (must use format &Buy& or &Hold& for the final decision and it should not include this format in conflicting actions in your response)."
+             "Please provide a single, clear recommendation based on Current market data, Historical Context and Trading Strategy (must use format &Buy& or &Hold& for the final recommendation only and it should not include this format in your explanation)."
         )
 
         return prompt
