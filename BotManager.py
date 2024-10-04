@@ -498,8 +498,8 @@ class BotManager:
                 print(f"MACD Status: {macd_positive}")
                 logging.info(f"MACD Status: {macd_positive}")
 
-                print(f"Trailing Percentage: {portfolio_take_profit_avg:.2f}% ,Reverse Percentage: {portfolio_stop_loss_avg}")
-                logging.info(f"Portfolio Trailing Percentage: {portfolio_take_profit_avg:.2f}%")
+                print(f"Trailing Percentage: {portfolio_take_profit_avg:.2f}% ,Reverse Percentage: {portfolio_stop_loss_avg}%")
+                logging.info(f"Trailing Percentage: {portfolio_take_profit_avg:.2f}% ,Reverse Percentage: {portfolio_stop_loss_avg}%")
 
                 print(f"Portfolio Gain/Loss Percentage: {portfolio_gain:.2f}%")
                 logging.info(f"Portfolio Gain/Loss Percentage: {portfolio_gain:.2f}%")
