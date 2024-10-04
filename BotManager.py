@@ -354,7 +354,7 @@ class BotManager:
 
             # Calculate the average stop loss across all relevant positions
             average_stop_loss = total_stop_loss / count
-            return average_stop_loss
+            return abs(average_stop_loss)
 
         except Exception as e:
             print(f"Error calculating portfolio adjusted stop loss: {e}")
@@ -498,8 +498,8 @@ class BotManager:
                 print(f"MACD Status: {macd_positive}")
                 logging.info(f"MACD Status: {macd_positive}")
 
-                print(f"Trailing Percentage: {portfolio_take_profit_avg:.2f}% ,Reverse Percentage: {portfolio_stop_loss_avg}%")
-                logging.info(f"Trailing Percentage: {portfolio_take_profit_avg:.2f}% ,Reverse Percentage: {portfolio_stop_loss_avg}%")
+                print(f"Trailing Percentage: {portfolio_take_profit_avg:.2f}% ,Reverse Percentage: {portfolio_stop_loss_avg:.2f}%")
+                logging.info(f"Trailing Percentage: {portfolio_take_profit_avg:.2f}% ,Reverse Percentage: {portfolio_stop_loss_avg:.2f}%")
 
                 print(f"Portfolio Percentage: {portfolio_gain:.2f}%")
                 logging.info(f"Portfolio Percentage: {portfolio_gain:.2f}%")
