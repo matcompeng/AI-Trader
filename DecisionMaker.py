@@ -51,7 +51,6 @@ class DecisionMaker:
         self.max_gain = total_portfolio_gain  # Update the maximum gain
         self.save_max_gain()  # Save the updated max gain to the file
 
-
     def calculate_stable_portfolio_gain(self, bot_manager, current_price):
         """
         Calculate the total portfolio gain/loss based on the current positions and the current market price,
@@ -59,31 +58,31 @@ class DecisionMaker:
         This method uses the calculate_gain_loose and invested_budget methods from BotManager class.
         :param bot_manager: Instance of BotManager to access existing methods.
         :param current_price: The current market price to compare with entry prices.
-        :return: Total portfolio gain in percentage for positions where dip_flag != position['dip'].
+        :return: Average portfolio gain/loss in percentage for positions where dip_flag != position['dip'].
         """
-        stable_invested, dip_invested, total_invested = bot_manager.invested_budget()  # Use the existing invested_budget method
-        total_gain = 0.0
+        total_gain_percent = 0.0
+        valid_positions_count = 0
 
-        # Iterate over each position and calculate gain/loss only if dip_flag != position['dip']
+        # Iterate over each position and calculate percentage gain/loss only if dip_flag != position['dip']
         for position_id, position in bot_manager.position_manager.get_positions().items():
             dip_flag = position.get('dip', None)
 
-            # Check if the dip_flag condition is met
+            # Check if the dip_flag condition is met (only consider stable positions)
             if dip_flag == 0:
                 entry_price = float(position['entry_price'])
-                amount = float(position['amount'])
-                gain_loss = bot_manager.calculate_gain_loose(entry_price, current_price)
+                gain_loss_percent = bot_manager.calculate_gain_loose(entry_price, current_price)
 
-                invested_amount = entry_price * amount
-                total_gain += (gain_loss / 100) * invested_amount
+                # Accumulate the total percentage gain/loss
+                total_gain_percent += gain_loss_percent
+                valid_positions_count += 1
 
-        # Calculate the overall percentage gain/loss
-        if stable_invested > 0:
-            portfolio_gain_percent = (total_gain / stable_invested) * 100
+        # Calculate the average percentage gain/loss for all stable positions
+        if valid_positions_count > 0:
+            average_portfolio_gain_percent = total_gain_percent / valid_positions_count
         else:
-            portfolio_gain_percent = 0.0
+            average_portfolio_gain_percent = 0.0
 
-        return portfolio_gain_percent
+        return average_portfolio_gain_percent
 
     def check_for_sell_due_to_reversal(self, bot_manager, current_price, portfolio_stop_loss_avg):
         """
@@ -366,12 +365,12 @@ class DecisionMaker:
 
         market_stable, stable_intervals = self.market_downtrend_stable(all_features)
 
-        # Check if the price has hit the take-profit threshold
-        if price_change >= adjusted_take_profit:
-            return True
+        # # Check if the price has hit the take-profit threshold
+        # if price_change >= adjusted_take_profit:
+        #     return True
 
         #Check is the market has unstable downtrend condition for position settlement
-        elif not market_stable and not macd_positive:
+        if not market_stable and not macd_positive:
             if entry_price > middle_band_loss:
                 if price_change < adjusted_stop_loss_middle:
                     return True
