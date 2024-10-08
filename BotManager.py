@@ -26,9 +26,9 @@ TRADING_PAIR = 'BNBUSDT'        # Select Cryptocurrency Trading Pair
 TRADING_INTERVAL = '15m'        # Select The Interval For Stable 'Buy' Trading And Gathering Historical Context.
 PROFIT_INTERVAL = '1h'          # Select The Interval For Take Profit Calculations.
 LOSS_INTERVAL = '1h'            # Select The Interval For Stop Loose Calculations.
-SR_INTERVAL = '15m'             # Select The Interval That Trader Define Support and Resistance Levels.
 DIP_INTERVAL = '1h'             # Select The Interval For Buying a Dip.
-POSITION_CYCLE = [30, 60]      # Time periods in Seconds To Check Positions [Short,Long].
+SAR_INTERVAL = '1h'             # Select The Interval Getting SAR Indicator for Prediction Activation.
+POSITION_CYCLE = [30, 60]       # Time periods in Seconds To Check Positions [Short,Long].
 POSITION_TIMEOUT = 24           # Set The Timeout In Hours for Position.
 PREDICTION_CYCLE = 15           # Time in Minutes to Run the Stable Prediction bot cycle.
 DIP_CYCLE = 60                  # Time in Minutes to Run the Dip Historical Context Process.
@@ -101,7 +101,7 @@ class BotManager:
         self.data_collector = DataCollector(api_key, api_secret, intervals=FEATURES_INTERVALS, symbol=TRADING_PAIR)
         self.feature_processor = FeatureProcessor(intervals=FEATURES_INTERVALS, trading_interval=TRADING_INTERVAL, dip_interval=DIP_INTERVAL)
         self.chatgpt_client = ChatGPTClient()
-        self.predictor = Predictor(self.chatgpt_client, coin=COIN, sr_interval=SR_INTERVAL, bot_manager=self)
+        self.predictor = Predictor(self.chatgpt_client, coin=COIN, bot_manager=self)
         self.decision_maker = DecisionMaker(base_take_profit=BASE_TAKE_PROFIT, base_stop_loss=BASE_STOP_LOSS,
                                             profit_interval=PROFIT_INTERVAL, loose_interval=LOSS_INTERVAL,
                                             dip_interval=DIP_INTERVAL, risk_tolerance=RISK_TOLERANCE,
@@ -823,7 +823,7 @@ class BotManager:
                 # Check if the price change is greater than PREDICT_IN_BANDWIDTH% and check MACD status
                 bandwidth_price_change = self.calculate_prediction_bandwidth(all_features)
                 macd_positive = self.macd_positive(all_features, TRADING_INTERVAL)
-                price_above_sar = self.price_above_SAR(all_features, TRADING_INTERVAL, current_price)
+                price_above_sar = self.price_above_SAR(all_features, SAR_INTERVAL, current_price)
                 if bandwidth_price_change > PREDICT_BANDWIDTH and price_above_sar:
                     prediction_start = time.time()
                     print("Generating prediction...")

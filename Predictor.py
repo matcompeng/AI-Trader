@@ -10,13 +10,12 @@ from FeatureProcessor import FeatureProcessor
 from Notifier import Notifier
 
 class Predictor:
-    def __init__(self, chatgpt_client, data_directory='data', max_retries=3, retry_delay=5, coin=None, sr_interval=None, bot_manager=None):
+    def __init__(self, chatgpt_client, data_directory='data', max_retries=3, retry_delay=5, coin=None, bot_manager=None):
         self.chatgpt_client = chatgpt_client
         self.data_directory = data_directory
         self.max_retries = max_retries  # Maximum number of retries
         self.retry_delay = retry_delay  # Delay in seconds between retries
         self.coin = coin
-        self.sr_interval = sr_interval
         self.bot_manager = bot_manager  # Store the bot manager instance
         self.notifier = Notifier()
 
