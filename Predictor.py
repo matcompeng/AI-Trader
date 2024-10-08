@@ -99,7 +99,7 @@ class Predictor:
 
         # Append final instructions for ChatGPT at the end
         prompt += (
-            f"\n\nI am looking to trade {self.coin} cryptocurrency in the short and intermediate term within a day.\n"
+            f"\n\nI am looking to trade {self.coin} cryptocurrency in the short term within a day.\n"
             f"Knowing that the current price is: {current_price} for this cycle.\n"
              "Please provide a single, clear recommendation based on Current market data, Historical Context and Trading Strategy (must use format &Buy& or &Hold& for the final recommendation only and it should not include this format in your explanation)."
         )
