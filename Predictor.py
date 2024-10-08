@@ -68,7 +68,7 @@ class Predictor:
             "\n### Trading Strategy:\n"
             "1. Consider 'Buy' decisions primarily when the price enters an oversold condition, particularly when technical indicators like RSI or StochasticRSI show oversold signals in intervals longer than '1m'. This condition is especially compelling if the price is stabilizing near a strong support level after entering the oversold state.\n"
             "2. Consider 'Buy' decisions when the price breaks through a significant resistance level in the historical context, as this could indicate a continuation of upward momentum, especially if supported by positive market indicators.\n"
-            "3. Must confirm the buying decision that considered in point '1' and '2' by checking for an uptrend in the MACD Histogram in the Historical Context data section. This includes either consecutive higher bars or a reduction in lower bars, signaling a potential bullish momentum ,The buy decision should not be made unless this confirmation is satisfied.\n"
+            "3. Must confirm the buying decision that considered in point '1' and '2' by checking for an uptrend in the MACD Histogram 'MACD Hist' in the Historical Context data section. This includes either consecutive higher bars or a reduction in lower bars, signaling a potential bullish momentum ,The buy decision should not be made unless this confirmation is satisfied.\n"
             "4. Ensure that the overall market momentum supports a buying decision by looking for upward movement in key indicators, particularly when these indicators are transitioning from neutral or negative zones to more positive trends.\n"
         )
 
