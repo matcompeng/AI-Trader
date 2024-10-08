@@ -26,9 +26,9 @@ TRADING_PAIR = 'BNBUSDT'        # Select Cryptocurrency Trading Pair
 TRADING_INTERVAL = '15m'        # Select The Interval For Stable 'Buy' Trading And Gathering Historical Context.
 PROFIT_INTERVAL = '1h'          # Select The Interval For Take Profit Calculations.
 LOSS_INTERVAL = '1h'            # Select The Interval For Stop Loose Calculations.
-DIP_INTERVAL = '1h'             # Select The Interval For Buying a Dip.
+DIP_INTERVAL = '1d'             # Select The Interval For Buying a Dip.
 SAR_INTERVAL = '1h'             # Select The Interval Getting SAR Indicator for Prediction Activation.
-POSITION_CYCLE = [30, 60]       # Time periods in Seconds To Check Positions [Short,Long].
+POSITION_CYCLE = [30, 30]       # Time periods in Seconds To Check Positions [Short,Long].
 POSITION_TIMEOUT = 24           # Set The Timeout In Hours for Position.
 PREDICTION_CYCLE = 15           # Time in Minutes to Run the Stable Prediction bot cycle.
 DIP_CYCLE = 60                  # Time in Minutes to Run the Dip Historical Context Process.
@@ -37,7 +37,8 @@ PREDICT_BANDWIDTH = 0.45        # Define Minimum Bandwidth % to Activate Trading
 BASE_TAKE_PROFIT = 0.30         # Define Base Take Profit Percentage %.
 BASE_STOP_LOSS = 0.15           # Define Base Stop Loose  Percentage %.
 CAPITAL_AMOUNT = 30500          # Your Capital Investment.
-RISK_TOLERANCE = 0.15           # The Portion Amount you want to take risk of capital for each Buying position.
+RISK_TOLERANCE = 0.20           # The Portion Amount you want to take risk of capital for each Buying position.
+MAX_TRADING_INV = 0.60          # Maximum Stable Trading Investment Budget Percent Of Capital.
 AMOUNT_RSI_INTERVAL = '5m'      # Interval To get its RSI for Buying Amount Calculations Function.
 AMOUNT_ATR_INTERVAL = '30m'     # Interval To get its ATR for Buying Amount Calculations Function.
 USDT_DIP_AMOUNT = 100          # Amount of Currency For Buying a Dip.
@@ -769,6 +770,12 @@ class BotManager:
         else:
             raise ValueError(f"Interval {interval} not found in all_features.")
 
+    def within_stable_budget(self):
+        stable_invested, dip_invested, total_invested = self.invested_budget()
+        stable_invested_percent = stable_invested/CAPITAL_AMOUNT
+        return stable_invested_percent <= MAX_TRADING_INV
+
+
     def run_prediction_cycle(self):
 
         # Taking Bot Manager Class Instance
@@ -824,7 +831,8 @@ class BotManager:
                 bandwidth_price_change = self.calculate_prediction_bandwidth(all_features)
                 macd_positive = self.macd_positive(all_features, TRADING_INTERVAL)
                 price_above_sar = self.price_above_SAR(all_features, SAR_INTERVAL, current_price)
-                if bandwidth_price_change > PREDICT_BANDWIDTH and price_above_sar:
+                within_budget = self.within_stable_budget()
+                if bandwidth_price_change > PREDICT_BANDWIDTH and price_above_sar and within_budget:
                     prediction_start = time.time()
                     print("Generating prediction...")
                     logging.info("Generating prediction...")
@@ -844,6 +852,9 @@ class BotManager:
                     elif not price_above_sar:
                         print("Price is under SAR value. Prediction: Hold")
                         logging.info("Price is under SAR value. Prediction: Hold")
+                    elif not within_budget:
+                        print(f"Stable Trading Budget exceeded {MAX_TRADING_INV * 100}%")
+                        logging.info(f"Stable Trading Budget exceeded {MAX_TRADING_INV * 100}%")
 
 
                 # Make a decision
