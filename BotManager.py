@@ -750,6 +750,24 @@ class BotManager:
             print(f"Error saving Dip historical context for interval '{DIP_INTERVAL}': {e}")
             logging.info(f"Error saving Dip historical context for interval '{DIP_INTERVAL}': {e}")
 
+    def price_above_SAR(self, all_features, interval, current_price):
+        """
+        Checks if the current price is under the SAR (Stop and Reverse) value.
+
+        :param all_features: A dictionary containing processed features for each interval.
+        :param interval: The specific interval to check (e.g., '5m', '15m', '1h').
+        :param current_price: The current price of the asset.
+        :return: True if current price is under SAR value, otherwise False.
+        """
+        if interval in all_features:
+            sar_value = all_features[interval].get('SAR')
+
+            if sar_value is not None:
+                return current_price > sar_value
+            else:
+                raise ValueError(f"SAR value is not available for the interval {interval}.")
+        else:
+            raise ValueError(f"Interval {interval} not found in all_features.")
 
     def run_prediction_cycle(self):
 
@@ -805,7 +823,8 @@ class BotManager:
                 # Check if the price change is greater than PREDICT_IN_BANDWIDTH% and check MACD status
                 bandwidth_price_change = self.calculate_prediction_bandwidth(all_features)
                 macd_positive = self.macd_positive(all_features, TRADING_INTERVAL)
-                if bandwidth_price_change > PREDICT_BANDWIDTH:
+                price_above_sar = self.price_above_SAR(all_features, TRADING_INTERVAL, current_price)
+                if bandwidth_price_change > PREDICT_BANDWIDTH and price_above_sar:
                     prediction_start = time.time()
                     print("Generating prediction...")
                     logging.info("Generating prediction...")
@@ -819,8 +838,13 @@ class BotManager:
                     logging.info(f"Prediction: {prediction}. Explanation: {explanation}")
                 else:
                     prediction = "Hold"
-                    print(f"Bandwidth price change is less than {PREDICT_BANDWIDTH}%. Prediction: Hold")
-                    logging.info(f"Bandwidth price change is less than {PREDICT_BANDWIDTH}%. Prediction: Hold")
+                    if not bandwidth_price_change > PREDICT_BANDWIDTH:
+                        print(f"Bandwidth price change is less than {PREDICT_BANDWIDTH}%. Prediction: Hold")
+                        logging.info(f"Bandwidth price change is less than {PREDICT_BANDWIDTH}%. Prediction: Hold")
+                    elif not price_above_sar:
+                        print("Price is under SAR value. Prediction: Hold")
+                        logging.info("Price is under SAR value. Prediction: Hold")
+
 
                 # Make a decision
                 trade_decision_start = time.time()
@@ -1187,7 +1211,7 @@ class BotManager:
             prediction_thread.start()
 
             # Schedule the dip check to run every 12 hours
-            schedule.every(1).hours.do(self.check_dip_positions)
+            # schedule.every(1).hours.do(self.check_dip_positions)
 
             # Continuously monitor position_period and run the scheduled tasks
             while True:
