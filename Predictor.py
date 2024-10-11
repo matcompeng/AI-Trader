@@ -25,8 +25,42 @@ class Predictor:
 
     def format_stable_prompt(self, all_features, current_price, historical_data):
 
+        #trading strategy section before historical context
+        prompt = (
+            "### Trading Strategy:\n"
+            "1. Consider 'Buy' decisions when the price shows recovery after previously entering a significant oversold condition in the Historical Context during the day, supported by upward momentum in key indicators.\n"
+            "2. Consider 'Buy' decisions **only after** the price has clearly broken through a significant resistance level identified from the Historical Context, confirming continued upward momentum. Ensure that the price has established itself above the resistance level, rather than hovering near it. Use only the historical support and resistance levels provided in the Historical Context to determine these levels, and **do not use resistance levels calculated from individual intervals**.\n"
+            "3. Confirm the 'Buy' decision from point '1' and '2' by checking for an uptrend in the MACD Histogram ('MACD Hist') in the Historical Context. Look for consecutive higher bars or a reduction in lower bars, signaling potential bullish momentum. The buy decision should not be made unless this confirmation is met.\n"
+            "4. Ensure that the overall market momentum supports the 'Buy' decision by looking for upward movement in key indicators, particularly when these indicators are transitioning from neutral or negative zones to more positive trends.\n"
+        )
+
+        # Include the historical context as one line per entry
+        if historical_data:
+            prompt += "\n\n### Historical Context:\n"
+            for entry in historical_data:
+                historical_prompt = (
+                    f"{entry['timestamp']}, "
+                    f"{entry['price_change']:.2f}%, "
+                    f"RSI: {entry['RSI']:.2f}, "
+                    f"SMA (7): {entry['SMA_7']:.2f}, "
+                    f"SMA (25): {entry['SMA_25']:.2f}, "
+                    f"MACD: {entry['MACD']:.2f}, "
+                    f"MACD Signal: {entry['MACD_signal']:.2f}, "
+                    f"MACD Hist: {entry['MACD_hist']:.2f}, "
+                    f"Bollinger Bands: {entry['upper_band']:.2f}, {entry['middle_band']:.2f}, {entry['lower_band']:.2f}, "
+                    f"StochRSI %K:: {entry['stoch_rsi_k']:.2f}, "
+                    f"StochRSI %D:: {entry['stoch_rsi_d']:.2f}, "
+                    f"ATR: {entry['ATR']:.2f}, "
+                    f"VWAP: {entry['VWAP']:.2f}, "
+                    f"Support: {entry['support_level']}, "
+                    f"Resistance: {entry['resistance_level']}, "
+                    f"Last Price: {entry['last_price']:.2f}\n"
+                )
+                prompt += historical_prompt
+
+
         # Start with the market data header
-        prompt = "Here is the current market data across different intervals:\n\n"
+        prompt += "\n\nHere is the current market data across different intervals:\n"
 
         # Include the current market data from different intervals
         for interval, features in all_features.items():
@@ -63,47 +97,16 @@ class Predictor:
                 )
                 prompt += interval_prompt
 
-        # Append the trading strategy section before historical context
-        prompt += (
-            "\n### Trading Strategy:\n"
-            "1. Consider 'Buy' decisions when the price shows recovery after previously entering a significant oversold condition in the Historical Context during the day, supported by upward momentum in key indicators.\n"
-            "2. Consider 'Buy' decisions when the price breaks through a significant resistance level in the Historical Context, as this could indicate a continuation of upward momentum, especially if supported by positive market indicators.\n"
-            "3. Confirm the 'Buy' decision from point '1' and '2' by checking for an uptrend in the MACD Histogram ('MACD Hist') in the Historical Context. Look for consecutive higher bars or a reduction in lower bars, signaling potential bullish momentum. The buy decision should not be made unless this confirmation is met.\n"
-            "4. Ensure that the overall market momentum supports the 'Buy' decision by looking for upward movement in key indicators, particularly when these indicators are transitioning from neutral or negative zones to more positive trends.\n"
-        )
-
-        # Include the historical context as one line per entry
-        if historical_data:
-            prompt += "\n\n### Historical Context:\n"
-            for entry in historical_data:
-                historical_prompt = (
-                    f"{entry['timestamp']}, "
-                    f"{entry['price_change']:.2f}%, "
-                    f"RSI: {entry['RSI']:.2f}, "
-                    f"SMA (7): {entry['SMA_7']:.2f}, "
-                    f"SMA (25): {entry['SMA_25']:.2f}, "
-                    f"MACD: {entry['MACD']:.2f}, "
-                    f"MACD Signal: {entry['MACD_signal']:.2f}, "
-                    f"MACD Hist: {entry['MACD_hist']:.2f}, "
-                    f"Bollinger Bands: {entry['upper_band']:.2f}, {entry['middle_band']:.2f}, {entry['lower_band']:.2f}, "
-                    f"StochRSI %K:: {entry['stoch_rsi_k']:.2f}, "
-                    f"StochRSI %D:: {entry['stoch_rsi_d']:.2f}, "
-                    f"ATR: {entry['ATR']:.2f}, "
-                    f"VWAP: {entry['VWAP']:.2f}, "
-                    f"Support: {entry['support_level']}, "
-                    f"Resistance: {entry['resistance_level']}, "
-                    f"Last Price: {entry['last_price']:.2f}\n"
-                )
-                prompt += historical_prompt
-
         # Append final instructions for ChatGPT at the end
         prompt += (
             f"\n\nI am looking to trade {self.coin} cryptocurrency in the short term within a day.\n"
             f"Knowing that the current price is: {current_price} for this cycle.\n"
-             "Please provide a single, clear recommendation based on Current market data, Historical Context and Trading Strategy (must use format &Buy& or &Hold& for the final recommendation only and it should not include this format in your explanation)."
+            "Please provide a single, clear recommendation based on Current market data, Historical Context and Trading Strategy (must use format &Buy& or &Hold& for the final recommendation only and it should not include this format in your explanation)."
         )
 
+
         return prompt
+
 
     def format_dip_prompt(self, dip_positions, current_price, historical_data):
 
