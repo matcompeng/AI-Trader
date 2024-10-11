@@ -27,7 +27,7 @@ TRADING_INTERVAL = '15m'        # Select The Interval For Stable 'Buy' Trading A
 PROFIT_INTERVAL = '1h'          # Select The Interval For Take Profit Calculations.
 LOSS_INTERVAL = '1h'            # Select The Interval For Stop Loose Calculations.
 DIP_INTERVAL = '1h'             # Select The Interval For Buying a Dip.
-SAR_INTERVAL = '5m'             # Select The Interval Getting SAR Indicator for Prediction Activation.
+SAR_INTERVAL = ['1m', '5m']     # Select The Interval Getting SAR Indicator for Prediction Activation.
 POSITION_CYCLE = [15, 30]       # Time periods in Seconds To Check Positions [Short,Long].
 POSITION_TIMEOUT = 24           # Set The Timeout In Hours for Position.
 PREDICTION_CYCLE = 15           # Time in Minutes to Run the Stable Prediction bot cycle.
@@ -751,24 +751,30 @@ class BotManager:
             print(f"Error saving Dip historical context for interval '{DIP_INTERVAL}': {e}")
             logging.info(f"Error saving Dip historical context for interval '{DIP_INTERVAL}': {e}")
 
-    def price_above_SAR(self, all_features, interval, current_price):
+    def price_above_SAR(self, all_features, intervals, current_price):
         """
-        Checks if the current price is under the SAR (Stop and Reverse) value.
+        Checks if the current price is above the SAR (Stop and Reverse) value for all intervals.
 
         :param all_features: A dictionary containing processed features for each interval.
-        :param interval: The specific interval to check (e.g., '5m', '15m', '1h').
+        :param intervals: A list of intervals to check (e.g., ['1m', '5m', '15m']).
         :param current_price: The current price of the asset.
-        :return: True if current price is under SAR value, otherwise False.
+        :return: True if the current price is above the SAR value for all intervals, otherwise False.
         """
-        if interval in all_features:
-            sar_value = all_features[interval].get('SAR')
+        for interval in intervals:
+            if interval in all_features:
+                sar_value = all_features[interval].get('SAR')
 
-            if sar_value is not None:
-                return current_price > sar_value
+                if sar_value is None:
+                    raise ValueError(f"SAR value is not available for the interval {interval}.")
+
+                # Return False immediately if the condition is not met for any interval
+                if current_price <= sar_value:
+                    return False
             else:
-                raise ValueError(f"SAR value is not available for the interval {interval}.")
-        else:
-            raise ValueError(f"Interval {interval} not found in all_features.")
+                raise ValueError(f"Interval {interval} not found in all_features.")
+
+        # Return True only if the current price is above SAR for all intervals
+        return True
 
     def within_stable_budget(self):
         stable_invested, dip_invested, total_invested = self.invested_budget()
