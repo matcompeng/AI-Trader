@@ -19,35 +19,46 @@ import threading
 # TODO : make base dip amount to be used in dynamic function under decision manager
 # TODO : Study ranging MIN_STABLE_INTERVALS with FearGreedIndex value
 # TODO : study ranging RISK_TOLERANCE with FearGreedIndex value
-# Bot Configurations ------------------------------------------------------------------------------
-FEATURES_INTERVALS = ['1m', '5m', '15m', '30m', '1h', '1d']
+# ##############################################Bot Configurations #################################################
+# Asset:
 COIN = 'BNB'                    # Select Cryptocurrency.
 TRADING_PAIR = 'BNBUSDT'        # Select Cryptocurrency Trading Pair
-TRADING_INTERVAL = '15m'        # Select The Interval For Stable 'Buy' Trading And Gathering Historical Context.
-PROFIT_INTERVAL = '1h'          # Select The Interval For Take Profit Calculations.
-LOSS_INTERVAL = '1h'            # Select The Interval For Stop Loose Calculations.
-DIP_INTERVAL = '1h'             # Select The Interval For Buying a Dip.
-SAR_INTERVAL = ['1m', '5m']     # Select The Interval Getting SAR Indicator for Prediction Activation.
-POSITION_CYCLE = [15, 30]       # Time periods in Seconds To Check Positions [Short,Long].
+
+# Feature Intervals:
+FEATURES_INTERVALS = ['1m', '5m', '15m', '30m', '1h', '1d']
+
+# Profit - Loss:
 POSITION_TIMEOUT = 24           # Set The Timeout In Hours for Position.
-PREDICTION_CYCLE = 15           # Time in Minutes to Run the Stable Prediction bot cycle.
-DIP_CYCLE = 60                  # Time in Minutes to Run the Dip Historical Context Process.
-INTERVAL_BANDWIDTH = '5m'       # Define The Interval To calculate Prediction Bandwidth.
-PREDICT_BANDWIDTH = 0.45        # Define Minimum Bandwidth % to Activate Trading.
 BASE_TAKE_PROFIT = 0.30         # Define Base Take Profit Percentage %.
 BASE_STOP_LOSS = 0.15           # Define Base Stop Loose  Percentage %.
+PROFIT_INTERVAL = '1h'          # Select The Interval For Take Profit Calculations.
+LOSS_INTERVAL = '1h'            # Select The Interval For Stop Loose Calculations.
+MIN_STABLE_INTERVALS = 5.5      # Set The Minimum Stable Intervals For Market Stable Condition.
+TRAILING_POSITIONS_COUNT = 1    # Define The Minimum Count For Stable Positions To start Trailing Check.
+
+#Predictor:
+PREDICTION_CYCLE = 15           # Time in Minutes to Run the Stable Prediction bot cycle.
+INTERVAL_BANDWIDTH = '5m'       # Define The Interval To calculate Prediction Bandwidth.
+SAR_INTERVALS = ['1m', '5m']     # Select The Interval Getting SAR Indicator for Prediction Activation.
+PREDICT_BANDWIDTH = 0.45        # Define Minimum Bandwidth % to Activate Trading.
+
+# Stable Trading:
+TRADING_INTERVAL = '15m'        # Select The Interval For Stable 'Buy' Trading And Gathering Historical Context.
+POSITION_CYCLE = [15, 30]       # Time periods in Seconds To Check Positions [Short,Long].
+CHECK_POSITIONS_ON_BUY = True   # Set True If You Need Bot Manager Check The Positions During Buy Cycle.
+
+# DIP Trading:
+DIP_INTERVAL = '1h'             # Select The Interval For Buying a Dip.
+DIP_CYCLE = 60                  # Time in Minutes to Run the Dip Historical Context Process.
+
+# Amounts
 CAPITAL_AMOUNT = 30000          # Your Capital Investment.
 RISK_TOLERANCE = 0.20           # The Portion Amount you want to take risk of capital for each Buying position.
 MAX_TRADING_INV = 0.50          # Maximum Stable Trading Investment Budget Percent Of Capital.
+USDT_DIP_AMOUNT = 500           # Amount of Currency For Buying a Dip.
 AMOUNT_RSI_INTERVAL = '5m'      # Interval To get its RSI for Buying Amount Calculations Function.
 AMOUNT_ATR_INTERVAL = '30m'     # Interval To get its ATR for Buying Amount Calculations Function.
-USDT_DIP_AMOUNT = 500           # Amount of Currency For Buying a Dip.
-MIN_STABLE_INTERVALS = 5.5      # Set The Minimum Stable Intervals For Market Stable Condition.
-TRAILING_POSITIONS_COUNT = 1    # Define The Minimum Count For Stable Positions To start Trailing Check.
-# TRAILING_PERCENT = 0.25         # Set The Minimum % To Activate Trailing Stop Process.
-# TRAILING_GAIN_REVERSE = 0.20    # Set the Sell Threshold % for Stable Portfolio Gain Reversal (Trailing Stop).
-CHECK_POSITIONS_ON_BUY = True   # Set True If You Need Bot Manager Check The Positions During Buy Cycle.
-# -------------------------------------------------------------------------------------------------
+# ##################################################################################################################
 
 # Create the data directory if it doesn't exist
 data_directory = 'data'
@@ -836,7 +847,7 @@ class BotManager:
                 # Check if the price change is greater than PREDICT_IN_BANDWIDTH% and check MACD status
                 bandwidth_price_change = self.calculate_prediction_bandwidth(all_features)
                 macd_positive = self.macd_positive(all_features, TRADING_INTERVAL)
-                price_above_sar = self.price_above_SAR(all_features, SAR_INTERVAL, current_price)
+                price_above_sar = self.price_above_SAR(all_features, SAR_INTERVALS, current_price)
                 within_budget = self.within_stable_budget()
                 if bandwidth_price_change > PREDICT_BANDWIDTH and price_above_sar and within_budget:
                     prediction_start = time.time()
