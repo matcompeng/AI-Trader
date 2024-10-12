@@ -33,6 +33,7 @@ BASE_TAKE_PROFIT = 0.30         # Define Base Take Profit Percentage %.
 BASE_STOP_LOSS = 0.15           # Define Base Stop Loose  Percentage %.
 PROFIT_INTERVAL = '1h'          # Select The Interval For Take Profit Calculations.
 LOSS_INTERVAL = '1h'            # Select The Interval For Stop Loose Calculations.
+ROC_DOWN_SPEED = -0.20         # Set The Min Acceptable Downtrend ROC Speed as Market Stable Condition.
 MIN_STABLE_INTERVALS = 5.5      # Set The Minimum Stable Intervals For Market Stable Condition.
 TRAILING_POSITIONS_COUNT = 1    # Define The Minimum Count For Stable Positions To start Trailing Check.
 
@@ -119,7 +120,8 @@ class BotManager:
                                             dip_interval=DIP_INTERVAL, risk_tolerance=RISK_TOLERANCE,
                                             amount_atr_interval=AMOUNT_ATR_INTERVAL,
                                             amount_rsi_interval=AMOUNT_RSI_INTERVAL,
-                                            min_stable_intervals=MIN_STABLE_INTERVALS)
+                                            min_stable_intervals=MIN_STABLE_INTERVALS,
+                                            roc_down_speed=ROC_DOWN_SPEED)
         self.trader = Trader(symbol=TRADING_PAIR)  # Initialize the Trader class
         self.notifier = Notifier()
         self.position_manager = PositionManager()

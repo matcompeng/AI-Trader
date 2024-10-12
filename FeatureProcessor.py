@@ -65,6 +65,9 @@ class FeatureProcessor:
                 # Add this line after other TA-Lib calculations (e.g., RSI, SMA, etc.)
                 df['SAR'] = talib.SAR(df['high'], df['low'], acceleration=0.02, maximum=0.2)
 
+                # Calculate Rate of Change (ROC)
+                df['ROC'] = talib.ROC(df['close'], timeperiod=9)
+
                 # Calculate support and resistance levels based on current time for the specified intervals
                 if interval in self.intervals:
                     support_level, resistance_level = self.calculate_support_resistance(df, interval)
