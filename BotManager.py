@@ -36,10 +36,10 @@ LOSS_INTERVAL = '1h'            # Select The Interval For Stop Loose Calculation
 MIN_STABLE_INTERVALS = 5.5      # Set The Minimum Stable Intervals For Market Stable Condition.
 TRAILING_POSITIONS_COUNT = 1    # Define The Minimum Count For Stable Positions To start Trailing Check.
 
-#Predictor:
+# Predictor:
 PREDICTION_CYCLE = 15           # Time in Minutes to Run the Stable Prediction bot cycle.
 INTERVAL_BANDWIDTH = '5m'       # Define The Interval To calculate Prediction Bandwidth.
-SAR_INTERVALS = ['1m', '5m']     # Select The Interval Getting SAR Indicator for Prediction Activation.
+SAR_INTERVALS = ['1m', '5m']    # Select The Interval Getting SAR Indicator for Prediction Activation.
 PREDICT_BANDWIDTH = 0.45        # Define Minimum Bandwidth % to Activate Trading.
 
 # Stable Trading:
