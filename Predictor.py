@@ -30,8 +30,10 @@ class Predictor:
             "### Trading Strategy:\n"
             "1. Consider 'Buy' decisions when the price shows recovery after previously entering a significant oversold condition in the Historical Context during the day, supported by upward momentum in key indicators.\n"
             "2. Consider 'Buy' decisions **only after** the price has clearly broken through a significant resistance level identified from the Historical Context, confirming continued upward momentum. Ensure that the price has established itself above the resistance level, rather than hovering near it. Use only the historical support and resistance levels provided in the Historical Context to determine these levels, and **do not use resistance levels calculated from individual intervals**.\n"
-            "3. Confirm the 'Buy' decision from point '1' and '2' by checking for an uptrend in the MACD Histogram ('MACD Hist') in the Historical Context. Look for consecutive higher bars or a reduction in lower bars, signaling potential bullish momentum. The buy decision should not be made unless this confirmation is met.\n"
-            "4. Ensure that the overall market momentum supports the 'Buy' decision by looking for upward movement in key indicators, particularly when these indicators are transitioning from neutral or negative zones to more positive trends.\n"
+            "3. Consider the On-Balance Volume (OBV) trend as a volume confirmation indicator. If OBV rises alongside price, it indicates a strong uptrend, whereas divergence between OBV and price suggests weakness.\n"
+            "4. Consider uptrend in the MACD Histogram ('MACD Hist') in the Historical Context. Look for consecutive higher bars or a reduction in lower bars, signaling potential bullish momentum. The buy decision should not be made unless this confirmation is met.\n"
+            "5. Use ADX to filter out false signals in low-trending markets. If ADX is very low (e.g., below 15-20), avoid trading, as this indicates low momentum and a higher risk of false signals.\n"
+            "6. Ensure that the overall market momentum supports the 'Buy' decision by looking for upward movement in key indicators, particularly when these indicators are transitioning from neutral or negative zones to more positive trends.\n"
         )
 
         # Include the historical context as one line per entry
@@ -50,8 +52,10 @@ class Predictor:
                     f"Bollinger Bands: {entry['upper_band']:.2f}, {entry['middle_band']:.2f}, {entry['lower_band']:.2f}, "
                     f"StochRSI %K:: {entry['stoch_rsi_k']:.2f}, "
                     f"StochRSI %D:: {entry['stoch_rsi_d']:.2f}, "
+                    f"ADX: {entry['ADX']:.2f}, "
                     f"ATR: {entry['ATR']:.2f}, "
                     f"VWAP: {entry['VWAP']:.2f}, "
+                    f"OBV: {entry['OBV']:.2f}, "
                     f"Support: {entry['support_level']}, "
                     f"Resistance: {entry['resistance_level']}, "
                     f"Last Price: {entry['last_price']:.2f}\n"
@@ -78,13 +82,13 @@ class Predictor:
                     f"MACD: {features['MACD']:.2f}, "
                     f"MACD Signal: {features['MACD_signal']:.2f}, "
                     # f"MACD Hist: {features['MACD_hist']:.2f}, "
-                    f"Bollinger Bands: {features['upper_band']:.2f}, {features['middle_band']:.2f}, {features['lower_band']:.2f}, "
-                    # f"ADX: {features['ADX']:.2f},"  # Keeping comments intact
+                    f"Bollinger Bands: {features['upper_band']:.2f}, {features['middle_band']:.2f}, {features['lower_band']:.2f}, "  
                     f"StochRSI %K: {features['stoch_rsi_k']:.2f}, "  # Updated to reflect stochRSI
                     f"StochRSI %D: {features['stoch_rsi_d']:.2f}, "  # Updated to reflect stochRSI
+                    f"ADX: {features['ADX']:.2f},"
                     f"ATR: {features['ATR']:.2f}, "
                     f"VWAP: {features['VWAP']:.2f}, "  # Include VWAP in the prompt
-                    # f"OBV: {features['OBV']:.2f}, "  # Include OBV in the prompt
+                    f"OBV: {features['OBV']:.2f}, "  # Include OBV in the prompt
                     # f"Support Level: {features['support_level']:.2f}, "
                     # f"Resistance Level: {features['resistance_level']:.2f}, "
                 )

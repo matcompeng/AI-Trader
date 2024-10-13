@@ -325,7 +325,7 @@ class DecisionMaker:
 
             roc = features.get('ROC', None)
             if roc is not None and roc < 0:
-                if abs(roc) > self.roc_down_speed :
+                if roc > self.roc_down_speed :
                     stable_count += 1
 
             rsi = features.get('RSI', None)

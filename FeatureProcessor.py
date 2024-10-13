@@ -48,7 +48,7 @@ class FeatureProcessor:
 
                 df['MACD'], df['MACD_signal'], df['MACD_hist'] = talib.MACD(df['close'], fastperiod=12, slowperiod=26, signalperiod=9)
                 df['upper_band'], df['middle_band'], df['lower_band'] = talib.BBANDS(df['close'], timeperiod=20)
-                # df['ADX'] = talib.ADX(df['high'], df['low'], df['close'], timeperiod=14)
+                df['ADX'] = talib.ADX(df['high'], df['low'], df['close'], timeperiod=14)
 
                 # Calculate Stochastic RSI using the existing RSI calculation
                 df['stoch_rsi_k'], df['stoch_rsi_d'] = self.calculate_stoch_rsi(df['close'])
