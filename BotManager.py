@@ -55,7 +55,7 @@ DIP_CYCLE = 60                  # Time in Minutes to Run the Dip Historical Cont
 
 # Amounts
 CAPITAL_AMOUNT = 30000          # Your Capital Investment.
-RISK_TOLERANCE = 0.20           # The Portion Amount you want to take risk of capital for each Buying position.
+RISK_TOLERANCE = 0.25           # The Portion Amount you want to take risk of capital for each Buying position.
 MAX_TRADING_INV = 0.50          # Maximum Stable Trading Investment Budget Percent Of Capital.
 USDT_DIP_AMOUNT = 500           # Amount of Currency For Buying a Dip.
 AMOUNT_RSI_INTERVAL = '5m'      # Interval To get its RSI for Buying Amount Calculations Function.
@@ -509,7 +509,7 @@ class BotManager:
                 self.save_position_period(position_period)
                 portfolio_take_profit_avg = self.calculate_portfolio_take_profit(all_features)
                 portfolio_stop_loss_avg = self.calculate_portfolio_adjusted_stop_loss(all_features)
-                breaking_upper_bands = self.breaking_upper_bands(all_features, current_price)
+                # breaking_upper_bands = self.breaking_upper_bands(all_features, current_price)
 
                 print(f"MACD Status: {macd_positive}")
                 logging.info(f"MACD Status: {macd_positive}")
@@ -520,7 +520,7 @@ class BotManager:
                 print(f"Portfolio Percentage: {portfolio_gain:.2f}%")
                 logging.info(f"Portfolio Percentage: {portfolio_gain:.2f}%")
 
-                if stable_positions_len >= TRAILING_POSITIONS_COUNT and macd_positive and (portfolio_gain >= portfolio_take_profit_avg or breaking_upper_bands):
+                if stable_positions_len >= TRAILING_POSITIONS_COUNT and macd_positive and portfolio_gain >= portfolio_take_profit_avg:
                     print("Portfolio Now Processing Under Trailing Stop Level:\n")
                     logging.info("Portfolio Now Processing Under Trailing Stop Level:\n")
                     reversed_decision ,message = self.decision_maker.check_for_sell_due_to_reversal(bot_manager, current_price, portfolio_stop_loss_avg)

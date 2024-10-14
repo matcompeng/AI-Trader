@@ -31,7 +31,7 @@ class Predictor:
             "1. Consider 'Buy' decisions when the price shows recovery after previously entering a significant oversold condition (RSI < 30) in the Historical Context during the day, supported by upward momentum in key indicators.\n"
             "2. Consider 'Buy' decisions **only after** the price must close above the resistance level for at least one consecutive period identified from the Historical Context, confirming continued upward momentum. Ensure that the price has established itself above the resistance level, rather than hovering near it. Use only the historical support and resistance levels provided in the Historical Context to determine these levels, and **do not use resistance levels calculated from individual intervals**.\n"
             "3. Consider 'Buy' if point '1' or point '2' or both became true.\n"
-            "4. Consider the On-Balance Volume (OBV) increasing value **only in the last 3 periods of Historical Context** as a volume confirmation indicator. If OBV rises alongside price, it indicates a strong uptrend, whereas divergence between OBV and price suggests weakness.\n"
+            "4. Consider the On-Balance Volume (OBV) increasing value **in the last 3 periods of Historical Context with current OBV** as a volume confirmation indicator. If OBV rises alongside price, it indicates a strong uptrend, whereas divergence between OBV and price suggests weakness.\n"
             "5. Consider uptrend in the MACD Histogram ('MACD Hist') **only in the most recent records of Historical Context**. Look for consecutive higher bars or a reduction in lower bars should persist for at least three consecutive periods, signaling potential bullish momentum. The buy decision should not be made unless this confirmation is met.\n"
             "6. Use ADX to filter out false signals in low-trending markets. if ADX is below 20 **only in the most recent records of Historical Context**, avoid trading, as this indicates low momentum and a higher risk of false signals.\n"
             "7. Ensure that the overall market momentum supports the 'Buy' decision by looking for upward movement in key indicators, particularly when these indicators are transitioning from neutral or negative zones to more positive trends.\n"
@@ -104,7 +104,7 @@ class Predictor:
         # Append final instructions for ChatGPT at the end
         prompt += (
             f"\n\nI am looking to trade {self.coin} cryptocurrency in the short term within a day.\n"
-            f"Knowing that the current price is: {current_price} and the current OBV is: {current_obv} for this cycle.\n"
+            f"Knowing that the current price is: {current_price} and the current OBV is: {current_obv:.2f} for this cycle.\n"
             "Please provide a single, clear recommendation based on Current market data, Historical Context and Trading Strategy (must use format &Buy& or &Hold& for the final recommendation only and it should not include this format in your explanation)."
         )
 
