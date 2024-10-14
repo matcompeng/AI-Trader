@@ -15,6 +15,7 @@ from Trader import Trader
 from Notifier import Notifier
 import csv
 import threading
+from FearGreedIndex import FearGreedIndex
 
 # TODO : make base dip amount to be used in dynamic function under decision manager
 # TODO : Study ranging MIN_STABLE_INTERVALS with FearGreedIndex value
@@ -126,6 +127,7 @@ class BotManager:
         self.notifier = Notifier()
         self.position_manager = PositionManager()
         self.initialize_position_period()
+        self.fear_greed_index = FearGreedIndex()
 
     def log_time(self, process_name, start_time):
         end_time = time.time()
@@ -851,7 +853,8 @@ class BotManager:
                 macd_positive = self.macd_positive(all_features, TRADING_INTERVAL)
                 price_above_sar = self.price_above_SAR(all_features, SAR_INTERVALS, current_price)
                 within_budget = self.within_stable_budget()
-                if bandwidth_price_change > PREDICT_BANDWIDTH and price_above_sar and within_budget:
+                index, classification = self.fear_greed_index.get_index()
+                if bandwidth_price_change > PREDICT_BANDWIDTH and price_above_sar and within_budget and classification != "Extreme Greed":
                     prediction_start = time.time()
                     print("Generating prediction...")
                     logging.info("Generating prediction...")
@@ -867,14 +870,17 @@ class BotManager:
                 else:
                     prediction = "Hold"
                     if not bandwidth_price_change > PREDICT_BANDWIDTH:
-                        print(f"Bandwidth price change is less than {PREDICT_BANDWIDTH}%. Prediction: Hold")
-                        logging.info(f"Bandwidth price change is less than {PREDICT_BANDWIDTH}%. Prediction: Hold")
+                        print(f"***Bandwidth price change is less than {PREDICT_BANDWIDTH}%. Prediction: Hold***")
+                        logging.info(f"***Bandwidth price change is less than {PREDICT_BANDWIDTH}%. Prediction: Hold***")
                     elif not price_above_sar:
-                        print("Price is under SAR value. Prediction: Hold")
-                        logging.info("Price is under SAR value. Prediction: Hold")
+                        print("***Price is under SAR value. Prediction: Hold***")
+                        logging.info("***Price is under SAR value. Prediction: Hold***")
                     elif not within_budget:
-                        print(f"Stable Trading Budget exceeded {MAX_TRADING_INV * 100}%")
-                        logging.info(f"Stable Trading Budget exceeded {MAX_TRADING_INV * 100}%")
+                        print(f"***Stable Trading Budget exceeded {MAX_TRADING_INV * 100}%. Prediction: Hold***")
+                        logging.info(f"***Stable Trading Budget exceeded {MAX_TRADING_INV * 100}. Prediction: Hold%***")
+                    elif classification == "Extreme Greed":
+                        print("***Market is Under Extreme Greed. Prediction: Hold***")
+                        logging.info("***Market is Under Extreme Greed. Prediction: Hold***")
 
 
                 # Make a decision
