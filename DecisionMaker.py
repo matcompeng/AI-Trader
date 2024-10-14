@@ -324,8 +324,8 @@ class DecisionMaker:
         for interval, features in all_features.items():
 
             roc = features.get('ROC', None)
-            if roc is not None and roc < 0:
-                if roc > self.roc_down_speed :
+            if roc is not None:
+                if roc > self.roc_down_speed:
                     stable_count += 1
 
             rsi = features.get('RSI', None)
