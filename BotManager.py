@@ -39,7 +39,7 @@ MIN_STABLE_INTERVALS = 5.2      # Set The Minimum Stable Intervals For Market St
 TRAILING_POSITIONS_COUNT = 1    # Define The Minimum Count For Stable Positions To start Trailing Check.
 
 # Predictor:
-PREDICTION_CYCLE = 15           # Time in Minutes to Run the Stable Prediction bot cycle.
+PREDICTION_CYCLE = 5            # Time in Minutes to Run the Stable Prediction bot cycle.
 INTERVAL_BANDWIDTH = '5m'       # Define The Interval To calculate Prediction Bandwidth.
 SAR_INTERVALS = ['1m', '5m']    # Select The Interval Getting SAR Indicator for Prediction Activation.
 PREDICT_BANDWIDTH = 0.45        # Define Minimum Bandwidth % to Activate Trading.
@@ -55,7 +55,7 @@ DIP_CYCLE = 60                  # Time in Minutes to Run the Dip Historical Cont
 
 # Amounts
 CAPITAL_AMOUNT = 30000          # Your Capital Investment.
-RISK_TOLERANCE = 0.25           # The Portion Amount you want to take risk of capital for each Buying position.
+RISK_TOLERANCE = 0.20           # The Portion Amount you want to take risk of capital for each Buying position.
 MAX_TRADING_INV = 0.50          # Maximum Stable Trading Investment Budget Percent Of Capital.
 USDT_DIP_AMOUNT = 500           # Amount of Currency For Buying a Dip.
 AMOUNT_RSI_INTERVAL = '5m'      # Interval To get its RSI for Buying Amount Calculations Function.
