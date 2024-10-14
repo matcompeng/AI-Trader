@@ -23,7 +23,7 @@ class Predictor:
         if not os.path.exists(self.data_directory):
             os.makedirs(self.data_directory)
 
-    def format_stable_prompt(self, all_features, current_price, historical_data):
+    def format_stable_prompt(self, all_features, current_price, historical_data, current_obv):
 
         #trading strategy section before historical context
         prompt = (
@@ -104,7 +104,7 @@ class Predictor:
         # Append final instructions for ChatGPT at the end
         prompt += (
             f"\n\nI am looking to trade {self.coin} cryptocurrency in the short term within a day.\n"
-            f"Knowing that the current price is: {current_price} for this cycle.\n"
+            f"Knowing that the current price is: {current_price} and the current OBV is: {current_obv} for this cycle.\n"
             "Please provide a single, clear recommendation based on Current market data, Historical Context and Trading Strategy (must use format &Buy& or &Hold& for the final recommendation only and it should not include this format in your explanation)."
         )
 
@@ -199,10 +199,15 @@ class Predictor:
         except Exception as e:
             print(f"Error saving dip response to CSV: {e}")
 
-    def get_prediction(self, all_features=None, current_price=None, historical_data=None, prediction_type=None ,positions=None):
+    def get_prediction(self, all_features=None, current_price=None, historical_data=None, prediction_type=None ,positions=None, trading_interval=None):
         prompt = None
+        current_obv = None
+
+        if trading_interval is not None:
+            current_obv = all_features[trading_interval].get('OBV', None)
+
         if prediction_type == 'Stable':
-            prompt = self.format_stable_prompt(all_features, current_price, historical_data)
+            prompt = self.format_stable_prompt(all_features, current_price, historical_data, current_obv)
             self.save_stable_prompt(prompt)
         elif prediction_type == 'Dip':
             prompt = self.format_dip_prompt(positions, current_price, historical_data)

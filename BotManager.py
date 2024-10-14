@@ -34,7 +34,7 @@ BASE_STOP_LOSS = 0.15           # Define Base Stop Loose  Percentage %.
 PROFIT_INTERVAL = '1h'          # Select The Interval For Take Profit Calculations.
 LOSS_INTERVAL = '1h'            # Select The Interval For Stop Loose Calculations.
 ROC_DOWN_SPEED = -0.20         # Set The Min Acceptable Downtrend ROC Speed as Market Stable Condition.
-MIN_STABLE_INTERVALS = 5.5      # Set The Minimum Stable Intervals For Market Stable Condition.
+MIN_STABLE_INTERVALS = 5.2      # Set The Minimum Stable Intervals For Market Stable Condition.
 TRAILING_POSITIONS_COUNT = 1    # Define The Minimum Count For Stable Positions To start Trailing Check.
 
 # Predictor:
@@ -858,7 +858,8 @@ class BotManager:
                     prediction, explanation = self.predictor.get_prediction(all_features=all_features,
                                                                             current_price=current_price,
                                                                             historical_data=historical_data,
-                                                                            prediction_type='Stable')
+                                                                            prediction_type='Stable',
+                                                                            trading_interval=TRADING_INTERVAL)
 
                     self.log_time("Prediction generation", prediction_start)
                     print(f"Predictor Recommends To  ///{prediction}///")
