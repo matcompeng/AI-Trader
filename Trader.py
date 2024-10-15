@@ -44,7 +44,7 @@ class Trader:
             return ticker['last']
         except Exception as e:
             print(f"Error fetching current price: {e}")
-            return None
+            raise Exception(f"Failed to get current price for {self.symbol}: {e}")
 
 
 # Example usage:

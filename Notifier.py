@@ -9,13 +9,14 @@ class Notifier:
             raise ValueError("Pushover user key and API token must be set in environment variables.")
         self.api_url = "https://api.pushover.net/1/messages.json"
 
-    def send_notification(self, title, message):
+    def send_notification(self, title, message, sound="pushover"):
         try:
             payload = {
                 "token": self.api_token,
                 "user": self.user_key,
                 "title": title,
-                "message": message
+                "message": message,
+                "sound": sound
             }
             response = requests.post(self.api_url, data=payload)
             if response.status_code == 200:

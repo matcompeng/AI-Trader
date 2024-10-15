@@ -664,6 +664,7 @@ class BotManager:
         except Exception as e:
             logging.error(f"An error occurred during position check: {str(e)}")
             self.save_error_to_csv(str(e))
+            self.notifier.send_notification("position check error", message=str(e))
 
     def save_historical_context_for_stable(self):
         """
@@ -950,7 +951,7 @@ class BotManager:
                         logging.error(f"Failed to execute Buy order: {order_details}")
 
                 elif prediction == "Buy" and final_decision == "Hold":
-                    self.notifier.send_notification(title="Decision Maker", message=f"Decision Maker Hold The Buy Prediction Prediction at {current_price}")
+                    self.notifier.send_notification(title="Decision Maker", message=f"Decision Maker Hold The Buy Prediction Prediction at {current_price}", sound="intermission")
                     print(f"Decision Maker Hold The Buy Prediction at {current_price}")
                     logging.info(f"Decision Maker Hold The Buy Prediction at {current_price}")
 
@@ -968,7 +969,7 @@ class BotManager:
                 time.sleep(5)
                 if attempt >= 3:
                     self.notifier.send_notification("Bot Stopped",
-                                                    "The bot encountered repeated errors and is stopping.")
+                                                    "The bot encountered repeated errors and is stopping.", sound="updown")
                     print("Bot has stopped due to repeated errors.")
                     raise
 
@@ -1076,7 +1077,7 @@ class BotManager:
                         else:
                             error_message = f"Failed to execute Sell order: {order_details}"
                             self.save_error_to_csv(error_message)
-                            self.notifier.send_notification("Trade Error", error_message)
+                            self.notifier.send_notification("Trade Error", error_message, sound="intermission")
 
                     else:
                         print("Prediction: ///Hold///")
@@ -1278,7 +1279,7 @@ class BotManager:
         except Exception as e:
             logging.error(f"Bot encountered a critical error and is stopping: {e}")
             self.save_error_to_csv(str(e))
-            self.notifier.send_notification("Bot Stopped", f"The bot encountered a critical error and is stopping: {e}")
+            self.notifier.send_notification("Bot Stopped", f"The bot encountered a critical error and is stopping: {e}", sound="updown")
             print("Bot has stopped due to an error. Exiting program.")
 
 

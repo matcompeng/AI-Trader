@@ -107,7 +107,8 @@ class FeatureProcessor:
             return all_features
         except Exception as e:
             print(f"Error processing features: {e}")
-            return None
+            raise Exception("Failed to Process Features")
+
 
     def calculate_vwap(self, df, period=14):
         # Calculate the typical price (TP) for each period
@@ -185,7 +186,6 @@ class FeatureProcessor:
             print(f"Features saved to {file_path}")
         except Exception as e:
             print(f"Error saving to CSV: {e}")
-
 
 
     def get_stable_historical_data(self):
