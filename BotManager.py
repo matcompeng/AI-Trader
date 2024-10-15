@@ -34,7 +34,7 @@ BASE_TAKE_PROFIT = 0.30         # Define Base Take Profit Percentage %.
 BASE_STOP_LOSS = 0.15           # Define Base Stop Loose  Percentage %.
 PROFIT_INTERVAL = '1h'          # Select The Interval For Take Profit Calculations.
 LOSS_INTERVAL = '1h'            # Select The Interval For Stop Loose Calculations.
-ROC_DOWN_SPEED = -0.20         # Set The Min Acceptable Downtrend ROC Speed as Market Stable Condition.
+ROC_DOWN_SPEED = -0.20          # Set The Min Acceptable Downtrend ROC Speed as Market Stable Condition.
 MIN_STABLE_INTERVALS = 5.2      # Set The Minimum Stable Intervals For Market Stable Condition.
 TRAILING_POSITIONS_COUNT = 1    # Define The Minimum Count For Stable Positions To start Trailing Check.
 
@@ -47,6 +47,7 @@ PREDICT_BANDWIDTH = 0.45        # Define Minimum Bandwidth % to Activate Trading
 # Stable Trading:
 TRADING_INTERVAL = '15m'        # Select The Interval For Stable 'Buy' Trading And Gathering Historical Context.
 POSITION_CYCLE = [15, 30]       # Time periods in Seconds To Check Positions [Short,Long].
+HISTORICAL_STABLE_CYCLE = 15    # Time in Minutes to process Stable Historical Context.
 CHECK_POSITIONS_ON_BUY = True   # Set True If You Need Bot Manager Check The Positions During Buy Cycle.
 
 # DIP Trading:
@@ -1145,7 +1146,7 @@ class BotManager:
 
                 # Calculate the time until the next '5m' interval close time
                 minutes = now.minute
-                next_close_minute = (minutes // PREDICTION_CYCLE + 1) * PREDICTION_CYCLE
+                next_close_minute = (minutes // HISTORICAL_STABLE_CYCLE + 1) * HISTORICAL_STABLE_CYCLE
                 next_close_time = now.replace(minute=next_close_minute % 60, second=0, microsecond=0)
 
                 # If the next close time goes beyond the current hour
