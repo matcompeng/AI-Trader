@@ -1,6 +1,8 @@
 import json
 import os
 import time
+from tkinter import XView
+
 import schedule
 import logging
 import traceback
@@ -29,38 +31,39 @@ TRADING_PAIR = 'BNBUSDT'        # Select Cryptocurrency Trading Pair
 FEATURES_INTERVALS = ['1m', '5m', '15m', '30m', '1h', '1d']
 
 # Profit - Loss:
-POSITION_TIMEOUT = 24           # Set The Timeout In Hours for Position.
-BASE_TAKE_PROFIT = 0.30         # Define Base Take Profit Percentage %.
-BASE_STOP_LOSS = 0.15           # Define Base Stop Loose  Percentage %.
-PROFIT_INTERVAL = '1h'          # Select The Interval For Take Profit Calculations.
-LOSS_INTERVAL = '1h'            # Select The Interval For Stop Loose Calculations.
-ROC_DOWN_SPEED = -0.20          # Set The Min Acceptable Downtrend ROC Speed as Market Stable Condition.
-MIN_STABLE_INTERVALS = 5.2      # Set The Minimum Stable Intervals For Market Stable Condition.
-TRAILING_POSITIONS_COUNT = 1    # Define The Minimum Count For Stable Positions To start Trailing Check.
+POSITION_TIMEOUT = 4                 # Set The Timeout In Hours for Position.
+BASE_TAKE_PROFIT = 0.20              # Define Base Take Profit Percentage %.
+BASE_STOP_LOSS = 0.10                # Define Base Stop Loose  Percentage %.
+PROFIT_INTERVAL = '1d'               # Select The Interval For Take Profit Calculations.
+LOSS_INTERVAL = '1d'                 # Select The Interval For Stop Loose Calculations.
+ROC_DOWN_SPEED = -0.20               # Set The Min Acceptable Downtrend ROC Speed as Market Stable Condition.
+MIN_STABLE_INTERVALS = 2             # Set The Minimum Stable Intervals For Market Stable Condition.
+TRAILING_POSITIONS_COUNT = 1         # Define The Minimum Count For Stable Positions To start Trailing Check.
 
 # Predictor:
-PREDICTION_CYCLE = 5            # Time in Minutes to Run the Stable Prediction bot cycle.
-INTERVAL_BANDWIDTH = '5m'       # Define The Interval To calculate Prediction Bandwidth.
-SAR_INTERVALS = ['1m', '5m']    # Select The Interval Getting SAR Indicator for Prediction Activation.
-PREDICT_BANDWIDTH = 0.45        # Define Minimum Bandwidth % to Activate Trading.
+PREDICTION_CYCLE = 15                # Time in Minutes to Run the Stable Prediction bot cycle.
+INTERVAL_BANDWIDTH = '5m'            # Define The Interval To calculate Prediction Bandwidth.
+SAR_INTERVALS = ['1m']               # Select The Interval Getting SAR Indicator for Prediction Activation.
+PREDICT_BANDWIDTH = 0.45             # Define Minimum Bandwidth % to Activate Trading.
+X_INDEX = ['Extreme Greed']          # Stop The Predictor In these Indexes.
 
 # Stable Trading:
-TRADING_INTERVAL = '15m'        # Select The Interval For Stable 'Buy' Trading And Gathering Historical Context.
-POSITION_CYCLE = [15, 30]       # Time periods in Seconds To Check Positions [Short,Long].
-HISTORICAL_STABLE_CYCLE = 15    # Time in Minutes to process Stable Historical Context.
-CHECK_POSITIONS_ON_BUY = True   # Set True If You Need Bot Manager Check The Positions During Buy Cycle.
+TRADING_INTERVAL = '15m'             # Select The Interval For Stable 'Buy' Trading And Gathering Historical Context.
+POSITION_CYCLE = [15, 30]            # Time periods in Seconds To Check Positions [Short,Long].
+HISTORICAL_STABLE_CYCLE = 15         # Time in Minutes to process Stable Historical Context.
+CHECK_POSITIONS_ON_BUY = True        # Set True If You Need Bot Manager Check The Positions During Buy Cycle.
 
 # DIP Trading:
-DIP_INTERVAL = '1h'             # Select The Interval For Buying a Dip.
-DIP_CYCLE = 60                  # Time in Minutes to Run the Dip Historical Context Process.
+DIP_INTERVAL = '1h'                  # Select The Interval For Buying a Dip.
+DIP_CYCLE = 60                       # Time in Minutes to Run the Dip Historical Context Process.
 
 # Amounts
-CAPITAL_AMOUNT = 30000          # Your Capital Investment.
-RISK_TOLERANCE = 0.20           # The Portion Amount you want to take risk of capital for each Buying position.
-MAX_TRADING_INV = 0.50          # Maximum Stable Trading Investment Budget Percent Of Capital.
-USDT_DIP_AMOUNT = 500           # Amount of Currency For Buying a Dip.
-AMOUNT_RSI_INTERVAL = '5m'      # Interval To get its RSI for Buying Amount Calculations Function.
-AMOUNT_ATR_INTERVAL = '30m'     # Interval To get its ATR for Buying Amount Calculations Function.
+CAPITAL_AMOUNT = 30000               # Your Capital Investment.
+RISK_TOLERANCE = 0.20                # The Portion Amount you want to take risk of capital for each Buying position.
+MAX_TRADING_INV = 0.50               # Maximum Stable Trading Investment Budget Percent Of Capital.
+USDT_DIP_AMOUNT = 500                # Amount of Currency For Buying a Dip.
+AMOUNT_RSI_INTERVAL = '5m'           # Interval To get its RSI for Buying Amount Calculations Function.
+AMOUNT_ATR_INTERVAL = '30m'          # Interval To get its ATR for Buying Amount Calculations Function.
 # ##################################################################################################################
 
 # Create the data directory if it doesn't exist
@@ -856,7 +859,7 @@ class BotManager:
                 price_above_sar = self.price_above_SAR(all_features, SAR_INTERVALS, current_price)
                 within_budget = self.within_stable_budget()
                 index, classification = self.fear_greed_index.get_index()
-                if bandwidth_price_change > PREDICT_BANDWIDTH and price_above_sar and within_budget and classification != "Extreme Greed":
+                if bandwidth_price_change > PREDICT_BANDWIDTH and price_above_sar and within_budget and classification not in X_INDEX:
                     prediction_start = time.time()
                     print("Generating prediction...")
                     logging.info("Generating prediction...")
@@ -871,7 +874,10 @@ class BotManager:
                     logging.info(f"Prediction: {prediction}. Explanation: {explanation}")
                 else:
                     prediction = "Hold"
-                    if not bandwidth_price_change > PREDICT_BANDWIDTH:
+                    if classification in X_INDEX:
+                        print(f"***Market is Under {classification} index. Prediction: Hold***")
+                        logging.info("***Market is Under {classification} index. Prediction: Hold***")
+                    elif not bandwidth_price_change > PREDICT_BANDWIDTH:
                         print(f"***Bandwidth price change is less than {PREDICT_BANDWIDTH}%. Prediction: Hold***")
                         logging.info(f"***Bandwidth price change is less than {PREDICT_BANDWIDTH}%. Prediction: Hold***")
                     elif not price_above_sar:
@@ -880,9 +886,6 @@ class BotManager:
                     elif not within_budget:
                         print(f"***Stable Trading Budget exceeded {MAX_TRADING_INV * 100}%. Prediction: Hold***")
                         logging.info(f"***Stable Trading Budget exceeded {MAX_TRADING_INV * 100}. Prediction: Hold%***")
-                    elif classification == "Extreme Greed":
-                        print("***Market is Under Extreme Greed. Prediction: Hold***")
-                        logging.info("***Market is Under Extreme Greed. Prediction: Hold***")
 
 
                 # Make a decision

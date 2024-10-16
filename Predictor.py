@@ -28,13 +28,13 @@ class Predictor:
         #trading strategy section before historical context
         prompt = (
             "### Trading Strategy:\n"
-            "1. Consider 'Buy' decisions when the price shows recovery after previously entering a significant oversold condition (RSI < 30) in the Historical Context during the day, supported by upward momentum in key indicators.\n"
-            "2. Consider 'Buy' decisions **only after** the price must close above the **significant resistance level during the day** for at least one consecutive period identified from the Historical Context, confirming continued upward momentum. Ensure that the price has established itself above the resistance level, rather than hovering near it. Use only the historical support and resistance levels provided in the Historical Context to determine these levels, and **do not use resistance levels calculated from individual intervals**.\n"
-            "3. Consider 'Buy' if point '1' or point '2' or both became true.\n"
-            "4. Consider the On-Balance Volume (OBV) increasing value **in the last 3 periods of Historical Context with current OBV** as a volume confirmation indicator. If OBV rises alongside price, it indicates a strong uptrend, whereas divergence between OBV and price suggests weakness.\n"
-            "5. Consider uptrend in the MACD Histogram ('MACD Hist') **only in the most recent records of Historical Context**. Look for consecutive higher bars or a reduction in lower bars should persist for at least three consecutive periods, signaling potential bullish momentum. The buy decision should not be made unless this confirmation is met.\n"
-            "6. Use ADX to filter out false signals in low-trending markets. if ADX is below 20 **only in the most recent records of Historical Context**, avoid trading, as this indicates low momentum and a higher risk of false signals.\n"
-            "7. Ensure that the overall market momentum supports the 'Buy' decision by looking for upward movement in key indicators, particularly when these indicators are transitioning from neutral or negative zones to more positive trends.\n"
+            "1. Consider 'Buy' decisions when the price reverses after a dip, indicating recovery. Ensure that the price shows upward momentum in key indicators, and there is strong volume support or multiple tests of the level.\n"
+            "2. Consider 'Buy' decisions only if the price closes above the latest significant resistance level during the day for at least one consecutive candle identified from the Historical Context, confirming continued upward momentum. Ensure that the price has established itself above the resistance level, rather than hovering near it. Use only the historical support and resistance levels provided in the Historical Context to determine these levels, and **do not use resistance levels calculated from individual intervals**.\n"
+            "3. Consider 'Buy' if point '1', point '2', or both are true.\n"
+            "4. consider the On-Balance Volume (OBV) increasing over the last 3 candles in the Historical Context, along with the current OBV as a volume confirmation indicator.. If OBV rises alongside price, it indicates a strong uptrend, whereas divergence between OBV and price suggests weakness.\n"
+            "5. Consider uptrend in the MACD Histogram ('MACD Hist') **only in the most recent records of Historical Context**. Look for consecutive higher bars or a consistent reduction in lower bars, which should persist for at least three consecutive candles, signaling potential bullish momentum., signaling potential bullish momentum. The buy decision should not be made unless this confirmation is met.\n"
+            "6. Avoid 'Buy' when the price enters an overbought condition (RSI > 70).\n"
+            "7. Ensure that the overall market momentum supports the 'Buy' decision by looking for upward movement across key indicators, particularly when these indicators transition from neutral or negative zones to positive trends.\n"
         )
 
         # Include the historical context as one line per entry
@@ -251,12 +251,12 @@ class Predictor:
             return None
 
         # Look for a recommendation within double quotes (e.g., "Buy", "Sell", or "Hold")
-        if "&buy&" in response.lower():
-            return "Buy"
+        if "&hold&" in response.lower():
+            return "Hold"
         # elif "&sell&" in response.lower():
         #     return "&Sell&"
-        elif "&hold&" in response.lower():
-            return "Hold"
+        elif "&buy&" in response.lower():
+            return "Buy"
         elif "&sell_tp&" in response.lower():
             return "Sell"
         elif "&sell_sl&" in response.lower():
