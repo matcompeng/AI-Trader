@@ -31,7 +31,7 @@ TRADING_PAIR = 'BNBUSDT'        # Select Cryptocurrency Trading Pair
 FEATURES_INTERVALS = ['1m', '5m', '15m', '30m', '1h', '1d']
 
 # Profit - Loss:
-POSITION_TIMEOUT = 4                 # Set The Timeout In Hours for Position.
+POSITION_TIMEOUT = 2                 # Set The Timeout In Hours for Position.
 BASE_TAKE_PROFIT = 0.20              # Define Base Take Profit Percentage %.
 BASE_STOP_LOSS = 0.10                # Define Base Stop Loose  Percentage %.
 PROFIT_INTERVAL = '1d'               # Select The Interval For Take Profit Calculations.
@@ -59,8 +59,8 @@ DIP_CYCLE = 60                       # Time in Minutes to Run the Dip Historical
 
 # Amounts
 CAPITAL_AMOUNT = 30000               # Your Capital Investment.
-RISK_TOLERANCE = 0.20                # The Portion Amount you want to take risk of capital for each Buying position.
-MAX_TRADING_INV = 0.50               # Maximum Stable Trading Investment Budget Percent Of Capital.
+RISK_TOLERANCE = 0.50                # The Portion Amount you want to take risk of capital for each Buying position.
+MAX_TRADING_INV = 0.75               # Maximum Stable Trading Investment Budget Percent Of Capital.
 USDT_DIP_AMOUNT = 500                # Amount of Currency For Buying a Dip.
 AMOUNT_RSI_INTERVAL = '5m'           # Interval To get its RSI for Buying Amount Calculations Function.
 AMOUNT_ATR_INTERVAL = '30m'          # Interval To get its ATR for Buying Amount Calculations Function.
