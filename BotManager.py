@@ -28,16 +28,16 @@ COIN = 'BNB'                    # Select Cryptocurrency.
 TRADING_PAIR = 'BNBUSDT'        # Select Cryptocurrency Trading Pair
 
 # Feature Intervals:
-FEATURES_INTERVALS = ['1m', '5m', '15m', '30m', '1h', '1d']
+FEATURES_INTERVALS = ['1m', '5m', '15m', '30m', '1h', '8h']
 
 # Profit - Loss:
-POSITION_TIMEOUT = 2                 # Set The Timeout In Hours for Position.
+POSITION_TIMEOUT = 8                 # Set The Timeout In Hours for Position.
 BASE_TAKE_PROFIT = 0.20              # Define Base Take Profit Percentage %.
 BASE_STOP_LOSS = 0.10                # Define Base Stop Loose  Percentage %.
-PROFIT_INTERVAL = '1d'               # Select The Interval For Take Profit Calculations.
-LOSS_INTERVAL = '1d'                 # Select The Interval For Stop Loose Calculations.
+PROFIT_INTERVAL = '1h'               # Select The Interval For Take Profit Calculations.
+LOSS_INTERVAL = '1h'                 # Select The Interval For Stop Loose Calculations.
 ROC_DOWN_SPEED = -0.20               # Set The Min Acceptable Downtrend ROC Speed as Market Stable Condition.
-MIN_STABLE_INTERVALS = 2             # Set The Minimum Stable Intervals For Market Stable Condition.
+MIN_STABLE_INTERVALS = 1             # Set The Minimum Stable Intervals For Market Stable Condition.
 TRAILING_POSITIONS_COUNT = 1         # Define The Minimum Count For Stable Positions To start Trailing Check.
 
 # Predictor:
@@ -119,7 +119,7 @@ class BotManager:
         self.data_collector = DataCollector(api_key, api_secret, intervals=FEATURES_INTERVALS, symbol=TRADING_PAIR)
         self.feature_processor = FeatureProcessor(intervals=FEATURES_INTERVALS, trading_interval=TRADING_INTERVAL, dip_interval=DIP_INTERVAL)
         self.chatgpt_client = ChatGPTClient()
-        self.predictor = Predictor(self.chatgpt_client, coin=COIN, bot_manager=self)
+        self.predictor = Predictor(self.chatgpt_client, coin=COIN, bot_manager=self,trading_interval=TRADING_INTERVAL, dip_interval=DIP_INTERVAL)
         self.decision_maker = DecisionMaker(base_take_profit=BASE_TAKE_PROFIT, base_stop_loss=BASE_STOP_LOSS,
                                             profit_interval=PROFIT_INTERVAL, loose_interval=LOSS_INTERVAL,
                                             dip_interval=DIP_INTERVAL, risk_tolerance=RISK_TOLERANCE,
@@ -834,7 +834,8 @@ class BotManager:
                 print("Processing features...")
                 logging.info("Processing features...")
                 all_features = self.feature_processor.process(market_data)
-                historical_data = self.feature_processor.get_stable_historical_data()
+                historical_data_1 = self.feature_processor.get_stable_historical_data()
+                historical_data_2 = self.feature_processor.get_dip_historical_data()
                 self.log_time("Feature processing", feature_processing_start)
 
                 if not all_features:
@@ -865,7 +866,8 @@ class BotManager:
                     logging.info("Generating prediction...")
                     prediction, explanation = self.predictor.get_prediction(all_features=all_features,
                                                                             current_price=current_price,
-                                                                            historical_data=historical_data,
+                                                                            historical_data_1=historical_data_1,
+                                                                            historical_data_2=historical_data_2,
                                                                             prediction_type='Stable',
                                                                             trading_interval=TRADING_INTERVAL)
 

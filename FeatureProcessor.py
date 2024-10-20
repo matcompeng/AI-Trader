@@ -69,13 +69,13 @@ class FeatureProcessor:
                 df['ROC'] = talib.ROC(df['close'], timeperiod=9)
 
                 # Calculate support and resistance levels based on current time for the specified intervals
-                if interval in self.intervals:
-                    support_level, resistance_level = self.calculate_support_resistance(df, interval)
-                    df['support_level'] = support_level
-                    df['resistance_level'] = resistance_level
-                else:
-                    df['support_level'] = None
-                    df['resistance_level'] = None
+                # if interval in self.intervals:
+                #     support_level, resistance_level = self.calculate_support_resistance(df, interval)
+                #     df['support_level'] = support_level
+                #     df['resistance_level'] = resistance_level
+                # else:
+                #     df['support_level'] = None
+                #     df['resistance_level'] = None
 
                 # Extract the latest row to use as the features
                 features = df.iloc[-1].to_dict()

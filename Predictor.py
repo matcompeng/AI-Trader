@@ -10,7 +10,7 @@ from FeatureProcessor import FeatureProcessor
 from Notifier import Notifier
 
 class Predictor:
-    def __init__(self, chatgpt_client, data_directory='data', max_retries=3, retry_delay=5, coin=None, bot_manager=None):
+    def __init__(self, chatgpt_client, data_directory='data', max_retries=3, retry_delay=5, coin=None, bot_manager=None, trading_interval=None, dip_interval=None):
         self.chatgpt_client = chatgpt_client
         self.data_directory = data_directory
         self.max_retries = max_retries  # Maximum number of retries
@@ -18,50 +18,94 @@ class Predictor:
         self.coin = coin
         self.bot_manager = bot_manager  # Store the bot manager instance
         self.notifier = Notifier()
+        self.trading_interval = trading_interval
+        self.dip_interval = dip_interval
 
         # Ensure the data directory exists
         if not os.path.exists(self.data_directory):
             os.makedirs(self.data_directory)
 
-    def format_stable_prompt(self, all_features, current_price, historical_data, current_obv):
+    def format_stable_prompt(self, all_features, current_price, historical_data_1,historical_data_2, current_obv):
 
         #trading strategy section before historical context
         prompt = (
             "### Trading Strategy:\n"
-            "1. Consider 'Buy' decisions when the price reverses after a dip, indicating recovery. Ensure that the price shows upward momentum in key indicators, and there is strong volume support or multiple tests of the level.\n"
-            "2. Consider 'Buy' decisions only if the price closes above the latest significant resistance level during the day for at least one consecutive candle identified from the Historical Context, confirming continued upward momentum. Ensure that the price has established itself above the resistance level, rather than hovering near it. Use only the historical support and resistance levels provided in the Historical Context to determine these levels, and **do not use resistance levels calculated from individual intervals**.\n"
-            "3. Consider 'Buy' if point '1', point '2', or both are true.\n"
-            "4. consider the On-Balance Volume (OBV) increasing over the last 3 candles in the Historical Context, along with the current OBV as a volume confirmation indicator.. If OBV rises alongside price, it indicates a strong uptrend, whereas divergence between OBV and price suggests weakness.\n"
-            "5. Consider uptrend in the MACD Histogram ('MACD Hist') **only in the most recent records of Historical Context**. Look for consecutive higher bars or a consistent reduction in lower bars, which should persist for at least three consecutive candles, signaling potential bullish momentum., signaling potential bullish momentum. The buy decision should not be made unless this confirmation is met.\n"
-            "6. Avoid 'Buy' when the price enters an overbought condition (RSI > 70).\n"
-            "7. Ensure that the overall market momentum supports the 'Buy' decision by looking for upward movement across key indicators, particularly when these indicators transition from neutral or negative zones to positive trends.\n"
+            "1. Historical Context should be used to identify broader trends and key support/resistance levels, Current Market Data should be used to confirm short-term patterns and trigger decisions."
+            "1. Buy After Dip Reversal: Consider 'Buy' decisions when the price shows a strong reversal from a dip. Ensure that the price demonstrates upward momentum in key indicators, such as RSI is transitioning from oversold, OBV is increasing, and MACD Histogram shows consecutive positive bars or multiple tests of a support level. This point should primarily be used during high volatility or sudden market dips.\n"
+            "2. Buy After Resistance Breakout: Consider 'Buy' decisions only if the price closes above the latest significant resistance level and aligns with key technical indicators (e.g., positive MACD Histogram and RSI < 60) identified from the Historical Contexts, confirming continued upward momentum. Ensure that the price has established itself above the resistance level, rather than hovering near it. Use this point during periods of stable trending market conditions.\n"
+            "3. Decision Priority: If both Point 1 (support reversal) and Point 2 (resistance breakout) appear valid:\n"
+            "   - Point 1 takes priority if the market shows signs of a rapid reversal with oversold conditions and sudden spikes in price.\n"
+            "   - Point 2 takes priority if the market has steady momentum and strength in breaking through resistance.\n"
+            "4. Volume Confirmation with OBV: Consider the On-Balance Volume (OBV) increasing over the last 3 candles in the Historical Context, along with the current OBV as a volume confirmation indicator. If OBV rises alongside the price, it indicates a strong uptrend, whereas divergence between OBV and price suggests weakness. This helps confirm whether the price movement is supported by sufficient trading volume.\n"
+            "5. Avoid Overbought Conditions: if Point 2 (resistance breakout) appear valid ,Avoid 'Buy' decisions if the price enters an overbought condition (RSI > 70) in any of the shorter intervals ('1m', '5m', '15m') in current market data, as these signals indicate potential for a pullback in these timeframes.\n"
+            "6. Overall Market Momentum: Ensure that the overall market momentum supports the 'Buy' decision by looking for upward movement across key indicators, particularly when these indicators transition from neutral or negative zones to positive trends.\n"
         )
 
         # Include the historical context as one line per entry
-        if historical_data:
-            prompt += "\n\n### Historical Context:\n"
-            for entry in historical_data:
+        if historical_data_1:
+            prompt += f"\n\n### Interval({self.trading_interval}) Historical Context:\n"
+            for entry in historical_data_1[-48:]:
                 historical_prompt = (
                     f"{entry['timestamp']}, "
-                    f"{entry['price_change']:.2f}%, "
-                    f"RSI: {entry['RSI']:.2f}, "
-                    f"SMA (7): {entry['SMA_7']:.2f}, "
-                    f"SMA (25): {entry['SMA_25']:.2f}, "
-                    f"MACD: {entry['MACD']:.2f}, "
-                    f"MACD Signal: {entry['MACD_signal']:.2f}, "
-                    f"MACD Hist: {entry['MACD_hist']:.2f}, "
-                    f"Bollinger Bands: {entry['upper_band']:.2f}, {entry['middle_band']:.2f}, {entry['lower_band']:.2f}, "
-                    f"StochRSI %K:: {entry['stoch_rsi_k']:.2f}, "
-                    f"StochRSI %D:: {entry['stoch_rsi_d']:.2f}, "
-                    f"ADX: {entry['ADX']:.2f}, "
-                    f"ATR: {entry['ATR']:.2f}, "
-                    f"VWAP: {entry['VWAP']:.2f}, "
-                    f"OBV: {entry['OBV']:.2f}, "
-                    f"Support: {entry['support_level']}, "
-                    f"Resistance: {entry['resistance_level']}, "
-                    f"Last Price: {entry['last_price']:.2f}\n"
+                        f"Open: {entry['open']:.2f}%, "
+                        f"High: {entry['high']:.2f}%, "
+                        f"Low: {entry['low']:.2f}%, "
+                        f"Close: {entry['close']:.2f}%, "
+                        # f"Price Change: {entry['price_change']:.2f}%, "
+                        f"RSI: {entry['RSI']:.2f}, "
+                        # f"SMA (7): {entry['SMA_7']:.2f}, "
+                        f"SMA (25): {entry['SMA_25']:.2f}, "
+                        f"SMA (100): {entry['SMA_100']:.2f}, "
+                        # f"EMA (7): {entry['EMA_7']:.2f}, "
+                        f"EMA (25): {entry['EMA_25']:.2f}, "
+                        f"EMA (100): {entry['EMA_100']:.2f}, "
+                        # f"MACD: {entry['MACD']:.2f}, "
+                        # f"MACD Signal: {entry['MACD_signal']:.2f}, "
+                        f"MACD Hist: {entry['MACD_hist']:.2f}, "
+                        # f"Bollinger Bands: {entry['upper_band']:.2f}, {entry['middle_band']:.2f}, {entry['lower_band']:.2f}, "
+                        # f"StochRSI %K:: {entry['stoch_rsi_k']:.2f}, "
+                        # f"StochRSI %D:: {entry['stoch_rsi_d']:.2f}, "
+                        f"ADX: {entry['ADX']:.2f}, "
+                        # f"ATR: {entry['ATR']:.2f}, "
+                        # f"VWAP: {entry['VWAP']:.2f}, "
+                        f"OBV: {entry['OBV']:.2f}\n"
+                    # f"Support: {entry['support_level']}, "
+                    # f"Resistance: {entry['resistance_level']}\n"
                 )
                 prompt += historical_prompt
+
+            # Include the historical context as one line per entry
+            if historical_data_2:
+                prompt += f"\n\n### Interval({self.dip_interval}) Historical Context:\n"
+                for entry in historical_data_2[-48:]:
+                    historical_prompt = (
+                        f"{entry['timestamp']}, "
+                        f"Open: {entry['open']:.2f}%, "
+                        f"High: {entry['high']:.2f}%, "
+                        f"Low: {entry['low']:.2f}%, "
+                        f"Close: {entry['close']:.2f}%, "
+                        # f"Price Change: {entry['price_change']:.2f}%, "
+                        f"RSI: {entry['RSI']:.2f}, "
+                        # f"SMA (7): {entry['SMA_7']:.2f}, "
+                        f"SMA (25): {entry['SMA_25']:.2f}, "
+                        f"SMA (100): {entry['SMA_100']:.2f}, "
+                        # f"EMA (7): {entry['EMA_7']:.2f}, "
+                        f"EMA (25): {entry['EMA_25']:.2f}, "
+                        f"EMA (100): {entry['EMA_100']:.2f}, "
+                        # f"MACD: {entry['MACD']:.2f}, "
+                        # f"MACD Signal: {entry['MACD_signal']:.2f}, "
+                        f"MACD Hist: {entry['MACD_hist']:.2f}, "
+                        # f"Bollinger Bands: {entry['upper_band']:.2f}, {entry['middle_band']:.2f}, {entry['lower_band']:.2f}, "
+                        # f"StochRSI %K:: {entry['stoch_rsi_k']:.2f}, "
+                        # f"StochRSI %D:: {entry['stoch_rsi_d']:.2f}, "
+                        f"ADX: {entry['ADX']:.2f}, "
+                        # f"ATR: {entry['ATR']:.2f}, "
+                        # f"VWAP: {entry['VWAP']:.2f}, "
+                        f"OBV: {entry['OBV']:.2f}\n"
+                        # f"Support: {entry['support_level']}, "
+                        # f"Resistance: {entry['resistance_level']}\n"
+                    )
+                    prompt += historical_prompt
 
 
         # Start with the market data header
@@ -72,23 +116,28 @@ class Predictor:
             if features:
                 interval_prompt = (
                     f"Interval: {interval}\n"
+                    f"Open: {features['open']:.2f}%, "
+                    f"High: {features['high']:.2f}%, "
+                    f"Low: {features['low']:.2f}%, "
+                    f"Close: {features['close']:.2f}%, "
                     f"Price Change: {features['price_change']:.2f}%, "
                     f"RSI: {features['RSI']:.2f}, "
-                    f"SMA (7): {features['SMA_7']:.2f}, "
-                    f"SMA (25): {features['SMA_25']:.2f}, "
+                    # f"SMA (7): {features['SMA_7']:.2f}, "
+                    # f"SMA (25): {features['SMA_25']:.2f}, "
                     f"SMA (100): {features['SMA_100']:.2f}, "
-                    f"EMA (7): {features['EMA_7']:.2f}, "
-                    f"EMA (25): {features['EMA_25']:.2f}, "
+                    # f"EMA (7): {features['EMA_7']:.2f}, "
+                    # f"EMA (25): {features['EMA_25']:.2f}, "
                     f"EMA (100): {features['EMA_100']:.2f}, "
                     f"MACD: {features['MACD']:.2f}, "
                     f"MACD Signal: {features['MACD_signal']:.2f}, "
-                    # f"MACD Hist: {features['MACD_hist']:.2f}, "
+                    f"MACD Hist: {features['MACD_hist']:.2f}, "
                     f"Bollinger Bands: {features['upper_band']:.2f}, {features['middle_band']:.2f}, {features['lower_band']:.2f}, "  
                     f"StochRSI %K: {features['stoch_rsi_k']:.2f}, "  # Updated to reflect stochRSI
                     f"StochRSI %D: {features['stoch_rsi_d']:.2f}, "  # Updated to reflect stochRSI
-                    # f"ADX: {features['ADX']:.2f}, "
+                    f"ADX: {features['ADX']:.2f}, "
                     f"ATR: {features['ATR']:.2f}, "
                     f"VWAP: {features['VWAP']:.2f}, "  # Include VWAP in the prompt
+                    f"OBV: {features['OBV']:.2f}, "
                     # f"Support Level: {features['support_level']:.2f}, "
                     # f"Resistance Level: {features['resistance_level']:.2f}, "
                 )
@@ -97,14 +146,14 @@ class Predictor:
                     f"Top Bid/Ask: {features['top_bid']:.2f}/{features['top_ask']:.2f}, "
                     f"Bid-Ask Spread: {features['bid_ask_spread']:.2f}, "
                     f"Bid Volume: {features['bid_volume']:.2f}, "
-                    f"Ask Volume: {features['ask_volume']:.2f}\n\n"
+                    f"Ask Volume: {features['ask_volume']:.2f}\n"
                 )
                 prompt += interval_prompt
 
         # Append final instructions for ChatGPT at the end
         prompt += (
             f"\n\nI am looking to trade {self.coin} cryptocurrency in the short term within a day.\n"
-            f"Knowing that the current price is: {current_price} and the current OBV is: {current_obv:.2f} for this cycle.\n"
+            f"Knowing that the current price is: {current_price} for this cycle.\n"
             "Please provide a single, clear recommendation based on Current market data, Historical Context and Trading Strategy (must use format &Buy& or &Hold& for the final recommendation only and it should not include this format in your explanation)."
         )
 
@@ -199,7 +248,7 @@ class Predictor:
         except Exception as e:
             print(f"Error saving dip response to CSV: {e}")
 
-    def get_prediction(self, all_features=None, current_price=None, historical_data=None, prediction_type=None ,positions=None, trading_interval=None):
+    def get_prediction(self, all_features=None, current_price=None, historical_data_1=None, historical_data_2=None, prediction_type=None ,positions=None, trading_interval=None):
         prompt = None
         current_obv = None
 
@@ -207,10 +256,10 @@ class Predictor:
             current_obv = all_features[trading_interval].get('OBV', None)
 
         if prediction_type == 'Stable':
-            prompt = self.format_stable_prompt(all_features, current_price, historical_data, current_obv)
+            prompt = self.format_stable_prompt(all_features, current_price, historical_data_1, historical_data_2, current_obv)
             self.save_stable_prompt(prompt)
         elif prediction_type == 'Dip':
-            prompt = self.format_dip_prompt(positions, current_price, historical_data)
+            prompt = self.format_dip_prompt(positions, current_price, historical_data_2)
             self.save_dip_prompt(prompt)
 
         for attempt in range(self.max_retries):
