@@ -31,7 +31,7 @@ TRADING_PAIR = 'BNBUSDT'        # Select Cryptocurrency Trading Pair
 FEATURES_INTERVALS = ['1m', '5m', '15m', '30m', '1h', '8h']
 
 # Profit - Loss:
-POSITION_TIMEOUT = 8                 # Set The Timeout In Hours for Position.
+POSITION_TIMEOUT = 24                # Set The Timeout In Hours for Position.
 BASE_TAKE_PROFIT = 0.20              # Define Base Take Profit Percentage %.
 BASE_STOP_LOSS = 0.10                # Define Base Stop Loose  Percentage %.
 PROFIT_INTERVAL = '1h'               # Select The Interval For Take Profit Calculations.
@@ -51,6 +51,7 @@ X_INDEX = ['Extreme Greed']          # Stop The Predictor In these Indexes.
 TRADING_INTERVAL = '15m'             # Select The Interval For Stable 'Buy' Trading And Gathering Historical Context.
 POSITION_CYCLE = [15, 30]            # Time periods in Seconds To Check Positions [Short,Long].
 HISTORICAL_STABLE_CYCLE = 15         # Time in Minutes to process Stable Historical Context.
+TOLERANCE_PERCENTAGE = 0.5           # The percentage difference to consider a buy price too close To an exist position.
 CHECK_POSITIONS_ON_BUY = True        # Set True If You Need Bot Manager Check The Positions During Buy Cycle.
 
 # DIP Trading:
@@ -126,7 +127,9 @@ class BotManager:
                                             amount_atr_interval=AMOUNT_ATR_INTERVAL,
                                             amount_rsi_interval=AMOUNT_RSI_INTERVAL,
                                             min_stable_intervals=MIN_STABLE_INTERVALS,
-                                            roc_down_speed=ROC_DOWN_SPEED)
+                                            roc_down_speed=ROC_DOWN_SPEED,
+                                            tolerance_percentage=TOLERANCE_PERCENTAGE
+                                            )
         self.trader = Trader(symbol=TRADING_PAIR)  # Initialize the Trader class
         self.notifier = Notifier()
         self.position_manager = PositionManager()
@@ -585,7 +588,7 @@ class BotManager:
                             return
 
                         final_decision, adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit = self.decision_maker.make_decision(
-                            "Suspended", current_price, entry_price, all_features, self.position_expired(timestamp, POSITION_TIMEOUT), macd_positive)
+                            "Suspended", current_price, entry_price, all_features, self.position_expired(timestamp, POSITION_TIMEOUT), macd_positive,bot_manager=bot_manager)
                         gain_loose = round(self.calculate_gain_loose(entry_price, current_price), 2)
 
                         if final_decision == "Sell" and dip_flag == 0:
@@ -902,7 +905,7 @@ class BotManager:
                 dip_cryptocurrency_amount = self.convert_usdt_to_crypto(current_price, USDT_DIP_AMOUNT)
 
                 final_decision, adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit = self.decision_maker.make_decision(
-                    prediction, current_price, None, all_features, position_expired=None, macd_positive=macd_positive)
+                    prediction, current_price, None, all_features, position_expired=None, macd_positive=macd_positive, bot_manager=bot_manager)
                 self.log_time("Trade decision making", trade_decision_start)
 
                 # Handle Buy and Sell decisions

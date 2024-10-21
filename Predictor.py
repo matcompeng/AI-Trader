@@ -32,24 +32,32 @@ class Predictor:
             "### Trading Strategy:\n"
             "1. Historical Context should be used to identify broader trends and key support/resistance levels, Current Market Data should be used to confirm short-term patterns and trigger decisions.\n"
             "2. Buy After Dip Reversal: Consider 'Buy' decisions when the price shows a strong reversal from a dip.\n"
-            "   - Ensure that the price demonstrates upward momentum in key indicators, such as RSI is transitioning from oversold, OBV is increasing, and MACD Histogram shows consecutive positive bars or multiple tests of a support level.\n"
-            "   - This point should primarily be used during high volatility or sudden market dips.\n"
-            "3. Buy After Resistance Breakout: Consider 'Buy' decisions only if the price closes above the latest significant resistance level and aligns with key technical indicators (e.g., positive MACD Histogram and RSI < 60) identified from the Historical Contexts, confirming continued upward momentum.\n"
-            "   - Ensure that the price has established itself above the resistance level, rather than hovering near it. Use this point during periods of stable trending market conditions.\n"
-            "   - Use this point during periods of stable trending market conditions.\n"
-            "   - ensure that ADX > 20 in shorter intervals. This ensures consistency in market momentum across short-term trends.\n"
-            "   - Avoid 'Buy' decisions if the price enters an overbought condition (RSI > 70) in any of the shorter intervals ('1m', '5m', '15m') in current market data, as these signals indicate potential for a pullback in these timeframes.\n"
-            "4. Decision Priority: If both Point 2 (support reversal) and Point 3 (resistance breakout) appear valid:\n"
-            "   - Point 2 takes priority if the market shows signs of a rapid reversal with oversold conditions and sudden spikes in price.\n"
-            "   - Point 3 takes priority if the market has steady momentum and strength in breaking through resistance.\n"
-            "5. Volume Confirmation with OBV: Consider the On-Balance Volume (OBV) increasing in the Historical Context, along with the current OBV as a volume confirmation indicator. If OBV rises alongside the price, it indicates a strong uptrend, whereas divergence between OBV and price suggests weakness. This helps confirm whether the price movement is supported by sufficient trading volume.\n"
-            "6. Overall Market Momentum: Ensure that the overall market momentum supports the 'Buy' decision by looking for upward movement across key indicators, particularly when these indicators transition from neutral or negative zones to positive trends.\n"
+            "   - Ensure upward momentum in key indicators such as:\n"
+            "     - RSI transitioning from oversold (RSI < 30)\n"
+            "     - Increasing OBV\n"
+            "     - MACD Histogram showing consecutive positive bars or multiple tests of a support level\n"
+            "   - Use this strategy during high volatility or sudden market dips.\n"
+            "3. Buy After Resistance Breakout: Consider 'Buy' decisions if the price closes above the latest significant resistance level and aligns with key technical indicators from Historical Context:\n"
+            "   - Confirm breakout with:\n"
+            "     - Positive MACD Histogram\n"
+            "     - RSI < 60\n"
+            "   - Ensure ADX > 20 in '5m' and '15m' intervals to confirm short-term momentum.\n"
+            "   - Must avoid 'Buy' if RSI exceeds 70 in intervals ('1m', '5m', '15m', '1h') in current market data, regardless of other indicators.\n"
+            "   - Note: Do not invent or infer RSI thresholds. Use only the explicitly provided threshold of 70 for determining overbought conditions."
+            "4. Decision Priority:\n"
+            "   - Prioritize Point 2 in case of a rapid reversal, with RSI showing oversold recovery and strong price spikes.\n"
+            "   - Prioritize Point 3 if steady momentum and strength in breaking through resistance are evident.\n"
+            "5. Volume Confirmation with OBV:\n"
+            "   - Confirm price movement with OBV rising in both the Historical Context and current market data.\n"
+            "   - Divergence between OBV and price suggests weakness, which should be a signal to avoid buying.\n"
+            "6. Overall Market Momentum: Ensure that overall market momentum supports a 'Buy' decision:\n"
+           f"   - Look for upward movement across key indicators, especially as they transition from neutral or negative zones to positive trends observed in {self.dip_interval} historical context across all available data.\n"
         )
 
         # Include the historical context as one line per entry
         if historical_data_1:
             prompt += f"\n\n### Interval({self.trading_interval}) Historical Context:\n"
-            for entry in historical_data_1[-48:]:
+            for entry in historical_data_1[-24:]:
                 historical_prompt = (
                     f"{entry['timestamp']}, "
                         f"Open: {entry['open']:.2f}%, "
@@ -82,7 +90,7 @@ class Predictor:
             # Include the historical context as one line per entry
             if historical_data_2:
                 prompt += f"\n\n### Interval({self.dip_interval}) Historical Context:\n"
-                for entry in historical_data_2[-48:]:
+                for entry in historical_data_2[-72:]:
                     historical_prompt = (
                         f"{entry['timestamp']}, "
                         f"Open: {entry['open']:.2f}%, "

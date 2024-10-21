@@ -4,7 +4,7 @@ import os
 
 class DecisionMaker:
     def __init__(self, risk_tolerance=None, base_stop_loss=None, base_take_profit=None, profit_interval=None,
-                 loose_interval=None, dip_interval=None, amount_rsi_interval=None, amount_atr_interval=None, min_stable_intervals=None, gain_sell_threshold=None,roc_down_speed=None , data_directory='data'):
+                 loose_interval=None, dip_interval=None, amount_rsi_interval=None, amount_atr_interval=None, min_stable_intervals=None, gain_sell_threshold=None,roc_down_speed=None,tolerance_percentage=None, data_directory='data'):
         self.risk_tolerance = risk_tolerance
         self.base_stop_loss = base_stop_loss
         self.base_take_profit = base_take_profit
@@ -19,6 +19,7 @@ class DecisionMaker:
         self.max_gain = self.load_max_gain()  # Load max gain from the file
         self.sell_threshold = gain_sell_threshold  # 25% loss from max gain to trigger sell
         self.roc_down_speed = roc_down_speed
+        self.tolerance_percentage = tolerance_percentage
 
     def save_max_gain(self):
         """
@@ -232,9 +233,11 @@ class DecisionMaker:
         return 0
 
 
-    def make_decision(self, prediction, current_price, entry_price, all_features, position_expired, macd_positive):
+
+    def make_decision(self, prediction, current_price, entry_price, all_features, position_expired, macd_positive, bot_manager):
         """
         Make a final trading decision based on the prediction and risk management rules.
+        :param bot_manager:
         :param macd_positive:
         :param position_expired:
         :param prediction: The initial prediction from the Predictor (Buy, Sell, Hold).
@@ -243,6 +246,39 @@ class DecisionMaker:
         :param all_features: Dictionary containing features for multiple intervals.
         :return: Final decision (Buy, Sell, Hold), adjusted_stop_loss, adjusted_take_profit.
         """
+
+        def buy_price_too_close(instance=bot_manager, buy_price=current_price):
+            """
+            Checks if the buy price is too close to any existing bought positions.
+            :param instance:
+            :param buy_price: The price of the new buy decision
+            :return: True if the price is too close to an existing position, otherwise False
+            """
+            # Get the existing positions using bot_manager instance
+            positions = instance.get_positions()
+
+            # If there are no existing positions, return False
+            if not positions:
+                return False
+
+            try:
+                # Loop through each position and check if the new buy price is too close
+                for position in positions:
+                    existing_price = position.get('price')
+                    if existing_price:
+                        # Calculate the price difference percentage
+                        price_difference = abs(buy_price - existing_price) / existing_price * 100
+
+                        # If the price difference is within the tolerance percentage, decline the buy
+                        if price_difference <= self.tolerance_percentage:
+                            return True
+
+            except Exception as e:
+                raise Exception(f"Error checking positions: {e}")
+
+            # If no close positions are found, return False
+            return False
+
         # Get the necessary data
         lower_band_profit = all_features[self.profit_interval].get('lower_band', None)
         upper_band_profit = all_features[self.profit_interval].get('upper_band', None)
@@ -259,7 +295,7 @@ class DecisionMaker:
         # adjust take_profit base
         adjusted_take_profit = self.calculate_adjusted_take_profit(entry_price, upper_band_profit, lower_band_profit)
 
-        if prediction == "Buy" and market_stable:
+        if prediction == "Buy" and market_stable and not buy_price_too_close():
             return "Buy", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
 
         elif prediction == "Buy" and not market_stable and is_there_dip:
