@@ -254,16 +254,10 @@ class DecisionMaker:
             :param buy_price: The price of the new buy decision
             :return: True if the price is too close to an existing position, otherwise False
             """
-            # Get the existing positions using bot_manager instance
-            positions = instance.get_positions()
-
-            # If there are no existing positions, return False
-            if not positions:
-                return False
 
             try:
                 # Loop through each position and check if the new buy price is too close
-                for position in positions:
+                for position_id, position in instance.position_manager.get_positions().items():
                     existing_price = position.get('price')
                     if existing_price:
                         # Calculate the price difference percentage
