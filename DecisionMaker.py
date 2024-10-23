@@ -258,7 +258,7 @@ class DecisionMaker:
             try:
                 # Loop through each position and check if the new buy price is too close
                 for position_id, position in instance.position_manager.get_positions().items():
-                    existing_price = position.get('price')
+                    existing_price = position.get('entry_price')
                     if existing_price:
                         # Calculate the price difference percentage
                         price_difference = abs(buy_price - existing_price) / existing_price * 100
@@ -375,6 +375,30 @@ class DecisionMaker:
 
         return False, stable_intervals
 
+    def get_resistance_info(self, all_features):
+
+        for interval, features in all_features.items():
+            if interval == self.profit_interval:
+                return features.get('resistance_level', None), features.get('average_resistance', None)
+
+    def get_support_info(self, all_features):
+
+        for interval, features in all_features.items():
+            if interval == self.loose_interval:
+                return features.get('support_level', None), features.get('average_support', None)
+
+    def support_level_stable(self, all_features):
+        support_level, average_support = self.get_support_info(all_features)
+        if support_level and average_support:
+            return True
+        return False
+
+    def resistance_level_stable(self, all_features):
+        resistance_level, average_resistance = self.get_resistance_info(all_features)
+        if resistance_level and average_resistance:
+            return True
+        return False
+
     def is_there_dip(self, all_features):
 
         interval_lower_band = all_features[self.dip_interval].get('lower_band', None)
@@ -390,14 +414,15 @@ class DecisionMaker:
         # Calculate the percentage change from the entry price
         price_change = ((current_price - entry_price) / entry_price) * 100
 
-        market_stable, stable_intervals = self.market_downtrend_stable(all_features)
-
+        # market_stable, stable_intervals = self.market_downtrend_stable(all_features)
+        support_level_stable = self.support_level_stable(all_features)
+        resistance_level_stable = self.resistance_level_stable(all_features)
         # # Check if the price has hit the take-profit threshold
         # if price_change >= adjusted_take_profit:
         #     return True
 
         #Check is the market has unstable downtrend condition for position settlement
-        if not market_stable and not macd_positive:
+        if not support_level_stable and resistance_level_stable and not macd_positive:
             if entry_price > middle_band_loss:
                 if price_change < adjusted_stop_loss_middle:
                     return True

@@ -38,6 +38,7 @@ PROFIT_INTERVAL = '1h'               # Select The Interval For Take Profit Calcu
 LOSS_INTERVAL = '1h'                 # Select The Interval For Stop Loose Calculations.
 ROC_DOWN_SPEED = -0.20               # Set The Min Acceptable Downtrend ROC Speed as Market Stable Condition.
 MIN_STABLE_INTERVALS = 1             # Set The Minimum Stable Intervals For Market Stable Condition.
+ORDERBOOK_THRESHOLD = 100            # Set Threshold of Orderbook Bid/Ask volume for support/resistance calculations.
 TRAILING_POSITIONS_COUNT = 1         # Define The Minimum Count For Stable Positions To start Trailing Check.
 
 # Predictor:
@@ -60,8 +61,8 @@ DIP_CYCLE = 60                       # Time in Minutes to Run the Dip Historical
 
 # Amounts
 CAPITAL_AMOUNT = 30000               # Your Capital Investment.
-RISK_TOLERANCE = 0.50                # The Portion Amount you want to take risk of capital for each Buying position.
-MAX_TRADING_INV = 0.75               # Maximum Stable Trading Investment Budget Percent Of Capital.
+RISK_TOLERANCE = 0.25                # The Portion Amount you want to take risk of capital for each Buying position.
+MAX_TRADING_INV = 0.50               # Maximum Stable Trading Investment Budget Percent Of Capital.
 USDT_DIP_AMOUNT = 500                # Amount of Currency For Buying a Dip.
 AMOUNT_RSI_INTERVAL = '5m'           # Interval To get its RSI for Buying Amount Calculations Function.
 AMOUNT_ATR_INTERVAL = '30m'          # Interval To get its ATR for Buying Amount Calculations Function.
@@ -118,7 +119,7 @@ class BotManager:
         api_secret = 'your_binance_api_secret'
 
         self.data_collector = DataCollector(api_key, api_secret, intervals=FEATURES_INTERVALS, symbol=TRADING_PAIR)
-        self.feature_processor = FeatureProcessor(intervals=FEATURES_INTERVALS, trading_interval=TRADING_INTERVAL, dip_interval=DIP_INTERVAL)
+        self.feature_processor = FeatureProcessor(intervals=FEATURES_INTERVALS, trading_interval=TRADING_INTERVAL, dip_interval=DIP_INTERVAL, orderbook_threshold=ORDERBOOK_THRESHOLD)
         self.chatgpt_client = ChatGPTClient()
         self.predictor = Predictor(self.chatgpt_client, coin=COIN, bot_manager=self,trading_interval=TRADING_INTERVAL, dip_interval=DIP_INTERVAL)
         self.decision_maker = DecisionMaker(base_take_profit=BASE_TAKE_PROFIT, base_stop_loss=BASE_STOP_LOSS,
@@ -496,6 +497,8 @@ class BotManager:
                 stable_invested, dip_invested, total_invested = self.invested_budget()
 
                 market_stable,stable_intervals = self.decision_maker.market_downtrend_stable(all_features)
+                resistance_level, average_resistance = self.decision_maker.get_resistance_info(all_features)
+                support_level, average_support = self.decision_maker.get_support_info(all_features)
 
                 current_price = self.trader.get_current_price()
                 if current_price is None:
@@ -505,6 +508,18 @@ class BotManager:
 
                 print(f"Stable Intervals= {stable_intervals} ,{market_stable}")
                 logging.info(f"Stable Intervals= {stable_intervals} ,{market_stable}")
+
+                if support_level and  average_support:
+                    print(f"Support Level:{support_level:.1f} ,Average Support:{average_support:.1f}")
+                    logging.info(f"Support Level:{support_level:.1f} ,Average Support:{average_support:.1f}")
+                else :
+                    self.notifier.send_notification('Bot Manager', 'Support Level Unstable','intermission')
+
+                if resistance_level and average_resistance:
+                    print(f"Resistance Level:{resistance_level:.1f} ,Average Resistance:{average_resistance:.1f}")
+                    logging.info(f"Resistance Level:{resistance_level:.1f} ,Average Resistance:{average_resistance:.1f}")
+                else :
+                    self.notifier.send_notification('Bot Manager', 'Resistance Level Unstable','intermission')
 
                 stable_positions_len = len([position for position_id, position in self.position_manager.get_positions().items() if position['dip'] == 0])
                 print(f"Stable Positions Count: {stable_positions_len}")

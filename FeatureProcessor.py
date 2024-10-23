@@ -7,7 +7,7 @@ import json
 
 
 class FeatureProcessor:
-    def __init__(self, data_directory='data', intervals=None, trading_interval=None, dip_interval=None, dip_flag=None):
+    def __init__(self, data_directory='data', intervals=None, trading_interval=None, dip_interval=None, dip_flag=None, orderbook_threshold=None):
         self.data_directory = data_directory
         if not os.path.exists(self.data_directory):
             os.makedirs(self.data_directory)
@@ -15,6 +15,7 @@ class FeatureProcessor:
         self.dip_interval = dip_interval
         self.trading_interval = trading_interval
         self.dip_flag = dip_flag
+        self.orderbook_threshold = orderbook_threshold
 
     def process(self, data):
         try:
@@ -67,6 +68,13 @@ class FeatureProcessor:
 
                 # Calculate Rate of Change (ROC)
                 df['ROC'] = talib.ROC(df['close'], timeperiod=9)
+
+                # Calculate support and resistance levels based on the order book
+                support_level,resistance_level, average_support, average_resistance = self.calculate_support_resistance_from_orderbook(market_data['order_book'])
+                df['support_level'] = support_level
+                df['resistance_level'] = resistance_level
+                df['average_support'] = average_support
+                df['average_resistance'] = average_resistance
 
                 # Calculate support and resistance levels based on current time for the specified intervals
                 # if interval in self.intervals:
@@ -124,7 +132,45 @@ class FeatureProcessor:
         # Return the last calculated VWAP value
         return df['VWAP']
 
-    def calculate_support_resistance(self, df, interval):
+    def calculate_support_resistance_from_orderbook(self, order_book):
+        """
+        Identify potential support and resistance levels from the order book.
+
+        :param order_book: The order book containing current market bids and asks.
+        :param threshold: The volume threshold to consider for identifying significant support or resistance
+        :return: support_level, resistance_level (both as floats)
+        """
+        support_levels = []
+        resistance_levels = []
+
+        # Analyze bids for support levels
+        for bid in order_book['bids']:
+            price = float(bid[0])
+            volume = float(bid[1])
+            if volume >= self.orderbook_threshold:
+                support_levels.append(price)
+
+        # Analyze asks for resistance levels
+        for ask in order_book['asks']:
+            price = float(ask[0])
+            volume = float(ask[1])
+            if volume >= self.orderbook_threshold:
+                resistance_levels.append(price)
+
+        # For stop-loss: Use min for support and max for resistance
+        support_level = min(support_levels) if support_levels else None
+        resistance_level = max(resistance_levels) if resistance_levels else None
+
+        # For take-profit: Use average of support and resistance levels
+        average_support = sum(support_levels) / len(support_levels) if support_levels else None
+        average_resistance = sum(resistance_levels) / len(resistance_levels) if resistance_levels else None
+
+        # Return min/max for stop-loss and average for take-profit
+        return support_level,resistance_level, average_support, average_resistance
+
+
+
+    def calculate_support_resistance_from_interval(self, df, interval):
         now = datetime.utcnow()
         if interval == '1m':
             start_time = now.replace(minute=(now.minute // 1) * 1, second=0, microsecond=0)
