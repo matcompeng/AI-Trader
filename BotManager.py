@@ -819,6 +819,31 @@ class BotManager:
         stable_invested_percent = stable_invested/CAPITAL_AMOUNT
         return stable_invested_percent <= MAX_TRADING_INV
 
+    def buy_price_too_close(self, buy_price):
+        """
+        Checks if the buy price is too close to any existing bought positions.
+        :param instance:
+        :param buy_price: The price of the new buy decision
+        :return: True if the price is too close to an existing position, otherwise False
+        """
+        try:
+            # Loop through each position and check if the new buy price is too close
+            for position_id, position in self.position_manager.get_positions().items():
+                existing_price = position.get('entry_price')
+                if existing_price:
+                    # Calculate the price difference percentage
+                    price_difference = abs(buy_price - existing_price) / existing_price * 100
+
+                    # If the price difference is within the tolerance percentage, decline the buy
+                    if price_difference <= TOLERANCE_PERCENTAGE:
+                        return True
+
+        except Exception as e:
+            raise Exception(f"Error checking positions: {e}")
+
+        # If no close positions are found, return False
+        return False
+
 
     def run_prediction_cycle(self):
 
@@ -872,13 +897,14 @@ class BotManager:
                     logging.info("Failed to get current price. Skipping this cycle.")
                     return
 
-                # Check if the price change is greater than PREDICT_IN_BANDWIDTH% and check MACD status
+                # Check if the price change is greater than PREDICT_IN_BANDWIDTH% and check MACD status and if price close to positions
                 bandwidth_price_change = self.calculate_prediction_bandwidth(all_features)
                 macd_positive = self.macd_positive(all_features, TRADING_INTERVAL)
                 price_above_sar = self.price_above_SAR(all_features, SAR_INTERVALS, current_price)
                 within_budget = self.within_stable_budget()
+                buy_price_too_close = self.buy_price_too_close(buy_price=current_price)
                 index, classification = self.fear_greed_index.get_index()
-                if bandwidth_price_change > PREDICT_BANDWIDTH and price_above_sar and within_budget and classification not in X_INDEX:
+                if bandwidth_price_change > PREDICT_BANDWIDTH and price_above_sar and within_budget and classification not in X_INDEX and not buy_price_too_close:
                     prediction_start = time.time()
                     print("Generating prediction...")
                     logging.info("Generating prediction...")
@@ -906,6 +932,9 @@ class BotManager:
                     elif not within_budget:
                         print(f"***Stable Trading Budget exceeded {MAX_TRADING_INV * 100}%. Prediction: Hold***")
                         logging.info(f"***Stable Trading Budget exceeded {MAX_TRADING_INV * 100}. Prediction: Hold%***")
+                    elif  buy_price_too_close:
+                        print("***Buy Price to close to an existing position. Prediction: Hold***")
+                        logging.info("***Buy Price to close to an existing position. Prediction: Hold***")
 
 
                 # Make a decision
