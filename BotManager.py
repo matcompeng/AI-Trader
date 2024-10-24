@@ -499,6 +499,7 @@ class BotManager:
                 market_stable,stable_intervals = self.decision_maker.market_downtrend_stable(all_features)
                 resistance_level, average_resistance = self.decision_maker.get_resistance_info(all_features)
                 support_level, average_support = self.decision_maker.get_support_info(all_features)
+                stopp_loss = self.decision_maker.get_stop_loss(all_features)
 
                 current_price = self.trader.get_current_price()
                 if current_price is None:
@@ -520,6 +521,9 @@ class BotManager:
                     logging.info(f"Resistance Level:{resistance_level:.1f} ,Average Resistance:{average_resistance:.1f}")
                 else :
                     self.notifier.send_notification('Bot Manager', 'Resistance Level Unstable','intermission')
+
+                print(f"---Stop Loss = {stopp_loss}---")
+                logging.info(f"---Stop Loss = {stopp_loss}---")
 
                 stable_positions_len = len([position for position_id, position in self.position_manager.get_positions().items() if position['dip'] == 0])
                 print(f"Stable Positions Count: {stable_positions_len}")

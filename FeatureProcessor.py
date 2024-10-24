@@ -104,6 +104,7 @@ class FeatureProcessor:
                     features['bid_ask_spread'] = features['top_ask'] - features['top_bid'] if features['top_bid'] and features['top_ask'] else None
                     features['bid_volume'] = sum(float(bid[1]) for bid in order_book['bids'])  # Sum of bid volumes
                     features['ask_volume'] = sum(float(ask[1]) for ask in order_book['asks'])  # Sum of ask volumes
+                    features['stop_loss'] = self.suggest_stop_loss_based_on_order_book(order_book)
 
                 # Store the features for this interval
                 all_features[interval] = features
@@ -257,6 +258,36 @@ class FeatureProcessor:
                 historical_data = json.load(file)
             return historical_data
         return []
+
+    def suggest_stop_loss_based_on_order_book(self, order_book, gap_threshold_percentage=0.25, volume_threshold=100):
+        """
+        Suggests a stop-loss price based on gaps in the order book bids.
+
+        :param order_book: Dictionary containing bids and asks. The bids should be a list of [price, volume].
+        :param gap_threshold_percentage: Minimum percentage difference between two consecutive bids to consider as a gap.
+        :param volume_threshold: Minimum volume to consider a bid for accurate analysis.
+        :return: Suggested stop-loss price, or None if no significant gap is found.
+        """
+        # Extract the bid prices and filter by volume threshold, then sort them in descending order
+        bids = order_book['bids']
+        bids = sorted([[float(price), float(volume)] for price, volume in bids if float(volume) >= volume_threshold],
+                      key=lambda x: x[0], reverse=True)
+
+        # Iterate through the bids and look for significant gaps
+        for i in range(len(bids) - 1):
+            current_price = bids[i][0]
+            next_price = bids[i + 1][0]
+
+            # Calculate the percentage gap between consecutive bids
+            gap_percentage = ((current_price - next_price) / current_price) * 100
+
+            # If the gap exceeds the threshold, suggest a stop-loss price just above the gap
+            if gap_percentage >= gap_threshold_percentage:
+                suggested_stop_loss = next_price + (0.80 * (current_price - next_price))  # Set stop-loss 80% of the gap value above the next price
+                return suggested_stop_loss
+
+        # If no significant gap is found, return None
+        return None
 
 
 # Example usage:

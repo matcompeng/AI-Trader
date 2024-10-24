@@ -399,6 +399,11 @@ class DecisionMaker:
             return True
         return False
 
+    def get_stop_loss(self, all_features):
+        for interval, features in all_features.items():
+            if interval == self.loose_interval:
+                return features.get('stop_loss', None)
+
     def is_there_dip(self, all_features):
 
         interval_lower_band = all_features[self.dip_interval].get('lower_band', None)
