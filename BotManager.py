@@ -840,13 +840,13 @@ class BotManager:
 
                     # If the price difference is less than the ATR, decline the buy
                     if price_difference <= atr_value:
-                        return True
+                        return True, price_difference
 
         except Exception as e:
             raise Exception(f"Error checking positions: {e}")
 
-            # If no close positions are found, return False
-        return False
+        # If no close positions are found, return False
+        return False ,'NA'
 
 
     def run_prediction_cycle(self):
@@ -906,8 +906,13 @@ class BotManager:
                 macd_positive = self.macd_positive(all_features, TRADING_INTERVAL)
                 price_above_sar = self.price_above_SAR(all_features, SAR_INTERVALS, current_price)
                 within_budget = self.within_stable_budget()
-                buy_price_too_close = self.buy_price_too_close(buy_price=current_price,feature=all_features)
+                buy_price_too_close ,price_difference = self.buy_price_too_close(buy_price=current_price,feature=all_features)
                 index, classification = self.fear_greed_index.get_index()
+
+                print(f"Price Difference: {price_difference}")
+                logging.info(f"Price Difference: {price_difference}")
+
+                # Predicting Generation Process
                 if bandwidth_price_change > PREDICT_BANDWIDTH and price_above_sar and within_budget and classification not in X_INDEX and not buy_price_too_close:
                     prediction_start = time.time()
                     print("Generating prediction...")
