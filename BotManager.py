@@ -52,7 +52,6 @@ X_INDEX = ['Extreme Greed']          # Stop The Predictor In these Indexes.
 TRADING_INTERVAL = '15m'             # Select The Interval For Stable 'Buy' Trading And Gathering Historical Context.
 POSITION_CYCLE = [15, 30]            # Time periods in Seconds To Check Positions [Short,Long].
 HISTORICAL_STABLE_CYCLE = 15         # Time in Minutes to process Stable Historical Context.
-TOLERANCE_PERCENTAGE = 0.5           # The percentage difference to consider a buy price too close To an exist position.
 CHECK_POSITIONS_ON_BUY = True        # Set True If You Need Bot Manager Check The Positions During Buy Cycle.
 
 # DIP Trading:
@@ -62,7 +61,7 @@ DIP_CYCLE = 60                       # Time in Minutes to Run the Dip Historical
 # Amounts
 CAPITAL_AMOUNT = 30000               # Your Capital Investment.
 RISK_TOLERANCE = 0.25                # The Portion Amount you want to take risk of capital for each Buying position.
-MAX_TRADING_INV = 0.50               # Maximum Stable Trading Investment Budget Percent Of Capital.
+MAX_TRADING_INV = 0.75               # Maximum Stable Trading Investment Budget Percent Of Capital.
 USDT_DIP_AMOUNT = 500                # Amount of Currency For Buying a Dip.
 AMOUNT_RSI_INTERVAL = '5m'           # Interval To get its RSI for Buying Amount Calculations Function.
 AMOUNT_ATR_INTERVAL = '30m'          # Interval To get its ATR for Buying Amount Calculations Function.
@@ -129,7 +128,7 @@ class BotManager:
                                             amount_rsi_interval=AMOUNT_RSI_INTERVAL,
                                             min_stable_intervals=MIN_STABLE_INTERVALS,
                                             roc_down_speed=ROC_DOWN_SPEED,
-                                            tolerance_percentage=TOLERANCE_PERCENTAGE
+                                            trading_interval=TRADING_INTERVAL
                                             )
         self.trader = Trader(symbol=TRADING_PAIR)  # Initialize the Trader class
         self.notifier = Notifier()
@@ -823,29 +822,30 @@ class BotManager:
         stable_invested_percent = stable_invested/CAPITAL_AMOUNT
         return stable_invested_percent <= MAX_TRADING_INV
 
-    def buy_price_too_close(self, buy_price):
+    def buy_price_too_close(self, buy_price, feature):
         """
         Checks if the buy price is too close to any existing bought positions.
-        :param instance:
+        :param feature: for getting the ATR from feature
         :param buy_price: The price of the new buy decision
         :return: True if the price is too close to an existing position, otherwise False
         """
         try:
+            atr_value = feature[TRADING_INTERVAL].get('ATR', None)
             # Loop through each position and check if the new buy price is too close
             for position_id, position in self.position_manager.get_positions().items():
                 existing_price = position.get('entry_price')
                 if existing_price:
-                    # Calculate the price difference percentage
-                    price_difference = abs(buy_price - existing_price) / existing_price * 100
+                    # Calculate the price difference
+                    price_difference = abs(buy_price - existing_price)
 
-                    # If the price difference is within the tolerance percentage, decline the buy
-                    if price_difference <= TOLERANCE_PERCENTAGE:
+                    # If the price difference is less than the ATR, decline the buy
+                    if price_difference <= atr_value:
                         return True
 
         except Exception as e:
             raise Exception(f"Error checking positions: {e}")
 
-        # If no close positions are found, return False
+            # If no close positions are found, return False
         return False
 
 
@@ -906,7 +906,7 @@ class BotManager:
                 macd_positive = self.macd_positive(all_features, TRADING_INTERVAL)
                 price_above_sar = self.price_above_SAR(all_features, SAR_INTERVALS, current_price)
                 within_budget = self.within_stable_budget()
-                buy_price_too_close = self.buy_price_too_close(buy_price=current_price)
+                buy_price_too_close = self.buy_price_too_close(buy_price=current_price,feature=all_features)
                 index, classification = self.fear_greed_index.get_index()
                 if bandwidth_price_change > PREDICT_BANDWIDTH and price_above_sar and within_budget and classification not in X_INDEX and not buy_price_too_close:
                     prediction_start = time.time()

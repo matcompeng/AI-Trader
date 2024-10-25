@@ -3,8 +3,8 @@ import os
 
 
 class DecisionMaker:
-    def __init__(self, risk_tolerance=None, base_stop_loss=None, base_take_profit=None, profit_interval=None,
-                 loose_interval=None, dip_interval=None, amount_rsi_interval=None, amount_atr_interval=None, min_stable_intervals=None, gain_sell_threshold=None,roc_down_speed=None,tolerance_percentage=None, data_directory='data'):
+    def __init__(self, risk_tolerance=None, base_stop_loss=None, base_take_profit=None, trading_interval=None, profit_interval=None,
+                 loose_interval=None, dip_interval=None, amount_rsi_interval=None, amount_atr_interval=None, min_stable_intervals=None, gain_sell_threshold=None,roc_down_speed=None, data_directory='data'):
         self.risk_tolerance = risk_tolerance
         self.base_stop_loss = base_stop_loss
         self.base_take_profit = base_take_profit
@@ -19,7 +19,7 @@ class DecisionMaker:
         self.max_gain = self.load_max_gain()  # Load max gain from the file
         self.sell_threshold = gain_sell_threshold  # 25% loss from max gain to trigger sell
         self.roc_down_speed = roc_down_speed
-        self.tolerance_percentage = tolerance_percentage
+        self.trading_interval= trading_interval
 
     def save_max_gain(self):
         """
@@ -249,22 +249,30 @@ class DecisionMaker:
 
         def buy_price_too_close(instance=bot_manager, buy_price=current_price):
             """
-            Checks if the buy price is too close to any existing bought positions.
-            :param instance:
+            Checks if the buy price is too close to any existing bought positions based on the ATR value.
+            :param instance: Instance of the bot manager
             :param buy_price: The price of the new buy decision
             :return: True if the price is too close to an existing position, otherwise False
             """
+
+            if all_features is None or self.trading_interval is None:
+                raise ValueError("All features and trading interval must be provided for comparison.")
+
+            # Extract the ATR value for the specified trading interval
+            atr_value = all_features[self.trading_interval].get('ATR', None)
+            if atr_value is None:
+                raise ValueError(f"ATR value not found for trading interval: {self.trading_interval}")
 
             try:
                 # Loop through each position and check if the new buy price is too close
                 for position_id, position in instance.position_manager.get_positions().items():
                     existing_price = position.get('entry_price')
                     if existing_price:
-                        # Calculate the price difference percentage
-                        price_difference = abs(buy_price - existing_price) / existing_price * 100
+                        # Calculate the price difference
+                        price_difference = abs(buy_price - existing_price)
 
-                        # If the price difference is within the tolerance percentage, decline the buy
-                        if price_difference <= self.tolerance_percentage:
+                        # If the price difference is less than the ATR, decline the buy
+                        if price_difference <= atr_value:
                             return True
 
             except Exception as e:
