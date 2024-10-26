@@ -412,6 +412,22 @@ class DecisionMaker:
             if interval == self.loose_interval:
                 return features.get('stop_loss', None)
 
+    def loading_stop_loss(self):
+        """
+        Load the stop_loss value from the stop_loss.json file in the data directory.
+        """
+        try:
+            stop_loss_file = os.path.join(self.data_directory, 'stop_loss.json')
+            if os.path.exists(stop_loss_file):
+                with open(stop_loss_file, 'r') as file:
+                    data = json.load(file)
+                    return data.get('stop_loss', None)
+            else:
+                raise FileNotFoundError(f"{stop_loss_file} does not exist.")
+        except Exception as e:
+            print(f"Error loading stop_loss from file: {e}")
+            raise
+
     def is_there_dip(self, all_features):
 
         interval_lower_band = all_features[self.dip_interval].get('lower_band', None)
@@ -430,12 +446,13 @@ class DecisionMaker:
         # market_stable, stable_intervals = self.market_downtrend_stable(all_features)
         support_level_stable = self.support_level_stable(all_features)
         resistance_level_stable = self.resistance_level_stable(all_features)
+        stop_loss = self.loading_stop_loss()
         # # Check if the price has hit the take-profit threshold
         # if price_change >= adjusted_take_profit:
         #     return True
 
         #Check is the market has unstable downtrend condition for position settlement
-        if not support_level_stable and resistance_level_stable and not macd_positive:
+        if not macd_positive and current_price < stop_loss:
             if entry_price > middle_band_loss:
                 if price_change < adjusted_stop_loss_middle:
                     return True

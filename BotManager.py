@@ -1,8 +1,6 @@
 import json
 import os
 import time
-from tkinter import XView
-
 import schedule
 import logging
 import traceback
@@ -31,7 +29,7 @@ TRADING_PAIR = 'BNBUSDT'        # Select Cryptocurrency Trading Pair
 FEATURES_INTERVALS = ['1m', '5m', '15m', '30m', '1h', '8h']
 
 # Profit - Loss:
-POSITION_TIMEOUT = 24                # Set The Timeout In Hours for Position.
+POSITION_TIMEOUT = 3*24              # Set The Timeout In Hours for Position.
 BASE_TAKE_PROFIT = 0.20              # Define Base Take Profit Percentage %.
 BASE_STOP_LOSS = 0.10                # Define Base Stop Loose  Percentage %.
 PROFIT_INTERVAL = '1h'               # Select The Interval For Take Profit Calculations.
@@ -472,6 +470,55 @@ class BotManager:
             logging.error(f"Failed to load position period value: {e}")
             return None
 
+    def stop_loss_process(self):
+        """
+        Get the stop loss value from the decision maker, log the information, and save it to the file system.
+        """
+        attempt = 0
+        max_attempts = 3
+
+        while attempt < max_attempts:
+            try:
+                market_data = self.data_collector.collect_data()
+                all_features = self.feature_processor.process(market_data)
+
+                if not all_features:
+                    raise ValueError("Failed to process features. Raising error for retry.")
+
+                stop_loss_value = self.decision_maker.get_stop_loss(all_features)
+                if stop_loss_value is not None:
+                    logging.info(f"Stop loss value retrieved: {stop_loss_value}")
+                    print(f"Stop loss value: {stop_loss_value}")
+                    self.save_stop_loss(stop_loss_value)  # Save the stop loss value to the file system
+                else:
+                    logging.info("Stop loss value is not available.")
+                    print("Stop loss value is not available.")
+                break  # Break the retry loop if successful
+            except Exception as e:
+                attempt += 1
+                error_message = f"Error occurred in stop_loss_process (Attempt {attempt}): {e}"
+                logging.error(error_message)
+                self.save_error_to_csv(error_message)
+                if attempt >= max_attempts:
+                    self.notifier.send_notification("Stop Loss Process Error",
+                                                    f"The stop loss process encountered repeated errors and is stopping. Error: {e}",
+                                                    sound="intermission")
+                    print("Stop loss process has stopped due to repeated errors.")
+
+
+    def save_stop_loss(self, stop_loss_value):
+        """
+        Save the stop loss value to the stop_loss.json file in the data directory.
+        """
+        try:
+            stop_loss_file = os.path.join(data_directory, 'stop_loss.json')
+            with open(stop_loss_file, 'w') as file:
+                json.dump({'stop_loss': stop_loss_value}, file)
+            logging.info(f"Stop loss value {stop_loss_value} saved to {stop_loss_file}")
+            print(f"Stop loss value {stop_loss_value} saved to {stop_loss_file}")
+        except Exception as e:
+            logging.error(f"Failed to save stop loss value to file: {e}")
+            print(f"Error saving stop loss value: {e}")
 
     def check_stable_positions(self):
         try:
@@ -498,7 +545,7 @@ class BotManager:
                 market_stable,stable_intervals = self.decision_maker.market_downtrend_stable(all_features)
                 resistance_level, average_resistance = self.decision_maker.get_resistance_info(all_features)
                 support_level, average_support = self.decision_maker.get_support_info(all_features)
-                stopp_loss = self.decision_maker.get_stop_loss(all_features)
+                stopp_loss = self.decision_maker.loading_stop_loss()
 
                 current_price = self.trader.get_current_price()
                 if current_price is None:
@@ -964,6 +1011,9 @@ class BotManager:
                 # Handle Buy and Sell decisions
                 if final_decision == "Buy":
                     trade_execution_start = time.time()
+                    print("Updating Stop Loss Price...")
+                    logging.info("Updating Stop Loss Price...")
+                    self.stop_loss_process()
                     print("Executing Buy trade...")
                     logging.info("Executing Buy trade...")
                     trade_status, order_details = self.trader.execute_trade(final_decision, trading_cryptocurrency_amount)
@@ -1101,7 +1151,7 @@ class BotManager:
                 print("Generating prediction...")
                 logging.info("Generating prediction...")
                 prediction, explanation = self.predictor.get_prediction(current_price=current_price,
-                                                                        historical_data=historical_data,
+                                                                        historical_data_2=historical_data,
                                                                         prediction_type='Dip',
                                                                         positions=positions_copy)
                 self.log_time("Prediction generation", prediction_start)
@@ -1276,6 +1326,7 @@ class BotManager:
             print(f"Error in dip historical prediction: {e}")
             logging.error(f"Error in dip historical prediction: {e}")
 
+
     def start(self):
         try:
             # Load the last saved position_period value
@@ -1297,6 +1348,14 @@ class BotManager:
 
             # Reschedule the job with the new interval
             schedule.every(last_position_period).seconds.do(self.check_stable_positions).tag('position_check')
+
+            # Run the stop_loss_process immediately when the program starts
+            print("Running initial stop_loss_process...")
+            logging.info("Running initial stop_loss_process...")
+            self.stop_loss_process()  # Immediate run when the program starts
+
+            # Schedule the stop loss process to run every hour
+            schedule.every(1).hours.do(self.stop_loss_process).tag('stop_loss_process')
 
             # Start the historical context cycle in a separate thread
             prediction_thread = threading.Thread(target=self.check_stable_prediction_timeframe, daemon=True)
