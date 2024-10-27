@@ -371,7 +371,7 @@ class BotManager:
                         count += 1
 
             if count == 0:
-                return 0.0
+                return BASE_STOP_LOSS
 
             # Calculate the average stop loss across all relevant positions
             average_stop_loss = total_stop_loss / count
