@@ -40,8 +40,8 @@ class Predictor:
             "3. Buy After Resistance Breakout: Consider 'Buy' decisions if the price closes above the latest significant resistance level and aligns with key technical indicators from Historical Context:\n"
             "   - Confirm breakout with:\n"
             "     - Positive MACD Histogram as per Rule 6.\n"
-           f"     - Ensure RSI is below 60 in the current market data interval '{self.dip_interval}'.\n"
             "     - Ensure ADX > 20 in '5m' and '15m' intervals to confirm short-term momentum.\n"
+            "     - Confirm that the bid volume exceeds the ask volume in the current market data to ensure sustained buying pressure during the breakout.\n"
            f"     - Ensure there is an uptrend momentum in the past 24 hours of the '{self.dip_interval}' historical context data.\n"
             "4. Strict RSI Condition:\n"
            f"   - Non-negotiable Rule: Must avoid 'Buy' if RSI exceeds 70 in interval '{self.dip_interval}' of current market data, regardless of other indicators. This rule takes precedence over all other rules, and if triggered, the decision should be 'Hold'.\n"
@@ -153,15 +153,15 @@ class Predictor:
                     f"StochRSI %D: {features['stoch_rsi_d']:.2f}, "  # Updated to reflect stochRSI
                     f"ADX: {features['ADX']:.2f}, "
                     f"ATR: {features['ATR']:.2f}, "
-                    f"VWAP: {features['VWAP']:.2f}, "  # Include VWAP in the prompt
+                    # f"VWAP: {features['VWAP']:.2f}, "  # Include VWAP in the prompt
                     f"OBV: {features['OBV']:.2f}, "
                     # f"Support Level: {features['support_level']:.2f}, "
                     # f"Resistance Level: {features['resistance_level']:.2f}, "
                 )
 
                 interval_prompt += (
-                    f"Top Bid/Ask: {features['top_bid']:.2f}/{features['top_ask']:.2f}, "
-                    f"Bid-Ask Spread: {features['bid_ask_spread']:.2f}, "
+                    # f"Top Bid/Ask: {features['top_bid']:.2f}/{features['top_ask']:.2f}, "
+                    # f"Bid-Ask Spread: {features['bid_ask_spread']:.2f}, "
                     f"Bid Volume: {features['bid_volume']:.2f}, "
                     f"Ask Volume: {features['ask_volume']:.2f}\n"
                 )
