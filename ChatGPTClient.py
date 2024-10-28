@@ -9,7 +9,7 @@ class ChatGPTClient:
             raise ValueError("API key not found. Make sure to set the OPENAI_API_KEY environment variable.")
         openai.api_key = self.api_key
 
-    def get_prediction(self, prompt):
+    def get_prediction(self, prompt, temperature=0.0):  # Set default temperature to 0 for deterministic responses
         try:
             # Ensure the prompt is a string
             if not isinstance(prompt, str):
@@ -20,7 +20,8 @@ class ChatGPTClient:
                 messages=[
                     {"role": "system", "content": "You are a trading assistant."},
                     {"role": "user", "content": prompt},
-                ]
+                ],
+                temperature=temperature  # Set temperature parameter here
             )
             # Return the content of the response message
             return response['choices'][0]['message']['content'].strip()

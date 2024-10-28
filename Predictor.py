@@ -30,32 +30,43 @@ class Predictor:
         #trading strategy section before historical context
         prompt = (
             "### Trading Strategy:\n"
-            "1. Historical Context should be used to identify broader trends and key support/resistance levels, Current Market Data should be used to confirm short-term patterns and trigger decisions.\n"
-            "2. Buy After Dip Reversal: Consider 'Buy' decisions when the price shows a strong reversal from a dip.\n"
-            "   - Ensure upward momentum in key indicators such as:\n"
-           f"     - RSI transitioning from oversold (RSI < 30) based on recent historical data of '{self.trading_interval}' or '{self.dip_interval}'.\n"
-            "     - Increasing OBV as per Rule 5.\n"
-           f"     - Positive MACD Histogram as per Rule 6.\n"
-            "   - Use this strategy during high volatility or sudden market dips.\n"
-            "3. Buy After Resistance Breakout: Consider 'Buy' decisions if the price closes above the latest significant resistance level and aligns with key technical indicators from Historical Context:\n"
-            "   - Confirm breakout with:\n"
-            "     - Positive MACD Histogram as per Rule 6.\n"
-            "     - Ensure ADX > 20 in '5m' and '15m' intervals to confirm short-term momentum.\n"
-            "     - Confirm that the bid volume exceeds the ask volume in the current market data to ensure sustained buying pressure during the breakout.\n"
-           f"     - Ensure there is an uptrend momentum in the past 24 hours of the '{self.dip_interval}' historical context data.\n"
-            "4. Strict RSI Condition:\n"
-           f"   - Non-negotiable Rule: Must avoid 'Buy' if RSI exceeds 70 in interval '{self.dip_interval}' of current market data, regardless of other indicators. This rule takes precedence over all other rules, and if triggered, the decision should be 'Hold'.\n"
-            "   - Important Note: Even if other indicators (such as MACD or OBV) are strongly bullish, a Buy decision is not allowed if RSI is above 70 in the specified interval.\n"
+            "1. **Market Analysis**:\n"
+            "   - Use *Historical Context* to identify broader trends and key support/resistance levels.\n"
+            "   - Use *Current Market Data* to confirm short-term patterns and trigger decisions.\n\n"
+            
+            "2. **Buy After Dip Reversal**:\n"
+            "   - Consider a 'Buy' decision if the following conditions confirm a reversal:\n"
+           f"       - *RSI Check*: RSI must transition from oversold (RSI < 30) based on recent historical data of intervals '{self.trading_interval}' or '{self.dip_interval}'.\n"
+            "       - *OBV Confirmation*: OBV must be increasing, suggesting higher buying volume (Rule 6 applies).\n"
+           f"       - *MACD Histogram*: MACD Histogram must be increasing (Rule 7 applies).\n"
+            "   - Apply this strategy primarily during high volatility or sudden market dips.\n\n"
+            
+            "3. **Buy After Resistance Breakout**:\n"
+            "   - Consider a 'Buy' if the price closes above a significant resistance level, with the following indicators confirming breakout strength:\n"
+            "       - *MACD Histogram*: MACD Histogram must be increasing (Rule 7 applies).\n"
+            "       - *ADX Confirmation*: ADX must be above 20 on both '5m' and '15m' intervals to confirm short-term upward momentum.\n"
+            "       - *Volume Condition*: Bid volume must exceed ask volume, ensuring sustained buying pressure.\n"
+           f"       - *Uptrend in 24-hour Interval*: There must be upward momentum in the '{self.dip_interval}' historical context over the past 24 hours.\n\n"
+            
+            "4. **Strict RSI Condition**:\n"
+           f"   - *Mandatory Rule*: If RSI exceeds 70 in interval '{self.dip_interval}' in current market data, no 'Buy' decisions are allowed; the response must be 'Hold' regardless of other indicators.\n"
+            "   - Important: This rule takes precedence over all other rules, even if MACD and OBV show strong bullish signals.\n\n"
+    
             "5. Decision Priority:\n"
             "   - **First Priority:** Prioritize **Point 2** (Buy After Dip Reversal) if the market is showing recovery from an oversold condition with upward momentum.\n"
-            "   - **Second Priority:** If the conditions in **Point 2** are not present, prioritize **Point 3** (Buy After Resistance Breakout) if the market demonstrates steady momentum and a significant resistance breakout.\n"
-            "6. Volume Confirmation with OBV:\n"
-           f"   - Confirm price movement with OBV rising in both the recent '{self.trading_interval}' Historical Context data and current market data.\n"
-            "   - Divergence between OBV and price suggests weakness, which should be a signal to avoid buying.\n"
-            "7. Volume Confirmation with MACD Histogram:\n"
-           f"   - The MACD Histogram must either show an increase in the number of consecutive bars above zero (positive) or a reduction in the magnitude of bars below zero (negative). This trend should be present in both the historical and current market data across the intervals ('{self.trading_interval}', '{self.dip_interval}').\n"
-            "8. Strict Adherence to Strategy:\n"
-            "   - Stick strictly to the rules outlined in this strategy. Do not infer or make any additional suggestions beyond what is explicitly stated."
+            "   - **Second Priority:** If the conditions in **Point 2** are not present, prioritize **Point 3** (Buy After Resistance Breakout) if the market demonstrates steady momentum and a significant resistance breakout.\n\n"
+            
+            "6. **OBV Volume Confirmation**:\n"
+           f"   - To confirm the trend, OBV must be rising in both recent '{self.trading_interval}' historical context data and current market data.\n"
+            "   - If OBV and price trend diverge (e.g., price rising but OBV decreasing), avoid 'Buy' as it signals underlying weakness.\n\n"
+            
+            "7. **MACD Histogram Confirmation**:\n"
+            "   - MACD Histogram must show either an increase in consecutive bars above zero (indicating positive momentum) or a reduction in the size of bars below zero (indicating weakening negative momentum).\n"
+           f"   - This trend must be observed in both historical and current market data for intervals '{self.trading_interval}' and '{self.dip_interval}'.\n\n"
+            
+            "8. **Strict Rule Adherence**:\n"
+            "   - Follow each rule strictly as outlined in this strategy without inference or additional interpretation.\n"
+            "   - *Reminder*: Decisions must adhere to each of the above rules in sequence and respond with 'Buy' or 'Hold' strictly based on the conditions met."
             )
 
         # Include the historical context as one line per entry
