@@ -505,18 +505,34 @@ class BotManager:
                                                     sound="intermission")
                     print("Stop loss process has stopped due to repeated errors.")
 
-
     def save_stop_loss(self, stop_loss_value):
         """
-        Save the stop loss value to the stop_loss.json file in the data directory.
+        Save the stop loss value to the stop_loss.json file in the data directory,
+        including the timestamp of the save.
         """
         try:
+            # Define the path for stop_loss.json file
             stop_loss_file = os.path.join(data_directory, 'stop_loss.json')
+
+            # Get the current timestamp
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+            # Create the data to save including the timestamp
+            data = {
+                'stop_loss': stop_loss_value,
+                'timestamp': timestamp
+            }
+
+            # Write the data to the stop_loss.json file
             with open(stop_loss_file, 'w') as file:
-                json.dump({'stop_loss': stop_loss_value}, file)
-            logging.info(f"Stop loss value {stop_loss_value} saved to {stop_loss_file}")
-            print(f"Stop loss value {stop_loss_value} saved to {stop_loss_file}")
+                json.dump(data, file, indent=4)
+
+            # Log the success message
+            logging.info(f"Stop loss value {stop_loss_value} saved to {stop_loss_file} at {timestamp}")
+            print(f"Stop loss value {stop_loss_value} saved to {stop_loss_file} at {timestamp}")
+
         except Exception as e:
+            # Log the error message
             logging.error(f"Failed to save stop loss value to file: {e}")
             print(f"Error saving stop loss value: {e}")
 
