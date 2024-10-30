@@ -36,7 +36,7 @@ class Predictor:
             
             "2. **Buy After Dip Reversal**:\n"
             "   - Consider a 'Buy' decision if the following conditions confirm a reversal:\n"
-           f"       - *RSI Check*: RSI must transition from oversold (RSI < 30) based on recent historical data of intervals '{self.trading_interval}' or '{self.dip_interval}'.\n"
+           f"       - *RSI Check*: RSI must transition from oversold (RSI < 30) based on recent historical data of '{self.trading_interval}' or '{self.dip_interval}'.\n"
             "       - *OBV Confirmation*: OBV must be increasing, suggesting higher buying volume (Rule 6 applies).\n"
            f"       - *MACD Histogram*: MACD Histogram must be increasing (Rule 7 applies).\n"
             "   - Apply this strategy primarily during high volatility or sudden market dips.\n\n"
@@ -57,11 +57,13 @@ class Predictor:
             "   - **Second Priority:** If the conditions in **Point 2** are not present, prioritize **Point 3** (Buy After Resistance Breakout) if the market demonstrates steady momentum and a significant resistance breakout.\n\n"
             
             "6. **OBV Volume Confirmation**:\n"
-           f"   - To confirm the trend, OBV must be rising in both recent '{self.trading_interval}' historical context data and current market data.\n"
+           f"   - To confirm the trend, OBV must be rising in both recent '{self.dip_interval}' historical context data and current market data.\n"
             "   - If OBV and price trend diverge (e.g., price rising but OBV decreasing), avoid 'Buy' as it signals underlying weakness.\n\n"
             
             "7. **MACD Histogram Confirmation**:\n"
-            "   - MACD Histogram must show either an increase in consecutive bars above zero (indicating positive momentum) or a reduction in the size of bars below zero (indicating weakening negative momentum).\n"
+            "   - The MACD Histogram must either:\n"
+            "       - Show an increase in the number of consecutive bars above zero (indicating positive momentum), or\n"
+            "       - Show a reduction in the magnitude of bars below zero (indicating weakening negative momentum) ,In simpler terms If the histogram value becomes less negative (e.g., from -0.89 to -0.67), it indicates decreasing downward pressure and a potential shift to bullish momentum.\n"   
            f"   - This trend must be observed in both historical and current market data for intervals '{self.trading_interval}' and '{self.dip_interval}'.\n\n"
             
             "8. **Strict Rule Adherence**:\n"
