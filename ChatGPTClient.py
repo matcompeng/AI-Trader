@@ -18,7 +18,7 @@ class ChatGPTClient:
             response = openai.ChatCompletion.create(
                 model="gpt-4-turbo",  # or "gpt-3.5-turbo" if you're using GPT-3.5
                 messages=[
-                    {"role": "system", "content": "You are a trading assistant."},
+                    {"role": "system", "content": "You are a trading assistant, i will prompt you with data and you will take decision"},
                     {"role": "user", "content": prompt},
                 ],
                 temperature=temperature  # Set temperature parameter here

@@ -30,7 +30,7 @@ FEATURES_INTERVALS = ['1m', '5m', '15m', '30m', '1h', '8h']
 
 # Profit - Loss:
 POSITION_TIMEOUT = 3*24              # Set The Timeout In Hours for Position.
-BASE_TAKE_PROFIT = 0.20              # Define Base Take Profit Percentage %.
+BASE_TAKE_PROFIT = 0.30              # Define Base Take Profit Percentage %.
 BASE_STOP_LOSS = 0.10                # Define Base Stop Loose  Percentage %.
 PROFIT_INTERVAL = '1h'               # Select The Interval For Take Profit Calculations.
 LOSS_INTERVAL = '1h'                 # Select The Interval For Stop Loose Calculations.
@@ -289,7 +289,7 @@ class BotManager:
             macd_hist = all_features[interval].get('MACD_hist')
 
             if macd is not None and macd_signal is not None:
-                return macd >= macd_signal and macd_hist > 0
+                return macd >= macd_signal and macd_hist >= 0
             else:
                 raise ValueError(f"MACD values are not available for the interval {interval}.")
         else:
@@ -391,6 +391,14 @@ class BotManager:
         if current_price > upper_band_15m and current_price > upper_band_30m:
             return True
         elif current_price > upper_band_30m and current_price > upper_band_1h:
+            return True
+        return False
+
+    def breaking_upper_band(self, all_features, current_price):
+
+        upper_band = all_features[DIP_INTERVAL].get('upper_band', None)
+
+        if current_price > upper_band:
             return True
         return False
 
@@ -598,6 +606,7 @@ class BotManager:
                 portfolio_take_profit_avg = self.calculate_portfolio_take_profit(all_features)
                 portfolio_stop_loss_avg = self.calculate_portfolio_adjusted_stop_loss(all_features)
                 # breaking_upper_bands = self.breaking_upper_bands(all_features, current_price)
+                breaking_upper_band = self.breaking_upper_band(all_features, current_price)
 
                 print(f"MACD Status: {macd_positive}")
                 logging.info(f"MACD Status: {macd_positive}")
@@ -608,7 +617,7 @@ class BotManager:
                 print(f"Portfolio Percentage: {portfolio_gain:.2f}%")
                 logging.info(f"Portfolio Percentage: {portfolio_gain:.2f}%")
 
-                if stable_positions_len >= TRAILING_POSITIONS_COUNT and macd_positive and portfolio_gain >= portfolio_take_profit_avg:
+                if stable_positions_len >= TRAILING_POSITIONS_COUNT and macd_positive and portfolio_gain >= portfolio_take_profit_avg and breaking_upper_band:
                     print("Portfolio Now Processing Under Trailing Stop Level:\n")
                     logging.info("Portfolio Now Processing Under Trailing Stop Level:\n")
                     reversed_decision ,message = self.decision_maker.check_for_sell_due_to_reversal(bot_manager, current_price, portfolio_stop_loss_avg)
