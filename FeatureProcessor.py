@@ -283,7 +283,7 @@ class FeatureProcessor:
 
             # If the gap exceeds the threshold, suggest a stop-loss price just above the gap
             if gap_percentage >= gap_threshold_percentage:
-                suggested_stop_loss = next_price + (0.80 * (current_price - next_price))  # Set stop-loss 80% of the gap value above the next price
+                suggested_stop_loss = next_price # + (0.80 * (current_price - next_price))  # Set stop-loss 80% of the gap value above the next price
                 return suggested_stop_loss
 
         # If no significant gap is found, return None
