@@ -45,8 +45,7 @@ class Predictor:
             "       - *Resistance Breakout*: Has the price closed above a significant resistance level? If yes, proceed to check 'Uptrend in 24-hour Interval'.\n"
            f"       - *Uptrend in 24-hour Interval*: Is there upward momentum in the '{self.dip_interval}' historical context over the past 24 hours? If yes, proceed to check 'MACD Histogram'.\n"
             "       - *MACD Histogram*: Is the MACD Histogram increasing (Rule 7 applies)? If yes, proceed to check 'ADX Confirmation'.\n"
-            "       - *ADX Confirmation*: Is ADX above 20 on both '5m' and '15m' intervals, confirming short-term upward momentum? If yes, proceed to check 'Volume Condition'.\n"
-            "       - *Volume Condition*: Does the Bid volume exceed the Ask volume? If yes, consider a 'Buy' signal.\n\n"
+            "       - *ADX Confirmation*: Is ADX above 20 on both '5m' and '15m' intervals, confirming short-term upward momentum? If yes, consider a 'Buy' signal.\n\n"
     
             "4. **Strict RSI Condition**:\n"
            f"   - *Mandatory Rule*: If RSI exceeds 70 only in current market data '{self.dip_interval}' interval, no 'Buy' decisions are allowed; the response must be 'Hold' regardless of other indicators.\n"
