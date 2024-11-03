@@ -16,6 +16,8 @@ class FeatureProcessor:
         self.trading_interval = trading_interval
         self.dip_flag = dip_flag
         self.orderbook_threshold = orderbook_threshold
+        self.atr_value_1m = None
+        self.price_value_1m = None
 
     def process(self, data):
         try:
@@ -68,6 +70,11 @@ class FeatureProcessor:
 
                 # Calculate Rate of Change (ROC)
                 df['ROC'] = talib.ROC(df['close'], timeperiod=9)
+
+                # Store ATR and price values for 1m interval for dynamic gap threshold calculation
+                if interval == '1m':
+                    self.atr_value_1m = df['ATR'].iloc[-1]
+                    self.price_value_1m = df['close'].iloc[-1]
 
                 # Calculate support and resistance levels based on the order book
                 support_level,resistance_level, average_support, average_resistance = self.calculate_support_resistance_from_orderbook(market_data['order_book'])
@@ -259,7 +266,15 @@ class FeatureProcessor:
             return historical_data
         return []
 
-    def suggest_stop_loss_based_on_order_book(self, order_book, gap_threshold_percentage=0.25, volume_threshold=100):
+    def calculate_gap_threshold(self):
+        """
+        Calculates the gap threshold percentage based on the ATR of the '1m' interval.
+        :return: Dynamic gap threshold percentage.
+        """
+        dynamic_gap_threshold = min(0.2, (self.atr_value_1m / self.price_value_1m) * 100)
+        return dynamic_gap_threshold
+
+    def suggest_stop_loss_based_on_order_book(self, order_book, volume_threshold=100):
         """
         Suggests a stop-loss price based on gaps in the order book bids.
 
@@ -273,6 +288,9 @@ class FeatureProcessor:
         bids = sorted([[float(price), float(volume)] for price, volume in bids if float(volume) >= volume_threshold],
                       key=lambda x: x[0], reverse=True)
 
+        # List to store all significant gaps
+        significant_gaps = []
+
         # Iterate through the bids and look for significant gaps
         for i in range(len(bids) - 1):
             current_price = bids[i][0]
@@ -281,13 +299,22 @@ class FeatureProcessor:
             # Calculate the percentage gap between consecutive bids
             gap_percentage = ((current_price - next_price) / current_price) * 100
 
-            # If the gap exceeds the threshold, suggest a stop-loss price just above the gap
-            if gap_percentage >= gap_threshold_percentage:
-                suggested_stop_loss = next_price # + (0.80 * (current_price - next_price))  # Set stop-loss 80% of the gap value above the next price
-                return suggested_stop_loss
+            # If the gap exceeds the threshold, add it to the list
+            if gap_percentage >= self.calculate_gap_threshold():
+                significant_gaps.append((current_price, next_price))
 
-        # If no significant gap is found, return None
-        return None
+        # Return the stop-loss value based on the second gap if found, otherwise use the first gap
+        if len(significant_gaps) >= 2:
+            second_gap = significant_gaps[1]
+            suggested_stop_loss = second_gap[1] + (0.50 * (second_gap[0] - second_gap[1]))
+        elif len(significant_gaps) == 1:
+            first_gap = significant_gaps[0]
+            suggested_stop_loss = first_gap[1] + (0.50 * (first_gap[0] - first_gap[1]))
+        else:
+            suggested_stop_loss = None
+
+        return suggested_stop_loss
+
 
 
 # Example usage:

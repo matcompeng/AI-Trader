@@ -42,8 +42,8 @@ class Predictor:
             
             "3. **Buy After Resistance Breakout**:\n"
             "   - Follow this flowchart to confirm a Resistance Breakout and to ensure accuracy in decision-making:\n"
-            "       - *Resistance Breakout*: Has the price closed above a significant resistance level? If yes, proceed to check 'Uptrend in 24-hour Interval'.\n"
-           f"       - *Uptrend in 24-hour Interval*: Is there upward momentum in the '{self.dip_interval}' historical context over the past 24 hours? If yes, proceed to check 'MACD Histogram'.\n"
+           f"       - *Uptrend Momentum*: Is there uptrend momentum in the '{self.dip_interval}' historical context data? If yes, proceed to check 'Resistance Breakout'.\n"
+            "       - *Resistance Breakout*: Has the price closed above a significant resistance level (Rule 8 applies) ? If yes, proceed to check 'MACD Histogram'.\n"
             "       - *MACD Histogram*: Is the MACD Histogram increasing (Rule 7 applies)? If yes, proceed to check 'ADX Confirmation'.\n"
             "       - *ADX Confirmation*: Is ADX above 20 on both '5m' and '15m' intervals, confirming short-term upward momentum? If yes, consider a 'Buy' signal.\n\n"
     
@@ -65,7 +65,10 @@ class Predictor:
             "       - Show a reduction in the magnitude of consecutive bars below zero (indicating weakening negative momentum) ,In simpler terms If the histogram value becomes less negative (e.g., from -0.89 to -0.67), it indicates decreasing downward pressure and a potential shift to bullish momentum.\n"   
            f"   - This trend must be observed in both historical and current market data for intervals '{self.trading_interval}' and '{self.dip_interval}'.\n\n"
             
-            "8. **Strict Rule Adherence**:\n"
+            "8. **Identifying Significant Resistance**:\n" 
+           f"   - A significant resistance level is defined as a recent high where the price was rejected at least twice, based on '{self.trading_interval}' historical context data.\n\n"
+            
+            "9. **Strict Rule Adherence**:\n"
             "   - Follow each rule strictly as outlined in this strategy without inference or additional interpretation.\n"
             "   - *Reminder*: Decisions must adhere to each of the above rules in sequence and respond with 'Buy' or 'Hold' strictly based on the conditions and flowchart met."
             )
@@ -73,21 +76,21 @@ class Predictor:
         # Include the historical context as one line per entry
         if historical_data_1:
             prompt += f"\n\n### Interval({self.trading_interval}) Historical Context:\n"
-            for entry in historical_data_1[-24:]:
+            for entry in historical_data_1[-48:]:
                 historical_prompt = (
                     f"{entry['timestamp']}, "
-                        f"Open: {entry['open']:.2f}%, "
-                        f"High: {entry['high']:.2f}%, "
-                        f"Low: {entry['low']:.2f}%, "
-                        f"Close: {entry['close']:.2f}%, "
+                        f"Open: {entry['open']:.2f}, "
+                        f"High: {entry['high']:.2f}, "
+                        f"Low: {entry['low']:.2f}, "
+                        f"Close: {entry['close']:.2f}, "
                         # f"Price Change: {entry['price_change']:.2f}%, "
                         f"RSI: {entry['RSI']:.2f}, "
                         # f"SMA (7): {entry['SMA_7']:.2f}, "
-                        f"SMA (25): {entry['SMA_25']:.2f}, "
-                        f"SMA (100): {entry['SMA_100']:.2f}, "
+                        # f"SMA (25): {entry['SMA_25']:.2f}, "
+                        # f"SMA (100): {entry['SMA_100']:.2f}, "
                         # f"EMA (7): {entry['EMA_7']:.2f}, "
-                        f"EMA (25): {entry['EMA_25']:.2f}, "
-                        f"EMA (100): {entry['EMA_100']:.2f}, "
+                        # f"EMA (25): {entry['EMA_25']:.2f}, "
+                        # f"EMA (100): {entry['EMA_100']:.2f}, "
                         # f"MACD: {entry['MACD']:.2f}, "
                         # f"MACD Signal: {entry['MACD_signal']:.2f}, "
                         f"MACD Hist: {entry['MACD_hist']:.2f}, "
@@ -106,21 +109,21 @@ class Predictor:
             # Include the historical context as one line per entry
             if historical_data_2:
                 prompt += f"\n\n### Interval({self.dip_interval}) Historical Context:\n"
-                for entry in historical_data_2[-72:]:
+                for entry in historical_data_2[-24:]:
                     historical_prompt = (
                         f"{entry['timestamp']}, "
-                        f"Open: {entry['open']:.2f}%, "
-                        f"High: {entry['high']:.2f}%, "
-                        f"Low: {entry['low']:.2f}%, "
-                        f"Close: {entry['close']:.2f}%, "
+                        f"Open: {entry['open']:.2f}, "
+                        f"High: {entry['high']:.2f}, "
+                        f"Low: {entry['low']:.2f}, "
+                        f"Close: {entry['close']:.2f}, "
                         # f"Price Change: {entry['price_change']:.2f}%, "
                         f"RSI: {entry['RSI']:.2f}, "
                         # f"SMA (7): {entry['SMA_7']:.2f}, "
-                        f"SMA (25): {entry['SMA_25']:.2f}, "
-                        f"SMA (100): {entry['SMA_100']:.2f}, "
-                        # f"EMA (7): {entry['EMA_7']:.2f}, "
+                        # f"SMA (25): {entry['SMA_25']:.2f}, "
+                        # f"SMA (100): {entry['SMA_100']:.2f}, "
+                        f"EMA (7): {entry['EMA_7']:.2f}, "
                         f"EMA (25): {entry['EMA_25']:.2f}, "
-                        f"EMA (100): {entry['EMA_100']:.2f}, "
+                        # f"EMA (100): {entry['EMA_100']:.2f}, "
                         # f"MACD: {entry['MACD']:.2f}, "
                         # f"MACD Signal: {entry['MACD_signal']:.2f}, "
                         f"MACD Hist: {entry['MACD_hist']:.2f}, "
@@ -145,18 +148,18 @@ class Predictor:
             if features:
                 interval_prompt = (
                     f"Interval: {interval}\n"
-                    f"Open: {features['open']:.2f}%, "
-                    f"High: {features['high']:.2f}%, "
-                    f"Low: {features['low']:.2f}%, "
-                    f"Close: {features['close']:.2f}%, "
+                    f"Open: {features['open']:.2f}, "
+                    f"High: {features['high']:.2f}, "
+                    f"Low: {features['low']:.2f}, "
+                    f"Close: {features['close']:.2f}, "
                     f"Price Change: {features['price_change']:.2f}%, "
                     f"RSI: {features['RSI']:.2f}, "
                     # f"SMA (7): {features['SMA_7']:.2f}, "
                     # f"SMA (25): {features['SMA_25']:.2f}, "
-                    f"SMA (100): {features['SMA_100']:.2f}, "
+                    # f"SMA (100): {features['SMA_100']:.2f}, "
                     # f"EMA (7): {features['EMA_7']:.2f}, "
                     # f"EMA (25): {features['EMA_25']:.2f}, "
-                    f"EMA (100): {features['EMA_100']:.2f}, "
+                    # f"EMA (100): {features['EMA_100']:.2f}, "
                     f"MACD: {features['MACD']:.2f}, "
                     f"MACD Signal: {features['MACD_signal']:.2f}, "
                     f"MACD Hist: {features['MACD_hist']:.2f}, "
