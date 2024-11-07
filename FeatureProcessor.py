@@ -306,10 +306,10 @@ class FeatureProcessor:
         # Return the stop-loss value based on the second gap if found, otherwise use the first gap
         if len(significant_gaps) >= 2:
             second_gap = significant_gaps[1]
-            suggested_stop_loss = second_gap[1] + (0.50 * (second_gap[0] - second_gap[1]))
+            suggested_stop_loss = second_gap[1] - (1.0 * (second_gap[0] - second_gap[1]))
         elif len(significant_gaps) == 1:
             first_gap = significant_gaps[0]
-            suggested_stop_loss = first_gap[1] + (0.50 * (first_gap[0] - first_gap[1]))
+            suggested_stop_loss = first_gap[1] - (1.0 * (first_gap[0] - first_gap[1]))
         else:
             suggested_stop_loss = None
 
