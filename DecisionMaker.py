@@ -134,17 +134,17 @@ class DecisionMaker:
 
         # Extract data for each interval
         current_atr = all_features[self.amount_atr_interval].get('ATR', None)
-        current_rsi = all_features[self.amount_rsi_interval].get('RSI', None)
+        current_stoch_rsi = all_features[self.amount_rsi_interval].get('stoch_rsi_k', None)
 
         # Example logic to adjust buy amount based on volatility and momentum
         volatility_factor = 1 / current_atr
-        momentum_factor = 1.2 if current_rsi < 40 else 0.5 if current_rsi > 60 else 1.0
+        momentum_factor = 4 if current_stoch_rsi < 20 else 1.0 if current_stoch_rsi > 80 else 2
 
         # Adjust the buy amount based on both volatility and momentum factors
         adjusted_risk = self.risk_tolerance * volatility_factor * momentum_factor
         buy_amount = capital * adjusted_risk
 
-        print(f"ATR ({amount_atr_interval}): {current_atr:.2f}, RSI ({amount_rsi_interval}): {current_rsi:.2f}, Buy Amount: {buy_amount:.2f}")
+        print(f"ATR ({amount_atr_interval}): {current_atr:.2f}, RSI ({amount_rsi_interval}): {current_stoch_rsi:.2f}, Buy Amount: {buy_amount:.2f}")
         return buy_amount
 
     def calculate_adjusted_take_profit(self, entry_price, upper_band_profit, lower_band_profit):

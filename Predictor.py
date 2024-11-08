@@ -38,7 +38,7 @@ class Predictor:
             "   -  Follow this flowchart to confirm a reversal and to ensure accuracy in decision-making:\n"
            f"       - *Uptrend Momentum*: Identify a crossover where EMA (7) begins to exceed EMA (25) in the '{self.dip_interval}' historical context data. This condition requires detecting a shift from EMA (7) being below EMA (25) to crossing above EMA (25) in recent data points, indicating a sustained trend change (not just a single latest value). If this crossover pattern is confirmed over the most recent 4 intervals, proceed to check 'RSI Check'.\n"
             "       - *StochRSI Check*: Verify two conditions:"
-           f"         1. **Recent Transition**: In the last 4 records of the '{self.trading_interval}' historical context data, has the %K transitioned from below 20 to any positive value? This transition must occur **before** any consideration of the current crossover.\n"
+           f"         1. **Recent Transition**: In the 'StochRSI historical context data', has the %K transitioned from below 20 to any positive value? This transition must occur **before** any consideration of the current crossover.\n"
            f"         2. **Current Crossover**: Is the current %K (from the current market data interval '{self.trading_interval}') crossing above the current %D?\n"
             "         If both conditions are true, proceed to check 'OBV Confirmation'.\n"
             "       - *OBV Confirmation*: Is OBV increasing, suggesting higher buying volume (Rule 6 applies)? If yes, consider a 'Buy' signal.'.\n\n"
@@ -80,7 +80,7 @@ class Predictor:
         if historical_data_1:
             prompt += f"\n\n### Interval({self.trading_interval}) Historical Context:\n"
             for entry in historical_data_1[-48:]:
-                historical_prompt = (
+                historical_1_prompt = (
                     f"{entry['timestamp']}, "
                         f"Open: {entry['open']:.2f}, "
                         f"High: {entry['high']:.2f}, "
@@ -98,8 +98,8 @@ class Predictor:
                         # f"MACD Signal: {entry['MACD_signal']:.2f}, "
                         f"MACD Hist: {entry['MACD_hist']:.2f}, "
                         # f"Bollinger Bands: {entry['upper_band']:.2f}, {entry['middle_band']:.2f}, {entry['lower_band']:.2f}, "
-                        f"StochRSI %K: {entry['stoch_rsi_k']:.2f}, "
-                        f"StochRSI %D: {entry['stoch_rsi_d']:.2f}, "
+                        # f"StochRSI %K: {entry['stoch_rsi_k']:.2f}, "
+                        # f"StochRSI %D: {entry['stoch_rsi_d']:.2f}, "
                         f"ADX: {entry['ADX']:.2f}\n"
                         # f"ATR: {entry['ATR']:.2f}, "
                         # f"VWAP: {entry['VWAP']:.2f}, "
@@ -107,40 +107,51 @@ class Predictor:
                     # f"Support: {entry['support_level']}, "
                     # f"Resistance: {entry['resistance_level']}\n"
                 )
-                prompt += historical_prompt
+                prompt += historical_1_prompt
 
-            # Include the historical context as one line per entry
-            if historical_data_2:
-                prompt += f"\n\n### Interval({self.dip_interval}) Historical Context:\n"
-                for entry in historical_data_2[-24:]:
-                    historical_prompt = (
-                        f"{entry['timestamp']}, "
-                        f"Open: {entry['open']:.2f}, "
-                        f"High: {entry['high']:.2f}, "
-                        f"Low: {entry['low']:.2f}, "
-                        f"Close: {entry['close']:.2f}, "
-                        # f"Price Change: {entry['price_change']:.2f}%, "
-                        f"RSI: {entry['RSI']:.2f}, "
-                        # f"SMA (7): {entry['SMA_7']:.2f}, "
-                        # f"SMA (25): {entry['SMA_25']:.2f}, "
-                        # f"SMA (100): {entry['SMA_100']:.2f}, "
-                        f"EMA (7): {entry['EMA_7']:.2f}, "
-                        f"EMA (25): {entry['EMA_25']:.2f}, "
-                        # f"EMA (100): {entry['EMA_100']:.2f}, "
-                        # f"MACD: {entry['MACD']:.2f}, "
-                        # f"MACD Signal: {entry['MACD_signal']:.2f}, "
-                        f"MACD Hist: {entry['MACD_hist']:.2f}, "
-                        # f"Bollinger Bands: {entry['upper_band']:.2f}, {entry['middle_band']:.2f}, {entry['lower_band']:.2f}, "
-                        # f"StochRSI %K: {entry['stoch_rsi_k']:.2f}, "
-                        # f"StochRSI %D: {entry['stoch_rsi_d']:.2f}, "
-                        f"ADX: {entry['ADX']:.2f}, "
-                        # f"ATR: {entry['ATR']:.2f}, "
-                        # f"VWAP: {entry['VWAP']:.2f}, "
-                        f"OBV: {entry['OBV']:.2f}\n"
-                        # f"Support: {entry['support_level']}, "
-                        # f"Resistance: {entry['resistance_level']}\n"
-                    )
-                    prompt += historical_prompt
+        # Include the historical context as one line per entry
+        if historical_data_2:
+            prompt += f"\n\n### Interval({self.dip_interval}) Historical Context:\n"
+            for entry in historical_data_2[-24:]:
+                historical_2_prompt = (
+                    f"{entry['timestamp']}, "
+                    f"Open: {entry['open']:.2f}, "
+                    f"High: {entry['high']:.2f}, "
+                    f"Low: {entry['low']:.2f}, "
+                    f"Close: {entry['close']:.2f}, "
+                    # f"Price Change: {entry['price_change']:.2f}%, "
+                    f"RSI: {entry['RSI']:.2f}, "
+                    # f"SMA (7): {entry['SMA_7']:.2f}, "
+                    # f"SMA (25): {entry['SMA_25']:.2f}, "
+                    # f"SMA (100): {entry['SMA_100']:.2f}, "
+                    f"EMA (7): {entry['EMA_7']:.2f}, "
+                    f"EMA (25): {entry['EMA_25']:.2f}, "
+                    # f"EMA (100): {entry['EMA_100']:.2f}, "
+                    # f"MACD: {entry['MACD']:.2f}, "
+                    # f"MACD Signal: {entry['MACD_signal']:.2f}, "
+                    f"MACD Hist: {entry['MACD_hist']:.2f}, "
+                    # f"Bollinger Bands: {entry['upper_band']:.2f}, {entry['middle_band']:.2f}, {entry['lower_band']:.2f}, "
+                    # f"StochRSI %K: {entry['stoch_rsi_k']:.2f}, "
+                    # f"StochRSI %D: {entry['stoch_rsi_d']:.2f}, "
+                    f"ADX: {entry['ADX']:.2f}, "
+                    # f"ATR: {entry['ATR']:.2f}, "
+                    # f"VWAP: {entry['VWAP']:.2f}, "
+                    f"OBV: {entry['OBV']:.2f}\n"
+                    # f"Support: {entry['support_level']}, "
+                    # f"Resistance: {entry['resistance_level']}\n"
+                )
+                prompt += historical_2_prompt
+
+        # Include the historical StochRSI:
+        if historical_data_1:
+            prompt += f"\n\n### StochRSI Historical Context:\n"
+            for entry in historical_data_1[-4:]:
+                historical_3_prompt = (
+                    f"{entry['timestamp']}, "
+                    f"StochRSI %K: {entry['stoch_rsi_k']:.2f}, "
+                    f"StochRSI %D: {entry['stoch_rsi_d']:.2f}\n "
+                )
+                prompt += historical_3_prompt
 
 
         # Start with the market data header

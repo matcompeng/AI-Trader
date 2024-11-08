@@ -61,8 +61,8 @@ CAPITAL_AMOUNT = 30000               # Your Capital Investment.
 RISK_TOLERANCE = 0.25                # The Portion Amount you want to take risk of capital for each Buying position.
 MAX_TRADING_INV = 0.75               # Maximum Stable Trading Investment Budget Percent Of Capital.
 USDT_DIP_AMOUNT = 500                # Amount of Currency For Buying a Dip.
-AMOUNT_RSI_INTERVAL = '5m'           # Interval To get its RSI for Buying Amount Calculations Function.
-AMOUNT_ATR_INTERVAL = '30m'          # Interval To get its ATR for Buying Amount Calculations Function.
+AMOUNT_RSI_INTERVAL = '15m'          # Interval To get its RSI for Buying Amount Calculations Function.
+AMOUNT_ATR_INTERVAL = '1h'           # Interval To get its ATR for Buying Amount Calculations Function.
 # ##################################################################################################################
 
 # Create the data directory if it doesn't exist
