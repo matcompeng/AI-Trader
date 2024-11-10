@@ -32,7 +32,8 @@ class Predictor:
             "### Trading Strategy:\n"
             "1. **Market Analysis**:\n"
             "   - Use *Historical Context* to identify broader trends and key support/resistance levels.\n"
-            "   - Use *Current Market Data* to confirm short-term patterns and trigger decisions.\n\n"
+            "   - Use *Current Market Data* to confirm short-term patterns and trigger decisions.\n"
+            "   - Always mention in your explanation the specific values of indicators and price levels when analyzing or confirming trading conditions.\n\n"
             
             "2. **OBV Volume Confirmation Rule**:\n"
            f"   - To confirm the trend, OBV must show a pattern of rising consecutive timeframes using recent '{self.dip_interval}' historical context data along with the current market data for the same interval. **Do not use '{self.trading_interval}' historical context data or its current market interval here**.\n"
