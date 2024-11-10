@@ -26,7 +26,7 @@ COIN = 'BNB'                    # Select Cryptocurrency.
 TRADING_PAIR = 'BNBUSDT'        # Select Cryptocurrency Trading Pair
 
 # Feature Intervals:
-FEATURES_INTERVALS = ['1m', '5m', '15m', '30m', '1h', '8h']
+FEATURES_INTERVALS = ['1m', '5m', '15m', '30m', '1h']
 
 # Profit - Loss:
 POSITION_TIMEOUT = 3*24              # Set The Timeout In Hours for Position.
@@ -48,7 +48,7 @@ X_INDEX = ['pending']                # Stop The Predictor In these Indexes.
 
 # Stable Trading:
 TRADING_INTERVAL = '15m'             # Select The Interval For Stable 'Buy' Trading And Gathering Historical Context.
-POSITION_CYCLE = [15, 30]            # Time periods in Seconds To Check Positions [Short,Long].
+POSITION_CYCLE = [10, 5]            # Time periods in Seconds To Check Positions [Short,Long].
 HISTORICAL_STABLE_CYCLE = 15         # Time in Minutes to process Stable Historical Context.
 CHECK_POSITIONS_ON_BUY = True        # Set True If You Need Bot Manager Check The Positions During Buy Cycle.
 
