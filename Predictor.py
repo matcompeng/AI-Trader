@@ -169,7 +169,7 @@ class Predictor:
                 historical_3_prompt = (
                     f"{entry['timestamp']}, "
                     f"StochRSI %K: {entry['stoch_rsi_k']:.2f}, "
-                    f"StochRSI %D: {entry['stoch_rsi_d']:.2f}\n "
+                    f"StochRSI %D: {entry['stoch_rsi_d']:.2f}\n"
                 )
                 prompt += historical_3_prompt
 

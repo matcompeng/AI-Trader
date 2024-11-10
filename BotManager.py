@@ -605,7 +605,7 @@ class BotManager:
                 self.save_position_period(position_period)
                 portfolio_take_profit_avg = self.calculate_portfolio_take_profit(all_features)
                 portfolio_stop_loss_avg = self.calculate_portfolio_adjusted_stop_loss(all_features)
-                # breaking_upper_bands = self.breaking_upper_bands(all_features, current_price)
+                breaking_upper_bands = self.breaking_upper_bands(all_features, current_price)
                 breaking_upper_band = self.breaking_upper_band(all_features, current_price)
 
                 print(f"MACD Status: {macd_positive}")
@@ -617,7 +617,7 @@ class BotManager:
                 print(f"Portfolio Percentage: {portfolio_gain:.2f}%")
                 logging.info(f"Portfolio Percentage: {portfolio_gain:.2f}%")
 
-                if stable_positions_len >= TRAILING_POSITIONS_COUNT and macd_positive and portfolio_gain >= portfolio_take_profit_avg and breaking_upper_band:
+                if stable_positions_len >= TRAILING_POSITIONS_COUNT and macd_positive and portfolio_gain >= portfolio_take_profit_avg and breaking_upper_bands:
                     print("Portfolio Now Processing Under Trailing Stop Level:\n")
                     logging.info("Portfolio Now Processing Under Trailing Stop Level:\n")
                     reversed_decision ,message = self.decision_maker.check_for_sell_due_to_reversal(bot_manager, current_price, portfolio_stop_loss_avg)
