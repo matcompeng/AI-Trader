@@ -184,7 +184,7 @@ class Predictor:
         for interval, features in all_features.items():
             if features:
                 interval_prompt = (
-                    f"Interval: {interval}\n"
+                    f"Interval '{interval}':\n"
                     f"Open: {features['open']:.2f}, "
                     f"High: {features['high']:.2f}, "
                     f"Low: {features['low']:.2f}, "
@@ -215,7 +215,7 @@ class Predictor:
                     # f"Top Bid/Ask: {features['top_bid']:.2f}/{features['top_ask']:.2f}, "
                     # f"Bid-Ask Spread: {features['bid_ask_spread']:.2f}, "
                     f"Bid Volume: {features['bid_volume']:.2f}, "
-                    f"Ask Volume: {features['ask_volume']:.2f}\n"
+                    f"Ask Volume: {features['ask_volume']:.2f}\n\n"
                 )
                 prompt += interval_prompt
 
