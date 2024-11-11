@@ -46,7 +46,9 @@ class Predictor:
            f"   - This trend must be observed in both historical and current market data for intervals '{self.trading_interval}' and '{self.dip_interval}'.\n\n"
             
             "4. **Identifying Significant Resistance Rule**:\n" 
-           f"   - A significant resistance level is defined as a recent high where the price was rejected at least twice, based only on 'High' prices listed in '{self.trading_interval}' historical context data.\n\n"
+           f"   - A significant resistance level is defined by analyzing at least the **most recent two overlapping ranges between the 'High' and 'Close' prices** only from '{self.trading_interval}' historical context data.\n"
+            "   - Then resistance level is calculated as the average of the Highs from these two overlapping ranges, reflecting a price zone where rejections have recently occurred.\n"
+            "   - Important: If there are no at least recent two overlapping ranges, do not calculate a resistance level.\n\n"
             
             "5. **Strict RSI Condition Rule**:\n"
            f"   - *Mandatory Rule*: If RSI exceeds 67 only in current market data '{self.dip_interval}' interval, no 'Buy' decisions are allowed; the response must be 'Hold' regardless of other indicators.\n"
@@ -54,7 +56,7 @@ class Predictor:
             
             "6. **Buy After Dip Reversal**:\n"
             "   -  Follow this flowchart to confirm a reversal and to ensure accuracy in decision-making:\n"
-           f"       - *Uptrend Momentum*: Confirm that EMA (7) has crossed above or remains consistently above EMA (25) for the past 4 intervals in the specified **'{self.dip_interval}' historical context**, signaling a sustained uptrend.\n"
+           f"       - *Uptrend Momentum*: Confirm that **EMA (7)** has been consistently above **EMA (25)** for **all** of the past 4 intervals in the specified **'{self.dip_interval}' historical context**, signaling a sustained uptrend.if this condition true proceed to check 'StochRSI Check'\n"
             "       - *StochRSI Check*: Verify two conditions:\n"
            f"         1. **Recent %k Level**: In the 'StochRSI historical context data', has the %K below 20 level?\n"
            f"         2. **Current Crossover**: Is the current %K from the current market data **interval '{self.trading_interval}'** crossing above the current %D?\n"
@@ -63,7 +65,7 @@ class Predictor:
             
             "7. **Buy After Resistance Breakout**:\n"
             "   - Follow this flowchart to confirm a Resistance Breakout and to ensure accuracy in decision-making:\n"
-           f"       - *Uptrend Momentum*: Confirm that EMA (7) has crossed above or remains consistently above EMA (25) for the past 4 intervals in the specified **'{self.dip_interval}' historical context**, signaling a sustained uptrend.\n"
+           f"       - *Uptrend Momentum*: Confirm that **EMA (7)** has been consistently above **EMA (25)** for **all** of the past 4 intervals in the specified **'{self.dip_interval}' historical context**, signaling a sustained uptrend.if this condition true proceed to check 'Resistance Breakout'\n"
             "       - *Resistance Breakout*: Has the price closed above a significant resistance level (Rule 4 applies) ? If yes, proceed to check 'MACD Histogram'.\n"
             "       - *MACD Histogram*: Is the MACD Histogram increasing (Rule 3 applies)? If yes, proceed to check 'ADX Confirmation'.\n"
             "       - *ADX Confirmation*: Is ADX above 20 on both '5m' and '15m' intervals, confirming short-term upward momentum? If yes, consider a 'Buy' signal.\n\n"
