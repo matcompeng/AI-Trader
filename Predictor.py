@@ -47,7 +47,7 @@ class Predictor:
             
             "4. **Identifying Significant Resistance Rule**:\n" 
            f"   - A significant resistance level is defined by analyzing at least the **most recent two overlapping ranges between the 'High' and 'Close' prices** only from '{self.trading_interval}' historical context data.\n"
-            "   - Then resistance level is calculated as the average of the Highs from these two overlapping ranges, reflecting a price zone where rejections have recently occurred.\n"
+            "   - Then resistance level is calculated as the average of the Highs from these overlapping ranges, reflecting a price zone where rejections have recently occurred.\n"
             "   - Important: If there are no at least recent two overlapping ranges, do not calculate a resistance level.\n\n"
             
             "5. **Strict RSI Condition Rule**:\n"
@@ -223,7 +223,14 @@ class Predictor:
         prompt += (
             f"\n\nI am looking to trade {self.coin} cryptocurrency in the short term within a day.\n"
             f"Knowing that the current price is: {current_price} for this cycle.\n"
-            "Please provide a single, clear recommendation based on Trading Strategy (must use format &Buy& or &Hold& for the final recommendation only and it should not include this format in your explanation)."
+            "Please do the following instructions:\n"
+            "    - Before providing a final recommendation, the system must perform a cross-check validation to ensure all conditions align with the trading strategy. This process includes:\n"
+            "        1. Re-evaluating each rule (e.g., OBV, MACD, RSI, ADX) to confirm that all thresholds and conditions are correctly applied.\n"
+            "        2. Identifying any conflicting indicators or overlooked thresholds (e.g., ADX below 20 despite bullish conditions).\n"
+            "        3. Ensure no single indicator overrides the combined analysis unless specified by the strategy as a strict rule.\n"
+            "        4. Revising the recommendation if any discrepancy is found during the cross-check phase.\n"
+            "    - provide single clear format &Buy& or &Hold& for the final recommendation only and it should not include this format in your explanation"
+            ""
         )
 
         return prompt
