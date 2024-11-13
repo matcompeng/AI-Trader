@@ -173,7 +173,7 @@ class BotManager:
 
     def convert_usdt_to_crypto(self, current_price, usdt_amount):
         # Convert USDT amount to cryptocurrency amount and round to 5 decimal places
-        crypto_amount = round(usdt_amount / current_price, 5)
+        crypto_amount = round(usdt_amount / current_price, 2)
         return crypto_amount
 
     def calculate_prediction_bandwidth(self, all_features):

@@ -29,7 +29,7 @@ class Predictor:
 
         #trading strategy section before historical context
         prompt = (
-            "### Trading Strategy:\n"
+            "### Knowing That I have Following Trading Strategy:\n"
             "1. **Market Analysis**:\n"
             "   - Use *Historical Context* to identify broader trends and key support/resistance levels.\n"
             "   - Use *Current Market Data* to confirm short-term patterns and trigger decisions.\n"
@@ -109,26 +109,7 @@ class Predictor:
                         f"High: {entry['high']:.2f}, "
                         f"Low: {entry['low']:.2f}, "
                         f"Close: {entry['close']:.2f}, "
-                        # f"Price Change: {entry['price_change']:.2f}%, "
-                        # f"RSI: {entry['RSI']:.2f}, "
-                        # f"SMA (7): {entry['SMA_7']:.2f}, "
-                        # f"SMA (25): {entry['SMA_25']:.2f}, "
-                        # f"SMA (100): {entry['SMA_100']:.2f}, "
-                        # f"EMA (7): {entry['EMA_7']:.2f}, "
-                        # f"EMA (25): {entry['EMA_25']:.2f}, "
-                        # f"EMA (100): {entry['EMA_100']:.2f}, "
-                        # f"MACD: {entry['MACD']:.2f}, "
-                        # f"MACD Signal: {entry['MACD_signal']:.2f}, "
                         f"MACD Hist: {entry['MACD_hist']:.2f}\n"
-                        # f"Bollinger Bands: {entry['upper_band']:.2f}, {entry['middle_band']:.2f}, {entry['lower_band']:.2f}, "
-                        # f"StochRSI %K: {entry['stoch_rsi_k']:.2f}, "
-                        # f"StochRSI %D: {entry['stoch_rsi_d']:.2f}, "
-                        # f"ADX: {entry['ADX']:.2f}\n"
-                        # f"ATR: {entry['ATR']:.2f}, "
-                        # f"VWAP: {entry['VWAP']:.2f}, "
-                        # f"OBV: {entry['OBV']:.2f}\n"
-                    # f"Support: {entry['support_level']}, "
-                    # f"Resistance: {entry['resistance_level']}\n"
                 )
                 prompt += historical_1_prompt
 
@@ -138,30 +119,11 @@ class Predictor:
             for entry in historical_data_2[-4:]:
                 historical_2_prompt = (
                     f"timestamp: {entry['timestamp']}, "
-                    # f"Open: {entry['open']:.2f}, "
-                    # f"High: {entry['high']:.2f}, "
-                    # f"Low: {entry['low']:.2f}, "
-                    # f"Close: {entry['close']:.2f}, "
-                    # f"Price Change: {entry['price_change']:.2f}%, "
                     f"RSI: {entry['RSI']:.2f}, "
-                    # f"SMA (7): {entry['SMA_7']:.2f}, "
-                    # f"SMA (25): {entry['SMA_25']:.2f}, "
-                    # f"SMA (100): {entry['SMA_100']:.2f}, "
                     f"EMA (7): {entry['EMA_7']:.2f}, "
                     f"EMA (25): {entry['EMA_25']:.2f}, "
-                    # f"EMA (100): {entry['EMA_100']:.2f}, "
-                    # f"MACD: {entry['MACD']:.2f}, "
-                    # f"MACD Signal: {entry['MACD_signal']:.2f}, "
                     f"MACD Hist: {entry['MACD_hist']:.2f}, "
-                    # f"Bollinger Bands: {entry['upper_band']:.2f}, {entry['middle_band']:.2f}, {entry['lower_band']:.2f}, "
-                    # f"StochRSI %K: {entry['stoch_rsi_k']:.2f}, "
-                    # f"StochRSI %D: {entry['stoch_rsi_d']:.2f}, "
-                    # f"ADX: {entry['ADX']:.2f}, "
-                    # f"ATR: {entry['ATR']:.2f}, "
-                    # f"VWAP: {entry['VWAP']:.2f}, "
                     f"OBV: {entry['OBV']:.2f}\n"
-                    # f"Support: {entry['support_level']}, "
-                    # f"Resistance: {entry['resistance_level']}\n"
                 )
                 prompt += historical_2_prompt
 
@@ -178,44 +140,19 @@ class Predictor:
 
 
         # Start with the market data header
-        prompt += "\n\nHere is the current market data across different intervals:\n"
+        prompt += "\n\n### Here is the current market data across different intervals:\n"
 
         # Include the current market data from different intervals
         for interval, features in all_features.items():
             if features:
                 interval_prompt = (
                     f"Interval '{interval}':\n"
-                    # f"Open: {features['open']:.2f}, "
-                    # f"High: {features['high']:.2f}, "
-                    # f"Low: {features['low']:.2f}, "
-                    # f"Close: {features['close']:.2f}, "
-                    # f"Price Change: {features['price_change']:.2f}%, "
                     f"RSI: {features['RSI']:.2f}, "
-                    # f"SMA (7): {features['SMA_7']:.2f}, "
-                    # f"SMA (25): {features['SMA_25']:.2f}, "
-                    # f"SMA (100): {features['SMA_100']:.2f}, "
-                    # f"EMA (7): {features['EMA_7']:.2f}, "
-                    # f"EMA (25): {features['EMA_25']:.2f}, "
-                    # f"EMA (100): {features['EMA_100']:.2f}, "
-                    # f"MACD: {features['MACD']:.2f}, "
-                    # f"MACD Signal: {features['MACD_signal']:.2f}, "
-                    f"MACD Hist: {features['MACD_hist']:.2f}, "
-                    # f"Bollinger Bands: {features['upper_band']:.2f}, {features['middle_band']:.2f}, {features['lower_band']:.2f}, "  
+                    f"MACD Hist: {features['MACD_hist']:.2f}, " 
                     f"StochRSI %K: {features['stoch_rsi_k']:.2f}, "  # Updated to reflect stochRSI
                     f"StochRSI %D: {features['stoch_rsi_d']:.2f}, "  # Updated to reflect stochRSI
                     f"ADX: {features['ADX']:.2f}, "
-                    # f"ATR: {features['ATR']:.2f}, "
-                    # f"VWAP: {features['VWAP']:.2f}, "  # Include VWAP in the prompt
-                    f"OBV: {features['OBV']:.2f}, "
-                    # f"Support Level: {features['support_level']:.2f}, "
-                    # f"Resistance Level: {features['resistance_level']:.2f}, "
-                )
-
-                interval_prompt += (
-                    # f"Top Bid/Ask: {features['top_bid']:.2f}/{features['top_ask']:.2f}, "
-                    # f"Bid-Ask Spread: {features['bid_ask_spread']:.2f}, "
-                    f"Bid Volume: {features['bid_volume']:.2f}, "
-                    f"Ask Volume: {features['ask_volume']:.2f}\n\n"
+                    f"OBV: {features['OBV']:.2f}\n\n"
                 )
                 prompt += interval_prompt
 
@@ -223,13 +160,15 @@ class Predictor:
         prompt += (
             f"\n\nI am looking to trade {self.coin} cryptocurrency in the short term within a day.\n"
             f"Knowing that the current price is: {current_price} for this cycle.\n"
-            "Please do the following instructions:\n"
-            "    - Before providing a final recommendation, the system must perform a cross-check validation to ensure all conditions align with the trading strategy. This process includes:\n"
-            "        1. Re-evaluating each rule (OBV, MACD Hist, RSI, ADX, StochRSI,EMA ) to confirm that all thresholds and conditions are correctly applied.\n"
-            "        2. Identifying any conflicting indicators or overlooked thresholds (e.g., ADX below 20 despite bullish conditions).\n"
-            "        3. Ensure no single indicator overrides the combined analysis unless specified by the strategy as a strict rule.\n"
-            "        4. Revising the recommendation if any discrepancy is found during the cross-check phase.\n"
-            "    - provide single clear format &Buy& or &Hold& for the final recommendation only and it should not include this format in your explanation"
+            "Please do the following Steps:\n"
+            "STEP 1: Process all mentioned rules of points 2, 3, and 4 in trading strategy with taking into consideration point 9.\n"
+            "STEP 2: Taking the evaluations from STEP 1, Generate the Buy or Hold Signal using points 1, 5, 6, 7 and 8 with taking into consideration point 9. \n"
+            "STEP 3: Before providing a final recommendation in your response, the system must perform a cross-check validation to ensure all conditions align with the trading strategy,this includes:\n"
+            "          - Re-evaluating each rule (OBV, MACD Hist, RSI, ADX, StochRSI, EMA ) to confirm that all thresholds and conditions are correctly applied.\n"
+            "          - Identifying any conflicting indicators or overlooked thresholds (e.g., ADX below 20 despite bullish conditions).\n"
+            "          - Ensure no single indicator overrides the combined analysis unless specified by the strategy as a strict rule.\n"
+            "          - Revising the recommendation if any discrepancy is found during the cross-check phase.\n"
+            "STEP 4: Provide single clear format &Buy& or &Hold& for the final recommendation only and it should not include this format in your explanation."
             ""
         )
 
