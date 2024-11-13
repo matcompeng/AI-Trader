@@ -1,5 +1,6 @@
 import os
-import ccxt
+from binance.client import Client
+from binance.exceptions import BinanceAPIException, BinanceOrderException
 
 class Trader:
     def __init__(self, symbol):
@@ -9,11 +10,7 @@ class Trader:
             raise ValueError("Binance API key and secret must be set in environment variables.")
 
         self.symbol = symbol
-        self.exchange = ccxt.binance({
-            'apiKey': self.api_key,
-            'secret': self.api_secret,
-            'enableRateLimit': True,
-        })
+        self.client = Client(self.api_key, self.api_secret)
 
     def execute_trade(self, decision, amount):
         try:
@@ -24,37 +21,42 @@ class Trader:
 
             # Execute the trade based on the decision
             if decision == "Buy" or decision == "Buy_Dip":
-                order = self.exchange.create_market_buy_order(self.symbol, amount)
+                order = self.client.order_market_buy(symbol=self.symbol, quantity=amount)
                 print(f"Buy Order Executed: {order}")
                 return "Success", order
             elif decision == "Sell":
-                order = self.exchange.create_market_sell_order(self.symbol, amount)
+                order = self.client.order_market_sell(symbol=self.symbol, quantity=amount)
                 print(f"Sell Order Executed: {order}")
                 return "Success", order
             else:
                 print("No trade executed. Decision was to Hold.")
                 return "NoAction", None
+        except BinanceAPIException as e:
+            print(f"Binance API Error executing trade: {e}")
+            return "Error", str(e)
+        except BinanceOrderException as e:
+            print(f"Binance Order Error executing trade: {e}")
+            return "Error", str(e)
         except Exception as e:
             print(f"Error executing trade: {e}")
             return "Error", str(e)
 
     def get_current_price(self):
         try:
-            ticker = self.exchange.fetch_ticker(self.symbol)
-            return ticker['last']
+            ticker = self.client.get_symbol_ticker(symbol=self.symbol)
+            return float(ticker['price'])
         except Exception as e:
             print(f"Error fetching current price: {e}")
             raise Exception(f"Failed to get current price for {self.symbol}: {e}")
 
-
 # Example usage:
 if __name__ == "__main__":
     # Initialize the Trader with environment variables
-    trader = Trader(symbol='BTC/USDT')
+    trader = Trader(symbol='BTCUSDT')
 
     # Example: Simulate a trading decision
     decision = "Sell"  # Example decision from Predictor
 
-    # Execute the trade based on the decision with a USDT amount
-    usdt_amount = 10  # Example USDT amount to trade
-    trader.execute_trade(decision, usdt_amount)
+    # Execute the trade based on the decision with a BTC amount
+    btc_amount = 0.001  # Example BTC amount to trade
+    trader.execute_trade(decision, btc_amount)

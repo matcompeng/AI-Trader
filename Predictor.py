@@ -46,9 +46,9 @@ class Predictor:
            f"   - This trend must be observed in both historical and current market data for intervals '{self.trading_interval}' and '{self.dip_interval}'.\n\n"
             
             "4. **Identifying Significant Resistance Rule**:\n" 
-           f"   - A significant resistance level is defined by analyzing at least the **most recent two overlapping ranges between the 'High' and 'Close' prices** only from '{self.trading_interval}' historical context data.\n"
+           f"   - A significant resistance level is defined by analyzing '{self.trading_interval}' historical context data to determined at least  **two overlapping ranges between the 'High' and 'Close' that located near or above provided current price**\n"
             "   - Then resistance level is calculated as the average of the Highs from these overlapping ranges, reflecting a price zone where rejections have recently occurred.\n"
-            "   - Important: If there are no at least recent two overlapping ranges, do not calculate a resistance level.\n\n"
+            "   - Important: If there are no at least two overlapping ranges, do not calculate a resistance level.\n\n"
             
             "5. **Strict RSI Condition Rule**:\n"
            f"   - *Mandatory Rule*: If RSI exceeds 67 only in current market data '{self.dip_interval}' interval, no 'Buy' decisions are allowed; the response must be 'Hold' regardless of other indicators.\n"
@@ -56,7 +56,7 @@ class Predictor:
             
             "6. **Buy After Dip Reversal**:\n"
             "   -  Follow this flowchart to confirm a reversal and to ensure accuracy in decision-making:\n"
-           f"       - *Uptrend Momentum*: Confirm that **EMA (7)** has been consistently above **EMA (25)** for **all** of the past 4 intervals in the specified **'{self.dip_interval}' historical context**, signaling a sustained uptrend.if this condition true proceed to check 'StochRSI Check'\n"
+           f"       - *Uptrend Momentum*: Confirm that **EMA (7)** has been consistently above **EMA (25)** for for **all** data available in **'{self.dip_interval}' historical context**, signaling a sustained uptrend.if this condition false break,if it is true proceed to check 'StochRSI Check'\n"
             "       - *StochRSI Check*: Verify two conditions:\n"
            f"         1. **Recent %k Level**: In the 'StochRSI historical context data', has the %K below 20 level?\n"
            f"         2. **Current Crossover**: Is the current %K from the current market data **interval '{self.trading_interval}'** crossing above the current %D?\n"
@@ -65,7 +65,7 @@ class Predictor:
             
             "7. **Buy After Resistance Breakout**:\n"
             "   - Follow this flowchart to confirm a Resistance Breakout and to ensure accuracy in decision-making:\n"
-           f"       - *Uptrend Momentum*: Confirm that **EMA (7)** has been consistently above **EMA (25)** for **all** of the past 4 intervals in the specified **'{self.dip_interval}' historical context**, signaling a sustained uptrend.if this condition true proceed to check 'Resistance Breakout'\n"
+           f"       - *Uptrend Momentum*: Confirm that **EMA (7)** has been consistently above **EMA (25)** for for **all** data available in **'{self.dip_interval}' historical context**, signaling a sustained uptrend.if this condition false break,if it is true proceed to check 'Resistance Breakout'\n"
             "       - *Resistance Breakout*: Has the price closed above a significant resistance level (Rule 4 applies) ? If yes, proceed to check 'MACD Histogram'.\n"
             "       - *MACD Histogram*: Is the MACD Histogram increasing (Rule 3 applies)? If yes, proceed to check 'ADX Confirmation'.\n"
             "       - *ADX Confirmation*: Is ADX above 20 on both '5m' and '15m' intervals, confirming short-term upward momentum? If yes, consider a 'Buy' signal.\n\n"
@@ -104,7 +104,7 @@ class Predictor:
             prompt += f"\n\n### Interval({self.trading_interval}) Historical Context:\n"
             for entry in historical_data_1[-48:]:
                 historical_1_prompt = (
-                    f"{entry['timestamp']}, "
+                    f"timestamp: {entry['timestamp']}, "
                         f"Open: {entry['open']:.2f}, "
                         f"High: {entry['high']:.2f}, "
                         f"Low: {entry['low']:.2f}, "
@@ -119,11 +119,11 @@ class Predictor:
                         # f"EMA (100): {entry['EMA_100']:.2f}, "
                         # f"MACD: {entry['MACD']:.2f}, "
                         # f"MACD Signal: {entry['MACD_signal']:.2f}, "
-                        f"MACD Hist: {entry['MACD_hist']:.2f}, "
+                        f"MACD Hist: {entry['MACD_hist']:.2f}\n"
                         # f"Bollinger Bands: {entry['upper_band']:.2f}, {entry['middle_band']:.2f}, {entry['lower_band']:.2f}, "
                         # f"StochRSI %K: {entry['stoch_rsi_k']:.2f}, "
                         # f"StochRSI %D: {entry['stoch_rsi_d']:.2f}, "
-                        f"ADX: {entry['ADX']:.2f}\n"
+                        # f"ADX: {entry['ADX']:.2f}\n"
                         # f"ATR: {entry['ATR']:.2f}, "
                         # f"VWAP: {entry['VWAP']:.2f}, "
                         # f"OBV: {entry['OBV']:.2f}\n"
@@ -135,13 +135,13 @@ class Predictor:
         # Include the historical context as one line per entry
         if historical_data_2:
             prompt += f"\n\n### Interval({self.dip_interval}) Historical Context:\n"
-            for entry in historical_data_2[-24:]:
+            for entry in historical_data_2[-4:]:
                 historical_2_prompt = (
-                    f"{entry['timestamp']}, "
-                    f"Open: {entry['open']:.2f}, "
-                    f"High: {entry['high']:.2f}, "
-                    f"Low: {entry['low']:.2f}, "
-                    f"Close: {entry['close']:.2f}, "
+                    f"timestamp: {entry['timestamp']}, "
+                    # f"Open: {entry['open']:.2f}, "
+                    # f"High: {entry['high']:.2f}, "
+                    # f"Low: {entry['low']:.2f}, "
+                    # f"Close: {entry['close']:.2f}, "
                     # f"Price Change: {entry['price_change']:.2f}%, "
                     f"RSI: {entry['RSI']:.2f}, "
                     # f"SMA (7): {entry['SMA_7']:.2f}, "
@@ -156,7 +156,7 @@ class Predictor:
                     # f"Bollinger Bands: {entry['upper_band']:.2f}, {entry['middle_band']:.2f}, {entry['lower_band']:.2f}, "
                     # f"StochRSI %K: {entry['stoch_rsi_k']:.2f}, "
                     # f"StochRSI %D: {entry['stoch_rsi_d']:.2f}, "
-                    f"ADX: {entry['ADX']:.2f}, "
+                    # f"ADX: {entry['ADX']:.2f}, "
                     # f"ATR: {entry['ATR']:.2f}, "
                     # f"VWAP: {entry['VWAP']:.2f}, "
                     f"OBV: {entry['OBV']:.2f}\n"
@@ -170,7 +170,7 @@ class Predictor:
             prompt += f"\n\n### StochRSI Historical Context:\n"
             for entry in historical_data_1[-2:]:
                 historical_3_prompt = (
-                    f"{entry['timestamp']}, "
+                    f"timestamp: {entry['timestamp']}, "
                     f"StochRSI %K: {entry['stoch_rsi_k']:.2f}, "
                     f"StochRSI %D: {entry['stoch_rsi_d']:.2f}\n"
                 )
@@ -185,11 +185,11 @@ class Predictor:
             if features:
                 interval_prompt = (
                     f"Interval '{interval}':\n"
-                    f"Open: {features['open']:.2f}, "
-                    f"High: {features['high']:.2f}, "
-                    f"Low: {features['low']:.2f}, "
-                    f"Close: {features['close']:.2f}, "
-                    f"Price Change: {features['price_change']:.2f}%, "
+                    # f"Open: {features['open']:.2f}, "
+                    # f"High: {features['high']:.2f}, "
+                    # f"Low: {features['low']:.2f}, "
+                    # f"Close: {features['close']:.2f}, "
+                    # f"Price Change: {features['price_change']:.2f}%, "
                     f"RSI: {features['RSI']:.2f}, "
                     # f"SMA (7): {features['SMA_7']:.2f}, "
                     # f"SMA (25): {features['SMA_25']:.2f}, "
@@ -197,14 +197,14 @@ class Predictor:
                     # f"EMA (7): {features['EMA_7']:.2f}, "
                     # f"EMA (25): {features['EMA_25']:.2f}, "
                     # f"EMA (100): {features['EMA_100']:.2f}, "
-                    f"MACD: {features['MACD']:.2f}, "
-                    f"MACD Signal: {features['MACD_signal']:.2f}, "
+                    # f"MACD: {features['MACD']:.2f}, "
+                    # f"MACD Signal: {features['MACD_signal']:.2f}, "
                     f"MACD Hist: {features['MACD_hist']:.2f}, "
-                    f"Bollinger Bands: {features['upper_band']:.2f}, {features['middle_band']:.2f}, {features['lower_band']:.2f}, "  
+                    # f"Bollinger Bands: {features['upper_band']:.2f}, {features['middle_band']:.2f}, {features['lower_band']:.2f}, "  
                     f"StochRSI %K: {features['stoch_rsi_k']:.2f}, "  # Updated to reflect stochRSI
                     f"StochRSI %D: {features['stoch_rsi_d']:.2f}, "  # Updated to reflect stochRSI
                     f"ADX: {features['ADX']:.2f}, "
-                    f"ATR: {features['ATR']:.2f}, "
+                    # f"ATR: {features['ATR']:.2f}, "
                     # f"VWAP: {features['VWAP']:.2f}, "  # Include VWAP in the prompt
                     f"OBV: {features['OBV']:.2f}, "
                     # f"Support Level: {features['support_level']:.2f}, "
@@ -225,7 +225,7 @@ class Predictor:
             f"Knowing that the current price is: {current_price} for this cycle.\n"
             "Please do the following instructions:\n"
             "    - Before providing a final recommendation, the system must perform a cross-check validation to ensure all conditions align with the trading strategy. This process includes:\n"
-            "        1. Re-evaluating each rule (e.g., OBV, MACD, RSI, ADX) to confirm that all thresholds and conditions are correctly applied.\n"
+            "        1. Re-evaluating each rule (OBV, MACD Hist, RSI, ADX, StochRSI,EMA ) to confirm that all thresholds and conditions are correctly applied.\n"
             "        2. Identifying any conflicting indicators or overlooked thresholds (e.g., ADX below 20 despite bullish conditions).\n"
             "        3. Ensure no single indicator overrides the combined analysis unless specified by the strategy as a strict rule.\n"
             "        4. Revising the recommendation if any discrepancy is found during the cross-check phase.\n"

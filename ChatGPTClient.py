@@ -18,7 +18,7 @@ class ChatGPTClient:
             response = openai.ChatCompletion.create(
                 model="gpt-4o",  # Explicitly use GPT-4o
                 messages=[
-                    {"role": "system", "content": "You are a trading assistant, i will prompt you with data and you will take decision"},
+                    {"role": "system", "content": "Imagine you are an analyst who is double-checking every piece of data provided by a prompt for accuracy. Take your time to analyze each indicator and rule consider their interplay before making a decision."},
                     {"role": "user", "content": prompt},
                 ],
                 temperature=temperature  # Set temperature parameter here
