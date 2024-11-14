@@ -36,7 +36,7 @@ class Predictor:
             "   - Always mention in your explanation the specific values of indicators and price levels when analyzing or confirming trading conditions.\n\n"
             
             "2. **OBV Volume Confirmation Rule**:\n"
-           f"   - To confirm the trend, OBV must show a pattern of rising consecutive timeframes using recent '{self.dip_interval}' historical context data along with the current market data for the same interval. **Do not use '{self.trading_interval}' historical context data or its current market interval here**.\n"
+           f"   - To confirm the trend, OBV must show a pattern of rising consecutive timeframes using recent '{self.trading_interval}' historical context data along with the current market data interval '{self.trading_interval}'.\n"
             "   - If OBV and price trend diverge (e.g., price rising but OBV decreasing), avoid 'Buy' as it signals underlying weakness.\n\n"
             
             "3. **MACD Histogram Confirmation Rule**:\n"
@@ -58,7 +58,7 @@ class Predictor:
             "   -  Follow this flowchart to confirm a reversal and to ensure accuracy in decision-making:\n"
            f"       - *Uptrend Momentum*: Confirm that **EMA (7)** has been consistently above **EMA (25)** for for **all** data available in **'{self.dip_interval}' historical context**, signaling a sustained uptrend.if this condition false break,if it is true proceed to check 'StochRSI Check'\n"
             "       - *StochRSI Check*: Verify two conditions:\n"
-           f"         1. **Recent %k Level**: In the 'StochRSI historical context data', has the %K below 20 level?\n"
+           f"         1. **Recent %k Level**: In the 'StochRSI historical context data', has the %K below 40 level?\n"
            f"         2. **Current Crossover**: Is the current %K from the current market data **interval '{self.trading_interval}'** crossing above the current %D?\n"
             "         If both conditions are true, proceed to check 'OBV Confirmation'.\n"
             "       - *OBV Confirmation*: Is OBV increasing, suggesting higher buying volume (Rule 2 applies)? If yes, consider a 'Buy' signal.'.\n\n"
@@ -109,7 +109,8 @@ class Predictor:
                         f"High: {entry['high']:.2f}, "
                         f"Low: {entry['low']:.2f}, "
                         f"Close: {entry['close']:.2f}, "
-                        f"MACD Hist: {entry['MACD_hist']:.2f}\n"
+                        f"MACD Hist: {entry['MACD_hist']:.2f}, "
+                        f"OBV: {entry['OBV']:.2f}\n"
                 )
                 prompt += historical_1_prompt
 
@@ -122,8 +123,7 @@ class Predictor:
                     f"RSI: {entry['RSI']:.2f}, "
                     f"EMA (7): {entry['EMA_7']:.2f}, "
                     f"EMA (25): {entry['EMA_25']:.2f}, "
-                    f"MACD Hist: {entry['MACD_hist']:.2f}, "
-                    f"OBV: {entry['OBV']:.2f}\n"
+                    f"MACD Hist: {entry['MACD_hist']:.2f}\n"
                 )
                 prompt += historical_2_prompt
 

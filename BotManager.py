@@ -600,7 +600,7 @@ class BotManager:
                 logging.info(f"Stable Positions Count: {stable_positions_len}")
 
                 portfolio_gain = self.decision_maker.calculate_stable_portfolio_gain(bot_manager, current_price)
-                macd_positive = self.macd_positive(all_features, TRADING_INTERVAL)
+                macd_positive = self.macd_positive(all_features, DIP_INTERVAL)
                 position_period = self.position_period(macd_positive)
                 self.save_position_period(position_period)
                 portfolio_take_profit_avg = self.calculate_portfolio_take_profit(all_features)
@@ -975,7 +975,7 @@ class BotManager:
 
                 # Check if the price change is greater than PREDICT_IN_BANDWIDTH% and check MACD status and if price close to positions
                 bandwidth_price_change = self.calculate_prediction_bandwidth(all_features)
-                macd_positive = self.macd_positive(all_features, TRADING_INTERVAL)
+                macd_positive = self.macd_positive(all_features, DIP_INTERVAL)
                 price_above_sar = self.price_above_SAR(all_features, SAR_INTERVALS, current_price)
                 within_budget = self.within_stable_budget()
                 buy_price_too_close ,price_difference = self.buy_price_too_close(buy_price=current_price,feature=all_features)
