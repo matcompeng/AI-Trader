@@ -30,72 +30,54 @@ class Predictor:
         #trading strategy section before historical context
         prompt = (
             "### Knowing That I have Following Trading Strategy:\n"
-            "1. **Market Analysis**:\n"
-            "   - Use *Historical Context* to identify broader trends and key support/resistance levels.\n"
-            "   - Use *Current Market Data* to confirm short-term patterns and trigger decisions.\n"
-            "   - Always mention in your explanation the specific values of indicators and price levels when analyzing or confirming trading conditions.\n\n"
+            "1. **OBV Volume Confirmation Rule**:\n"
+           f"   - To confirm the trend, OBV must show a pattern of rising consecutive timeframes using recent '{self.dip_interval}' historical context data along with the current market data interval '{self.dip_interval}'.\n\n"
             
-            "2. **OBV Volume Confirmation Rule**:\n"
-           f"   - To confirm the trend, OBV must show a pattern of rising consecutive timeframes using recent '{self.trading_interval}' historical context data along with the current market data interval '{self.trading_interval}'.\n"
-            "   - If OBV and price trend diverge (e.g., price rising but OBV decreasing), avoid 'Buy' as it signals underlying weakness.\n\n"
-            
-            "3. **MACD Histogram Confirmation Rule**:\n"
+            "2. **MACD Histogram Confirmation Rule**:\n"
             "   - The MACD Histogram must either:\n"
             "       - Show an increase in the number of consecutive bars above zero (indicating positive momentum), or\n"
             "       - Show a reduction in the magnitude of consecutive bars below zero (indicating weakening negative momentum) ,In simpler terms If the histogram value becomes less negative (e.g., from -0.89 to -0.67), it indicates decreasing downward pressure and a potential shift to bullish momentum.\n"   
            f"   - This trend must be observed in both historical and current market data for intervals '{self.trading_interval}' and '{self.dip_interval}'.\n\n"
             
-            "4. **Identifying Significant Resistance Rule**:\n" 
-           f"   - A significant resistance level is defined by analyzing '{self.trading_interval}' historical context data to determined at least  **two overlapping ranges between the 'High' and 'Close' that located near or above provided current price**\n"
+            "3. **Identifying Significant Resistance Rule**:\n" 
+           f"   - A significant resistance level is defined by analyzing '{self.trading_interval}' historical context data to determined the latest price rejections then take at least **two overlapping rejection candles between the 'High' and 'Close'**\n"
             "   - Then resistance level is calculated as the average of the Highs from these overlapping ranges, reflecting a price zone where rejections have recently occurred.\n"
             "   - Important: If there are no at least two overlapping ranges, do not calculate a resistance level.\n\n"
             
-            "5. **Strict RSI Condition Rule**:\n"
+            "4. **Uptrend Momentum Rule**:\n"
+           f"   - Confirm that **EMA (7)** has been consistently above **EMA (25)** for **all** data available in **'{self.dip_interval}' historical context**, signaling a sustained uptrend\n\n"
+            
+            "5. **StochRSI Rule**:\n"
+            "   - Verify these two conditions:\n"
+            "       1. **Historical %k/%D**: Dose historical %k value below or equal to historical %D value in the 'StochRSI historical context data.\n"
+           f"       2. **Current %k/%D**: Dose current %k value crossing above current %D value in '{self.trading_interval}' current market data.\n"
+            "   - if the both conditions true flag this rule as true\n\n"
+            
+            "6. **Strict RSI Condition Rule**:\n"
            f"   - *Mandatory Rule*: If RSI exceeds 67 only in current market data '{self.dip_interval}' interval, no 'Buy' decisions are allowed; the response must be 'Hold' regardless of other indicators.\n"
             "   - Important: This rule takes precedence over all other rules, even if MACD and OBV show strong bullish signals.\n\n"
             
-            "6. **Buy After Dip Reversal**:\n"
+            "7. **Buy After Dip Reversal**:\n"
             "   -  Follow this flowchart to confirm a reversal and to ensure accuracy in decision-making:\n"
-           f"       - *Uptrend Momentum*: Confirm that **EMA (7)** has been consistently above **EMA (25)** for for **all** data available in **'{self.dip_interval}' historical context**, signaling a sustained uptrend.if this condition false break,if it is true proceed to check 'StochRSI Check'\n"
-            "       - *StochRSI Check*: Verify two conditions:\n"
-           f"         1. **Recent %k Level**: In the 'StochRSI historical context data', has the %K below 40 level?\n"
-           f"         2. **Current Crossover**: Is the current %K from the current market data **interval '{self.trading_interval}'** crossing above the current %D?\n"
-            "         If both conditions are true, proceed to check 'OBV Confirmation'.\n"
-            "       - *OBV Confirmation*: Is OBV increasing, suggesting higher buying volume (Rule 2 applies)? If yes, consider a 'Buy' signal.'.\n\n"
+           f"       - *Uptrend Momentum rule check*: If Uptrend Momentum rule (Rule 5 applies) signaling a sustained uptrend proceed to check 'StochRSI Check'\n"
+            "       - *StochRSI Rule Check*: if StochRSI Rule (Rule 6 applies) is true, proceed to check 'OBV Confirmation'.\n"
+            "       - *OBV Confirmation*: Is OBV increasing, suggesting higher buying volume (Rule 2 applies)? If yes, consider a 'Buy' signal.\n\n"
             
-            "7. **Buy After Resistance Breakout**:\n"
+            "8. **Buy After Resistance Breakout**:\n"
             "   - Follow this flowchart to confirm a Resistance Breakout and to ensure accuracy in decision-making:\n"
-           f"       - *Uptrend Momentum*: Confirm that **EMA (7)** has been consistently above **EMA (25)** for for **all** data available in **'{self.dip_interval}' historical context**, signaling a sustained uptrend.if this condition false break,if it is true proceed to check 'Resistance Breakout'\n"
+           f"       - *Uptrend Momentum rule check*: If Uptrend Momentum rule (Rule 5 applies) signaling a sustained uptrend proceed to check 'Resistance Breakout'\n"
             "       - *Resistance Breakout*: Has the price closed above a significant resistance level (Rule 4 applies) ? If yes, proceed to check 'MACD Histogram'.\n"
             "       - *MACD Histogram*: Is the MACD Histogram increasing (Rule 3 applies)? If yes, proceed to check 'ADX Confirmation'.\n"
             "       - *ADX Confirmation*: Is ADX above 20 on both '5m' and '15m' intervals, confirming short-term upward momentum? If yes, consider a 'Buy' signal.\n\n"
             
-            "8. Decision Priority:\n"
-            "   - **First Priority:** Prioritize **Point 2** (Buy After Dip Reversal) if the market is showing recovery from an oversold condition with upward momentum.\n"
-            "   - **Second Priority:** If the conditions in **Point 2** are not present, prioritize **Point 3** (Buy After Resistance Breakout) if the market demonstrates steady momentum and a significant resistance breakout.\n\n"
+            "9. Decision Priority:\n"
+            "    - **First Priority:** Prioritize **Point 2** (Buy After Dip Reversal) if the market is showing recovery from an oversold condition with upward momentum.\n"
+            "    - **Second Priority:** If the conditions in **Point 2** are not present, prioritize **Point 3** (Buy After Resistance Breakout) if the market demonstrates steady momentum and a significant resistance breakout.\n\n"
             
-            "9. **Strict Rule Adherence**:\n"
-            "   - Follow each rule strictly as outlined in this strategy without inference or additional interpretation.\n"
-            "   - *Reminder*: Decisions must adhere to each of the above rules in sequence and respond with 'Buy' or 'Hold' strictly based on the conditions and flowchart met.\n"
-            "   - Below is a list that serves as a reference for linking specific indicators to their corresponding trading rules and the time intervals they apply to. It ensures that each indicator is used correctly within the decision-making process as mentioned previously:\n"
-            "       1. Indicator: StochRSI %K/%D\n"
-            "          Relevant Rule: Buy After Dip Reversal\n"
-            "          Interval: 15m (Current + Historical)\n"
-            "       2. Indicator: EMA (7, 25)\n"
-            "          Relevant Rule: Uptrend Momentum\n"
-            "          Interval: 1h (Historical Context)\n"
-            "       3. Indicator: MACD Histogram\n"
-            "          Relevant Rule: Momentum Confirmation\n"
-            "          Interval: 15m + 1h (Current + Historical)\n"
-            "       4. Indicator: OBV\n"
-            "          Relevant Rule: Volume Confirmation\n"
-            "          Interval: 1h (Current + Historical)\n"
-            "       5. Indicator: ADX\n"
-            "          Relevant Rule: Resistance Breakout Confirmation\n"
-            "          Interval: 5m + 15m (Current + Historical)\n"
-            "       6. Indicator: RSI\n"
-            "          Relevant Rule: Overbought Condition (Strict)\n"
-            "          Interval: 1h (Current)"
+            "10. **Strict Rule Adherence**:\n"
+            "    - Follow each rule strictly as outlined in this strategy without inference or additional interpretation.\n"
+            "    - *Reminder*: Decisions must adhere to each of the rules in sequence and respond with 'Buy' or 'Hold' strictly based on the conditions and flowchart met.\n"
+            "    - Always mention in your explanation the specific values of indicators and price levels when analyzing or confirming trading conditions."
             )
 
 
@@ -109,8 +91,7 @@ class Predictor:
                         f"High: {entry['high']:.2f}, "
                         f"Low: {entry['low']:.2f}, "
                         f"Close: {entry['close']:.2f}, "
-                        f"MACD Hist: {entry['MACD_hist']:.2f}, "
-                        f"OBV: {entry['OBV']:.2f}\n"
+                        f"MACD Hist: {entry['MACD_hist']:.2f}\n"
                 )
                 prompt += historical_1_prompt
 
@@ -123,14 +104,15 @@ class Predictor:
                     f"RSI: {entry['RSI']:.2f}, "
                     f"EMA (7): {entry['EMA_7']:.2f}, "
                     f"EMA (25): {entry['EMA_25']:.2f}, "
-                    f"MACD Hist: {entry['MACD_hist']:.2f}\n"
+                    f"MACD Hist: {entry['MACD_hist']:.2f}, "
+                    f"OBV: {entry['OBV']:.2f}\n"
                 )
                 prompt += historical_2_prompt
 
         # Include the historical StochRSI:
         if historical_data_1:
             prompt += f"\n\n### StochRSI Historical Context:\n"
-            for entry in historical_data_1[-2:]:
+            for entry in historical_data_1[-1:]:
                 historical_3_prompt = (
                     f"timestamp: {entry['timestamp']}, "
                     f"StochRSI %K: {entry['stoch_rsi_k']:.2f}, "
@@ -161,14 +143,14 @@ class Predictor:
             f"\n\nI am looking to trade {self.coin} cryptocurrency in the short term within a day.\n"
             f"Knowing that the current price is: {current_price} for this cycle.\n"
             "Please do the following Steps:\n"
-            "STEP 1: Process all mentioned rules of points 2, 3, and 4 in trading strategy with taking into consideration point 9.\n"
-            "STEP 2: Taking the evaluations from STEP 1, Generate the Buy or Hold Signal using points 1, 5, 6, 7 and 8 with taking into consideration point 9. \n"
+            "STEP 1: Process all mentioned rules of points 1, 2, 3, 4, and 5 in trading strategy with taking into consideration point 10.\n"
+            "STEP 2: Taking the evaluations from STEP 1, Generate the Buy or Hold Signal using points 6, 7, 8, and 9 with taking into consideration point 10. \n"
             "STEP 3: Before providing a final recommendation in your response, the system must perform a cross-check validation to ensure all conditions align with the trading strategy,this includes:\n"
-            "          - Re-evaluating each rule (OBV, MACD Hist, RSI, ADX, StochRSI, EMA ) to confirm that all thresholds and conditions are correctly applied.\n"
+            "          - Re-evaluating each rule mentioned in trading strategy again (1, 2, 3, 4, and 5) to confirm that all thresholds and conditions are correctly applied.\n"
             "          - Identifying any conflicting indicators or overlooked thresholds (e.g., ADX below 20 despite bullish conditions).\n"
             "          - Ensure no single indicator overrides the combined analysis unless specified by the strategy as a strict rule.\n"
             "          - Revising the recommendation if any discrepancy is found during the cross-check phase.\n"
-            "STEP 4: Provide single clear format &Buy& or &Hold& for the final recommendation only and it should not include this format in your explanation."
+            "STEP 4: Must provide single clear format &Buy& or &Hold& for the final recommendation only and it should not include this format in your explanation."
             ""
         )
 
