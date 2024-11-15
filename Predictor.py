@@ -45,7 +45,10 @@ class Predictor:
             "   - Important: If there are no at least two overlapping ranges, do not calculate a resistance level.\n\n"
             
             "4. **Uptrend Momentum Rule**:\n"
-           f"   - Confirm that **EMA (7)** has been consistently above **EMA (25)** for **all** data available in **'{self.dip_interval}' historical context**, signaling a sustained uptrend\n\n"
+            "   - Verify these two conditions:\n"
+           f"   1. Dose **EMA (7)** consistently above **EMA (25)** for **all** data available in **'{self.dip_interval}' historical context**.\n"
+           f"   2. Dose **EMA (25)** showing a pattern of rising consecutive timeframes using recent **'{self.dip_interval}' historical context**.\n"
+            "   - if the both conditions true flag this rule as true\n\n"
             
             "5. **StochRSI Rule**:\n"
             "   - Verify these two conditions:\n"
@@ -59,13 +62,13 @@ class Predictor:
             
             "7. **Buy After Dip Reversal**:\n"
             "   -  Follow this flowchart to confirm a reversal and to ensure accuracy in decision-making:\n"
-           f"       - *Uptrend Momentum rule check*: If Uptrend Momentum rule (Rule 5 applies) signaling a sustained uptrend proceed to check 'StochRSI Check'\n"
+           f"       - *Uptrend Momentum rule check*: If Uptrend Momentum rule (Rule 5 applies) is true, proceed to check 'StochRSI Check'\n"
             "       - *StochRSI Rule Check*: if StochRSI Rule (Rule 6 applies) is true, proceed to check 'OBV Confirmation'.\n"
             "       - *OBV Confirmation*: Is OBV increasing, suggesting higher buying volume (Rule 2 applies)? If yes, consider a 'Buy' signal.\n\n"
             
             "8. **Buy After Resistance Breakout**:\n"
             "   - Follow this flowchart to confirm a Resistance Breakout and to ensure accuracy in decision-making:\n"
-           f"       - *Uptrend Momentum rule check*: If Uptrend Momentum rule (Rule 5 applies) signaling a sustained uptrend proceed to check 'Resistance Breakout'\n"
+           f"       - *Uptrend Momentum rule check*: If Uptrend Momentum rule (Rule 5 applies) is true, proceed to check 'Resistance Breakout'\n"
             "       - *Resistance Breakout*: Has the price closed above a significant resistance level (Rule 4 applies) ? If yes, proceed to check 'MACD Histogram'.\n"
             "       - *MACD Histogram*: Is the MACD Histogram increasing (Rule 3 applies)? If yes, proceed to check 'ADX Confirmation'.\n"
             "       - *ADX Confirmation*: Is ADX above 20 on both '5m' and '15m' intervals, confirming short-term upward momentum? If yes, consider a 'Buy' signal.\n\n"
@@ -150,8 +153,7 @@ class Predictor:
             "          - Identifying any conflicting indicators or overlooked thresholds (e.g., ADX below 20 despite bullish conditions).\n"
             "          - Ensure no single indicator overrides the combined analysis unless specified by the strategy as a strict rule.\n"
             "          - Revising the recommendation if any discrepancy is found during the cross-check phase.\n"
-            "STEP 4: Must provide single clear format &Buy& or &Hold& for the final recommendation only and it should not include this format in your explanation."
-            ""
+            "STEP 4: Must convert the 'Buy' and 'Hold' decision into format &Buy& and &Hold& for the final recommendation only in your response and it should not include this format in your explanation."
         )
 
         return prompt
