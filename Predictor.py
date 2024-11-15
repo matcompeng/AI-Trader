@@ -38,7 +38,7 @@ class Predictor:
             "       - Show an increase in the number of consecutive bars above zero (indicating positive momentum), or\n"
             "       - Show a reduction in the magnitude of consecutive bars below zero (indicating weakening negative momentum) ,In simpler terms If the histogram value becomes less negative (e.g., from -0.89 to -0.67), it indicates decreasing downward pressure and a potential shift to bullish momentum.\n"
            f"   - This trend must be observed in both historical and current market data for intervals '{self.trading_interval}' and '{self.dip_interval}'.\n"
-           f"   - Important: must take only the latest 4 periods of '{self.trading_interval}' and '{self.dip_interval}' historical data context along with its relative current market interval.\n\n"
+           f"   - Important: In order to do this calculations you must take only the most recent 2 candles of each '{self.trading_interval}' and '{self.dip_interval}' historical data context along with the 3rd candle that must taken from its relative current market intervals.\n\n"
             
             "3. **Breaking Significant Resistance Rule**:\n" 
            f"   - A significant resistance level is defined by analyzing '{self.trading_interval}' historical context data as following:\n"

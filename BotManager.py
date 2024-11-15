@@ -57,9 +57,9 @@ DIP_INTERVAL = '1h'                  # Select The Interval For Buying a Dip.
 DIP_CYCLE = 60                       # Time in Minutes to Run the Dip Historical Context Process.
 
 # Amounts
-CAPITAL_AMOUNT = 30000               # Your Capital Investment.
-RISK_TOLERANCE = 0.25                # The Portion Amount you want to take risk of capital for each Buying position.
-MAX_TRADING_INV = 0.75               # Maximum Stable Trading Investment Budget Percent Of Capital.
+CAPITAL_AMOUNT = 27000               # Your Capital Investment.
+RISK_TOLERANCE = 0.35                # The Portion Amount you want to take risk of capital for each Buying position.
+MAX_TRADING_INV = 1.00               # Maximum Stable Trading Investment Budget Percent Of Capital.
 USDT_DIP_AMOUNT = 500                # Amount of Currency For Buying a Dip.
 AMOUNT_RSI_INTERVAL = '15m'          # Interval To get its RSI for Buying Amount Calculations Function.
 AMOUNT_ATR_INTERVAL = '1h'           # Interval To get its ATR for Buying Amount Calculations Function.
@@ -1380,7 +1380,7 @@ class BotManager:
             self.stop_loss_process()  # Immediate run when the program starts
 
             # Schedule the stop loss process to run every hour
-            schedule.every(1).hours.do(self.stop_loss_process).tag('stop_loss_process')
+            schedule.every(15).minutes.do(self.stop_loss_process).tag('stop_loss_process')
 
             # Start the historical context cycle in a separate thread
             prediction_thread = threading.Thread(target=self.check_stable_prediction_timeframe, daemon=True)
