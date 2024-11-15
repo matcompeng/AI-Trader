@@ -120,10 +120,9 @@ class DecisionMaker:
             message = f"Error in checking for sell due to reversal: {e}"
             return "Hold" ,message
 
-
-    def calculate_buy_amount(self, all_features ,amount_rsi_interval, amount_atr_interval, capital):
+    def calculate_buy_amount(self, all_features, amount_rsi_interval, amount_atr_interval, capital):
         """
-        Calculate buy amount based on ATR (from 30m or 1h) and RSI (from 5m or 15m).
+        Calculate buy amount based on ATR (from 30m or 1h) and StochRSI (from 5m or 15m).
 
         :param capital:
         :param amount_atr_interval:
@@ -133,18 +132,32 @@ class DecisionMaker:
         """
 
         # Extract data for each interval
-        current_atr = all_features[self.amount_atr_interval].get('ATR', None)
-        current_stoch_rsi = all_features[self.amount_rsi_interval].get('stoch_rsi_k', None)
+        current_atr = all_features[amount_atr_interval].get('ATR', None)
+        current_stoch_rsi = all_features[amount_rsi_interval].get('stoch_rsi_k', None)
 
-        # Example logic to adjust buy amount based on volatility and momentum
+        # Ensure ATR and StochRSI values are available
+        if current_atr is None or current_stoch_rsi is None:
+            raise ValueError("ATR or StochRSI data is missing.")
+
+        # Calculate volatility factor
         volatility_factor = 1 / current_atr
-        momentum_factor = 4 if current_stoch_rsi < 20 else 1.0 if current_stoch_rsi > 80 else 2
+
+        # Calculate momentum factor with a piecewise linear interpolation
+        if current_stoch_rsi <= 1:
+            momentum_factor = 10
+        elif current_stoch_rsi >= 90:
+            momentum_factor = 1
+        else:
+            # Linear interpolation between StochRSI of 1 and 100
+            # momentum_factor decreases from 5 to 1 as StochRSI increases from 1 to 100
+            momentum_factor = 10 - (9 * (current_stoch_rsi - 1) / (90 - 1))
 
         # Adjust the buy amount based on both volatility and momentum factors
         adjusted_risk = self.risk_tolerance * volatility_factor * momentum_factor
         buy_amount = capital * adjusted_risk
 
-        print(f"ATR ({amount_atr_interval}): {current_atr:.2f}, RSI ({amount_rsi_interval}): {current_stoch_rsi:.2f}, Buy Amount: {buy_amount:.2f}")
+        print(
+            f"ATR ({amount_atr_interval}): {current_atr:.2f}, StochRSI ({amount_rsi_interval}): {current_stoch_rsi:.2f}, Buy Amount: {buy_amount:.2f}")
         return buy_amount
 
     def calculate_adjusted_take_profit(self, entry_price, upper_band_profit, lower_band_profit):
