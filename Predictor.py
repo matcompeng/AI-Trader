@@ -47,7 +47,7 @@ class Predictor:
             "4. **Uptrend Momentum Rule**:\n"
             "   - Verify these two conditions:\n"
            f"   1. Dose **EMA (7)** consistently above **EMA (25)** for **all** data available in **'{self.dip_interval}' historical context**.\n"
-           f"   2. Dose **EMA (25)** showing a pattern of rising consecutive timeframes using recent **'{self.dip_interval}' historical context**.\n"
+           f"   2. Dose **EMA (25)** showing a pattern of rising consecutive timeframes using **'{self.dip_interval}' historical context**.\n"
             "   - if the both conditions true flag this rule as true\n\n"
             
             "5. **StochRSI Rule**:\n"
