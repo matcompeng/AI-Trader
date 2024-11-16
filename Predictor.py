@@ -31,12 +31,13 @@ class Predictor:
         prompt = (
             "### Knowing That I have Following Trading Strategy:\n"
             "1. **OBV Volume Confirmation Rule**:\n"
-           f"   - To confirm the trend, OBV must show a pattern of rising consecutive timeframes using recent '{self.dip_interval}' historical context data along with the current market data interval '{self.dip_interval}'.\n\n"
+           f"   - Dose the current OBV in '{self.dip_interval}' market data interval > OBV in most recent record of '{self.dip_interval}' historical context, if yes make this rule true\n\n"
             
             "2. **MACD Histogram Confirmation Rule**:\n"
             "   - The MACD Histogram must either:\n"
             "       - Show an increase in the number of consecutive bars above zero (indicating positive momentum), or\n"
             "       - Show a reduction in the magnitude of consecutive bars below zero (indicating weakening negative momentum) ,In simpler terms If the histogram value becomes less negative (e.g., from -0.89 to -0.67), it indicates decreasing downward pressure and a potential shift to bullish momentum.\n"
+            "   - Do not indicate reduction in consecutive bars above zero as positive momentum\n"
            f"   - This trend must be observed in both historical and current market data for intervals '{self.trading_interval}' and '{self.dip_interval}'.\n"
            f"   - Important: In order to do this calculations you must take only the most recent 2 candles of each '{self.trading_interval}' and '{self.dip_interval}' historical data context along with the 3rd candle that must taken from its relative current market intervals.\n\n"
             
@@ -54,8 +55,8 @@ class Predictor:
             
             "5. **StochRSI Rule**:\n"
             "   - Verify these two conditions:\n"
-            "       1. **Historical %k/%D**: Dose historical %k value below or equal to historical %D value (%K <= %D) in 'StochRSI historical context data'.\n"
-           f"       2. **Current %k/%D**: Dose current %k value crossing above current %D value (%K > %D) in '{self.trading_interval}' current market data.\n"
+            "       1. **Historical %k/%D**: Dose **historical %k value <= historical %D value** in any of 'StochRSI historical context data'.\n"
+           f"       2. **Current %k/%D**: Dose **current %k value > current %D value** in '{self.trading_interval}' current market data interval.\n"
             "   - if the both conditions true flag this rule as true\n\n"
             
             "6. **Strict RSI Condition Rule**:\n"
@@ -117,7 +118,7 @@ class Predictor:
         # Include the historical StochRSI:
         if historical_data_1:
             prompt += f"\n\n### StochRSI Historical Context:\n"
-            for entry in historical_data_1[-1:]:
+            for entry in historical_data_1[-2:]:
                 historical_3_prompt = (
                     f"timestamp: {entry['timestamp']}, "
                     f"StochRSI %K: {entry['stoch_rsi_k']:.2f}, "
