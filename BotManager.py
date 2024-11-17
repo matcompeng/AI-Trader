@@ -989,16 +989,31 @@ class BotManager:
                     prediction_start = time.time()
                     print("Generating prediction...")
                     logging.info("Generating prediction...")
-                    prediction, explanation = self.predictor.get_prediction(all_features=all_features,
-                                                                            current_price=current_price,
-                                                                            historical_data_1=historical_data_1,
-                                                                            historical_data_2=historical_data_2,
-                                                                            prediction_type='Stable',
-                                                                            trading_interval=TRADING_INTERVAL)
+                    prediction, predictor_explanation = self.predictor.prompt_openai(all_features=all_features,
+                                                                           current_price=current_price,
+                                                                           historical_data_1=historical_data_1,
+                                                                           historical_data_2=historical_data_2,
+                                                                           prediction_type='Stable',
+                                                                           prompt_type='predictor')
+
+                    validation, validator_response = self.predictor.prompt_openai(
+                                                                           current_price=current_price,
+                                                                           prediction_type='Stable',
+                                                                           prompt_type='validator',
+                                                                           predictor_response=predictor_explanation)
+                    if validation != prediction:
+                        print(f"Validator revised Predictor Decision from {prediction} to {validation}")
+                        logging.info(f"Validator revised Predictor Decision from {prediction} to {validation}")
+                        self.notifier.send_notification(title='Validator', message=f"Validator revised Predictor Decision from {prediction} to {validation}",sound='intermission')
+
+                    prediction = validation # overwrite prediction after validating
 
                     self.log_time("Prediction generation", prediction_start)
                     print(f"Predictor Recommends To  ///{prediction}///")
-                    logging.info(f"Prediction: {prediction}. Explanation: {explanation}")
+                    logging.info(f"Prediction: {prediction}. Explanation: {predictor_explanation}")
+
+                    print(f"Validator Recommends To  ///{validation}///")
+                    logging.info(f"Prediction: {validation}. Explanation: {validator_response}")
                 else:
                     prediction = "Hold"
                     if classification in X_INDEX:
@@ -1175,10 +1190,10 @@ class BotManager:
                 prediction_start = time.time()
                 print("Generating prediction...")
                 logging.info("Generating prediction...")
-                prediction, explanation = self.predictor.get_prediction(current_price=current_price,
-                                                                        historical_data_2=historical_data,
-                                                                        prediction_type='Dip',
-                                                                        positions=positions_copy)
+                prediction, explanation = self.predictor.prompt_openai(current_price=current_price,
+                                                                       historical_data_2=historical_data,
+                                                                       prediction_type='Dip',
+                                                                       positions=positions_copy)
                 self.log_time("Prediction generation", prediction_start)
                 print(f"Predictor Recommends To  ///{prediction}///")
                 logging.info(f"Prediction: {prediction}. Explanation: {explanation}")

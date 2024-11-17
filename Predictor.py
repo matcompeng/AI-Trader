@@ -1,4 +1,6 @@
 import os
+from http.client import responses
+
 import pandas as pd
 from datetime import datetime
 import logging
@@ -20,6 +22,64 @@ class Predictor:
         self.notifier = Notifier()
         self.trading_interval = trading_interval
         self.dip_interval = dip_interval
+        self.trading_strategy = (
+            "### Knowing That I have Following Trading Strategy:\n"
+            "1. **OBV Volume Confirmation Rule**:\n"
+            f"   - Dose the current OBV in '{self.dip_interval}' market data interval > OBV in most recent record of '{self.dip_interval}' historical context, if yes make this rule true\n\n"
+
+            "2. **MACD Histogram Confirmation Rule**:\n"
+            "   - The MACD Histogram must either:\n"
+            "       - Show an increase in the number of consecutive bars above zero (indicating positive momentum), or\n"
+            "       - Show a reduction in the magnitude of consecutive bars below zero (indicating weakening negative momentum) ,In simpler terms If the histogram value becomes less negative (e.g., from -0.89 to -0.67), it indicates decreasing downward pressure and a potential shift to bullish momentum.\n"
+            "   - Do not indicate reduction in consecutive bars above zero as positive momentum\n"
+            f"   - This trend must be observed in both historical and current market data for intervals '{self.trading_interval}' and '{self.dip_interval}'.\n"
+            f"   - Important: In order to do this calculations you must take only the most recent 2 candles of each '{self.trading_interval}' and '{self.dip_interval}' historical data context along with the 3rd candle that must taken from its relative current market intervals.\n\n"
+
+            "3. **Breaking Significant Resistance Rule**:\n"
+            f"   - A significant resistance level is defined by analyzing '{self.trading_interval}' historical context data as following:\n"
+            "       1. Make a list of ranges which every range is determined by a group of candles where their 'High' and 'Close' prices has been overlapped. Then represent these ranges as 'nominated resistance ranges'\n"
+            "       2. Take the provided current market price and check if it is crossed above any 'nominated resistance range', if yes then make this Rule True.\n"
+            "   - Note: If there are no 'nominated resistance ranges' found, make this rule False\n\n"
+
+            "4. **Uptrend Momentum Rule**:\n"
+            "   - Verify these two conditions:\n"
+            f"       1. Dose **EMA (7)** consistently above **EMA (25)** for **all** data available in **'{self.dip_interval}' historical context**.\n"
+            f"       2. Dose **EMA (25)** showing a pattern of rising consecutive timeframes using **'{self.dip_interval}' historical context**.\n"
+            "   - if the both conditions true flag this rule as true\n\n"
+
+            "5. **StochRSI Rule**:\n"
+            "   - Verify these two conditions:\n"
+            "       1. **Historical %k/%D**: Dose **historical %k value <= historical %D value** in any of 'StochRSI historical context data'.\n"
+            f"       2. **Current %k/%D**: Dose **current %k value > current %D value** in '{self.trading_interval}' current market data interval.\n"
+            "   - if the both conditions true flag this rule as true\n\n"
+
+            "6. **Strict RSI Condition Rule**:\n"
+            f"   - *Mandatory Rule*: If RSI exceeds 67 only in current market data '{self.dip_interval}' interval, no 'Buy' decisions are allowed; the response must be 'Hold' regardless of other indicators.\n"
+            "   - Important: This rule takes precedence over all other rules, even if MACD and OBV show strong bullish signals.\n\n"
+
+            "7. **Buy After Dip Reversal**:\n"
+            "   -  Follow this flowchart to confirm a reversal and to ensure accuracy in decision-making:\n"
+            f"       - *Uptrend Momentum rule check*: If Uptrend Momentum rule (Rule 4 applies) is true, proceed to check 'StochRSI Check'\n"
+            "       - *StochRSI Rule Check*: if StochRSI Rule (Rule 5 applies) is true, proceed to check 'OBV Confirmation'.\n"
+            "       - *OBV Confirmation*: Is OBV increasing, suggesting higher buying volume (Rule 1 applies)? If yes, consider a 'Buy' signal.\n\n"
+
+            "8. **Buy After Resistance Breakout**:\n"
+            "   - Follow this flowchart to confirm a Resistance Breakout and to ensure accuracy in decision-making:\n"
+            f"       - *Uptrend Momentum rule check*: If Uptrend Momentum rule (Rule 4 applies) is true, proceed to check 'Resistance Breakout'\n"
+            "       - *Resistance Breakout check*: if Breaking Significant Resistance Rule (Rule 3 applies) is true, proceed to check 'MACD Histogram'.\n"
+            "       - *MACD Histogram*: Is the MACD Histogram increasing (Rule 2 applies)? If yes, proceed to check 'ADX Confirmation'.\n"
+            "       - *ADX Confirmation*: Is ADX above 20 on both '5m' and '15m' intervals, confirming short-term upward momentum? If yes, consider a 'Buy' signal.\n\n"
+
+            "9. Decision Priority:\n"
+            "    - **First Priority:** Prioritize **Point 2** (Buy After Dip Reversal) if the market is showing recovery from an oversold condition with upward momentum.\n"
+            "    - **Second Priority:** If the conditions in **Point 2** are not present, prioritize **Point 3** (Buy After Resistance Breakout) if the market demonstrates steady momentum and a significant resistance breakout.\n\n"
+
+            "10. **Strict Rule Adherence**:\n"
+            "    - Follow each rule strictly as outlined in this strategy without inference or additional interpretation.\n"
+            "    - *Reminder*: Decisions must adhere to each of the rules in sequence and respond with 'Buy' or 'Hold' strictly based on the conditions and flowchart met.\n"
+            "    - Must Always mention in your explanation the specific values of indicators and price levels when analyzing or confirming trading conditions.\n"
+        )
+
 
         # Ensure the data directory exists
         if not os.path.exists(self.data_directory):
@@ -28,64 +88,7 @@ class Predictor:
     def format_stable_prompt(self, all_features, current_price, historical_data_1,historical_data_2, current_obv):
 
         #trading strategy section before historical context
-        prompt = (
-            "### Knowing That I have Following Trading Strategy:\n"
-            "1. **OBV Volume Confirmation Rule**:\n"
-           f"   - Dose the current OBV in '{self.dip_interval}' market data interval > OBV in most recent record of '{self.dip_interval}' historical context, if yes make this rule true\n\n"
-            
-            "2. **MACD Histogram Confirmation Rule**:\n"
-            "   - The MACD Histogram must either:\n"
-            "       - Show an increase in the number of consecutive bars above zero (indicating positive momentum), or\n"
-            "       - Show a reduction in the magnitude of consecutive bars below zero (indicating weakening negative momentum) ,In simpler terms If the histogram value becomes less negative (e.g., from -0.89 to -0.67), it indicates decreasing downward pressure and a potential shift to bullish momentum.\n"
-            "   - Do not indicate reduction in consecutive bars above zero as positive momentum\n"
-           f"   - This trend must be observed in both historical and current market data for intervals '{self.trading_interval}' and '{self.dip_interval}'.\n"
-           f"   - Important: In order to do this calculations you must take only the most recent 2 candles of each '{self.trading_interval}' and '{self.dip_interval}' historical data context along with the 3rd candle that must taken from its relative current market intervals.\n\n"
-            
-            "3. **Breaking Significant Resistance Rule**:\n" 
-           f"   - A significant resistance level is defined by analyzing '{self.trading_interval}' historical context data as following:\n"
-            "       1. Make a list of ranges which every range is determined by a group of candles where their 'High' and 'Close' prices has been overlapped. Then represent these ranges as 'nominated resistance ranges'\n"
-            "       2. Take the provided current market price and check if it is crossed above any 'nominated resistance range', if yes then make this Rule True.\n"
-            "   - Note: If there are no 'nominated resistance ranges' found, make this rule False\n\n"
-            
-            "4. **Uptrend Momentum Rule**:\n"
-            "   - Verify these two conditions:\n"
-           f"       1. Dose **EMA (7)** consistently above **EMA (25)** for **all** data available in **'{self.dip_interval}' historical context**.\n"
-           f"       2. Dose **EMA (25)** showing a pattern of rising consecutive timeframes using **'{self.dip_interval}' historical context**.\n"
-            "   - if the both conditions true flag this rule as true\n\n"
-            
-            "5. **StochRSI Rule**:\n"
-            "   - Verify these two conditions:\n"
-            "       1. **Historical %k/%D**: Dose **historical %k value <= historical %D value** in any of 'StochRSI historical context data'.\n"
-           f"       2. **Current %k/%D**: Dose **current %k value > current %D value** in '{self.trading_interval}' current market data interval.\n"
-            "   - if the both conditions true flag this rule as true\n\n"
-            
-            "6. **Strict RSI Condition Rule**:\n"
-           f"   - *Mandatory Rule*: If RSI exceeds 67 only in current market data '{self.dip_interval}' interval, no 'Buy' decisions are allowed; the response must be 'Hold' regardless of other indicators.\n"
-            "   - Important: This rule takes precedence over all other rules, even if MACD and OBV show strong bullish signals.\n\n"
-            
-            "7. **Buy After Dip Reversal**:\n"
-            "   -  Follow this flowchart to confirm a reversal and to ensure accuracy in decision-making:\n"
-           f"       - *Uptrend Momentum rule check*: If Uptrend Momentum rule (Rule 4 applies) is true, proceed to check 'StochRSI Check'\n"
-            "       - *StochRSI Rule Check*: if StochRSI Rule (Rule 5 applies) is true, proceed to check 'OBV Confirmation'.\n"
-            "       - *OBV Confirmation*: Is OBV increasing, suggesting higher buying volume (Rule 1 applies)? If yes, consider a 'Buy' signal.\n\n"
-            
-            "8. **Buy After Resistance Breakout**:\n"
-            "   - Follow this flowchart to confirm a Resistance Breakout and to ensure accuracy in decision-making:\n"
-           f"       - *Uptrend Momentum rule check*: If Uptrend Momentum rule (Rule 4 applies) is true, proceed to check 'Resistance Breakout'\n"
-            "       - *Resistance Breakout check*: if Breaking Significant Resistance Rule (Rule 3 applies) is true, proceed to check 'MACD Histogram'.\n"
-            "       - *MACD Histogram*: Is the MACD Histogram increasing (Rule 2 applies)? If yes, proceed to check 'ADX Confirmation'.\n"
-            "       - *ADX Confirmation*: Is ADX above 20 on both '5m' and '15m' intervals, confirming short-term upward momentum? If yes, consider a 'Buy' signal.\n\n"
-            
-            "9. Decision Priority:\n"
-            "    - **First Priority:** Prioritize **Point 2** (Buy After Dip Reversal) if the market is showing recovery from an oversold condition with upward momentum.\n"
-            "    - **Second Priority:** If the conditions in **Point 2** are not present, prioritize **Point 3** (Buy After Resistance Breakout) if the market demonstrates steady momentum and a significant resistance breakout.\n\n"
-            
-            "10. **Strict Rule Adherence**:\n"
-            "    - Follow each rule strictly as outlined in this strategy without inference or additional interpretation.\n"
-            "    - *Reminder*: Decisions must adhere to each of the rules in sequence and respond with 'Buy' or 'Hold' strictly based on the conditions and flowchart met.\n"
-            "    - Always mention in your explanation the specific values of indicators and price levels when analyzing or confirming trading conditions."
-            )
-
+        prompt = self.trading_strategy
 
         # Include the historical context as one line per entry
         if historical_data_1:
@@ -161,6 +164,23 @@ class Predictor:
 
         return prompt
 
+    def format_strategy_response_prompt(self, response):
+
+        prompt = self.trading_strategy
+
+        prompt +=(
+            "\n\n### Here's GPT API response:\n"
+            f"{response}\n\n"
+        )
+
+        prompt +=(
+            "### Here's Your Instructions:"
+            "    - According to your roll here and submitted trading strategy, cross check then confirm or Revise the final recommendation of the provided GPT API response.\n"
+            "    - Must post format &Buy& and &Hold& for the final recommendation only in your response and it should not include this format in your checking explanation."
+        )
+
+        return prompt
+
 
     def format_dip_prompt(self, dip_positions, current_price, historical_data):
 
@@ -211,9 +231,18 @@ class Predictor:
 
         return prompt
 
-    def save_stable_prompt(self, prompt):
+    def save_predictor_prompt(self, prompt):
         try:
-            file_path = os.path.join(self.data_directory, 'latest_stable_prompt.csv')
+            file_path = os.path.join(self.data_directory, 'latest_predictor_prompt.csv')
+            df = pd.DataFrame([{"prompt": prompt}])
+            df.to_csv(file_path, mode='w', header=True, index=False)
+            print(f"Prompt saved to {file_path}")
+        except Exception as e:
+            print(f"Error saving stable prompt to CSV: {e}")
+
+    def save_validator_prompt(self, prompt):
+        try:
+            file_path = os.path.join(self.data_directory, 'latest_validator_prompt.csv')
             df = pd.DataFrame([{"prompt": prompt}])
             df.to_csv(file_path, mode='w', header=True, index=False)
             print(f"Prompt saved to {file_path}")
@@ -229,11 +258,21 @@ class Predictor:
         except Exception as e:
             print(f"Error saving dip prompt to CSV: {e}")
 
-    def save_stable_response(self, decision, explanation):
+    def save_predictor_response(self, decision, explanation):
         try:
-            file_path = os.path.join(self.data_directory, 'stable_predictions.csv')
+            file_path = os.path.join(self.data_directory, 'predictor_response.csv')
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             df = pd.DataFrame([{"timestamp": timestamp, "prediction": decision, "explanation": explanation}])
+            df.to_csv(file_path, mode='a', header=not os.path.exists(file_path), index=False)
+            print(f"Stable Prediction and explanation saved to {file_path}")
+        except Exception as e:
+            print(f"Error saving stable response to CSV: {e}")
+
+    def save_validator_response(self, decision, explanation):
+        try:
+            file_path = os.path.join(self.data_directory, 'validator_response.csv')
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            df = pd.DataFrame([{"timestamp": timestamp, "validation": decision, "explanation": explanation}])
             df.to_csv(file_path, mode='a', header=not os.path.exists(file_path), index=False)
             print(f"Stable Prediction and explanation saved to {file_path}")
         except Exception as e:
@@ -249,33 +288,41 @@ class Predictor:
         except Exception as e:
             print(f"Error saving dip response to CSV: {e}")
 
-    def get_prediction(self, all_features=None, current_price=None, historical_data_1=None, historical_data_2=None, prediction_type=None ,positions=None, trading_interval=None):
+    def prompt_openai(self, all_features=None, current_price=None, historical_data_1=None, historical_data_2=None, prediction_type=None, positions=None, prompt_type=None ,predictor_response=None):
         prompt = None
         current_obv = None
+        response = None
 
-        if trading_interval is not None:
-            current_obv = all_features[trading_interval].get('OBV', None)
-
-        if prediction_type == 'Stable':
+        if prediction_type == 'Stable' and prompt_type == 'predictor':
             prompt = self.format_stable_prompt(all_features, current_price, historical_data_1, historical_data_2, current_obv)
-            self.save_stable_prompt(prompt)
-        elif prediction_type == 'Dip':
+            self.save_predictor_prompt(prompt)
+        elif prediction_type == 'Dip' and prompt_type == 'predictor':
             prompt = self.format_dip_prompt(positions, current_price, historical_data_2)
             self.save_dip_prompt(prompt)
+        elif prediction_type == 'Stable' and prompt_type == 'validator':
+            prompt = self.format_strategy_response_prompt(predictor_response)
+            self.save_validator_prompt(prompt)
+
 
         for attempt in range(self.max_retries):
             try:
-                response = self.chatgpt_client.get_prediction(prompt)
+                if prompt_type == 'predictor':
+                    response = self.chatgpt_client.get_prediction(prompt)
+                elif prompt_type == 'validator':
+                    response = self.chatgpt_client.get_validation(prompt)
 
                 # Extract the decision from the response
                 decision = self.extract_decision_from_response(response)
                 explanation = response  # Keep the entire response as the explanation
 
-                if decision and prediction_type == 'Stable':
-                    self.save_stable_response(decision, explanation)
+                if decision and prediction_type == 'Stable' and prompt_type == 'predictor':
+                    self.save_predictor_response(decision, explanation)
                     return decision, explanation
-                elif decision and prediction_type == 'Dip':
+                elif decision and prediction_type == 'Dip' and prompt_type == 'predictor':
                     self.save_dip_response(decision, explanation)
+                    return decision, explanation
+                elif decision and prediction_type == 'Stable' and prompt_type == 'validator':
+                    self.save_validator_response(decision, explanation)
                     return decision, explanation
                 else:
                     self.notifier.send_notification("Predictor Error", message=f"{response}")
@@ -371,7 +418,7 @@ if __name__ == "__main__":
 
         if all_features:
             # Get the prediction using the processed features
-            decision, explanation = predictor.get_prediction(all_features)
+            decision, explanation = predictor.prompt_openai(all_features)
 
             # Print the results
             print(f"Prediction: {decision}")
