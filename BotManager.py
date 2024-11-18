@@ -1076,6 +1076,7 @@ class BotManager:
                         error_message = f"Failed to execute Buy order: {order_details}"
                         self.save_error_to_csv(error_message)
                         logging.error(f"Failed to execute Buy order: {order_details}")
+                        self.notifier.send_notification("Trade Error", error_message, sound="intermission")
 
                 elif final_decision == "Buy_Dip":
                     trade_execution_start = time.time()
@@ -1101,6 +1102,7 @@ class BotManager:
                         error_message = f"Failed to execute Buy order: {order_details}"
                         self.save_error_to_csv(error_message)
                         logging.error(f"Failed to execute Buy order: {order_details}")
+                        self.notifier.send_notification("Trade Error", error_message, sound="intermission")
 
                 elif prediction == "Buy" and final_decision == "Hold":
                     self.notifier.send_notification(title="Decision Maker", message=f"Decision Maker Hold The Buy Prediction Prediction at {current_price}", sound="intermission")
