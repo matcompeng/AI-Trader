@@ -170,11 +170,11 @@ class Predictor:
 
         prompt +=(
             "\n\n### Here's GPT API response:\n"
-            f"{response}\n\n"
+            f"((({response})))\n\n"
         )
 
         prompt +=(
-            "### Here's Your Instructions:"
+            "### Here's Your Instructions:\n"
             "    - According to your roll here and submitted trading strategy, cross check then confirm or Revise the final recommendation of the provided GPT API response.\n"
             "    - Must post format &Buy& and &Hold& for the final recommendation only in your response and it should not include this format in your checking explanation."
         )
