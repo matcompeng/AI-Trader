@@ -920,6 +920,20 @@ class BotManager:
         # If no close positions are found, return False
         return False ,'NA'
 
+    def ema_positive(self, all_features, interval):
+        if interval in all_features:
+            ema_7 = all_features[interval].get('EMA_7')
+            ema_25 = all_features[interval].get('EMA_25')
+
+
+            if ema_7 and ema_25:
+                return ema_7 > ema_25
+            else:
+                raise ValueError(f"EMA values are not available for the interval {interval}.")
+        else:
+            raise ValueError(f"Interval {interval} not found in all_features.")
+
+
 
     def run_prediction_cycle(self):
 
@@ -976,6 +990,7 @@ class BotManager:
                 # Check if the price change is greater than PREDICT_IN_BANDWIDTH% and check MACD status and if price close to positions
                 bandwidth_price_change = self.calculate_prediction_bandwidth(all_features)
                 macd_positive = self.macd_positive(all_features, DIP_INTERVAL)
+                ema_positive = self.ema_positive(all_features, DIP_INTERVAL)
                 price_above_sar = self.price_above_SAR(all_features, SAR_INTERVALS, current_price)
                 within_budget = self.within_stable_budget()
                 buy_price_too_close ,price_difference = self.buy_price_too_close(buy_price=current_price,feature=all_features)
@@ -985,7 +1000,7 @@ class BotManager:
                 logging.info(f"Price Difference: {price_difference}")
 
                 # Predicting Generation Process
-                if bandwidth_price_change > PREDICT_BANDWIDTH and price_above_sar and within_budget and classification not in X_INDEX and not buy_price_too_close:
+                if bandwidth_price_change > PREDICT_BANDWIDTH and price_above_sar and within_budget and classification not in X_INDEX and not buy_price_too_close and ema_positive:
                     prediction_start = time.time()
                     print("Generating prediction...")
                     logging.info("Generating prediction...")
@@ -1016,21 +1031,24 @@ class BotManager:
                     logging.info(f"Prediction: {validation}. Explanation: {validator_response}")
                 else:
                     prediction = "Hold"
+                    if not ema_positive:
+                        print("***EMA is Negative. Prediction Suspended***")
+                        logging.info("***EMA is Negative. Prediction Suspended***")
                     if classification in X_INDEX:
-                        print(f"***Market is Under {classification} index. Prediction: Hold***")
-                        logging.info("***Market is Under {classification} index. Prediction: Hold***")
+                        print(f"***Market is Under {classification} index. Prediction Suspended***")
+                        logging.info("***Market is Under {classification} index. Prediction Suspended***")
                     elif not bandwidth_price_change > PREDICT_BANDWIDTH:
-                        print(f"***Bandwidth price change is less than {PREDICT_BANDWIDTH}%. Prediction: Hold***")
-                        logging.info(f"***Bandwidth price change is less than {PREDICT_BANDWIDTH}%. Prediction: Hold***")
+                        print(f"***Bandwidth price change is less than {PREDICT_BANDWIDTH}%. Prediction Suspended***")
+                        logging.info(f"***Bandwidth price change is less than {PREDICT_BANDWIDTH}%. Prediction Suspended***")
                     elif not price_above_sar:
-                        print("***Price is under SAR value. Prediction: Hold***")
-                        logging.info("***Price is under SAR value. Prediction: Hold***")
+                        print("***Price is under SAR value. Prediction Suspended***")
+                        logging.info("***Price is under SAR value. Prediction Suspended***")
                     elif not within_budget:
-                        print(f"***Stable Trading Budget exceeded {MAX_TRADING_INV * 100}%. Prediction: Hold***")
-                        logging.info(f"***Stable Trading Budget exceeded {MAX_TRADING_INV * 100}. Prediction: Hold%***")
+                        print(f"***Stable Trading Budget exceeded {MAX_TRADING_INV * 100}%. Prediction: Suspended***")
+                        logging.info(f"***Stable Trading Budget exceeded {MAX_TRADING_INV * 100}. Prediction Suspended%***")
                     elif  buy_price_too_close:
-                        print("***Buy Price to close to an existing position. Prediction: Hold***")
-                        logging.info("***Buy Price to close to an existing position. Prediction: Hold***")
+                        print("***Buy Price to close to an existing position. Prediction Suspended***")
+                        logging.info("***Buy Price to close to an existing position. Prediction Suspended***")
 
 
                 # Make a decision

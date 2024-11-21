@@ -4,7 +4,7 @@ import os
 
 class DecisionMaker:
     def __init__(self, risk_tolerance=None, base_stop_loss=None, base_take_profit=None, trading_interval=None, profit_interval=None,
-                 loose_interval=None, dip_interval=None, amount_rsi_interval=None, amount_atr_interval=None, min_stable_intervals=None, gain_sell_threshold=None,roc_down_speed=None, data_directory='data'):
+                 loose_interval=None, dip_interval=None, amount_rsi_interval=None, amount_atr_interval=None, min_stable_intervals=None, gain_sell_threshold=None,roc_down_speed=None, data_directory='data', scalping_interval=None):
         self.risk_tolerance = risk_tolerance
         self.base_stop_loss = base_stop_loss
         self.base_take_profit = base_take_profit
@@ -20,6 +20,7 @@ class DecisionMaker:
         self.sell_threshold = gain_sell_threshold  # 25% loss from max gain to trigger sell
         self.roc_down_speed = roc_down_speed
         self.trading_interval= trading_interval
+        self.scalping_interval = scalping_interval
 
     def save_max_gain(self):
         """
@@ -292,6 +293,17 @@ class DecisionMaker:
                 raise Exception(f"Error checking positions: {e}")
 
             # If no close positions are found, return False
+            return False
+
+        def scalping_ema_positive():
+            """
+            Check if EMA (7) is greater than EMA (25) for the interval specified by self.scalping_interval.
+            :return: True if EMA (7) > EMA (25), otherwise False.
+            """
+            ema_7 = all_features[self.scalping_interval].get('EMA_7', None)
+            ema_25 = all_features[self.scalping_interval].get('EMA_25', None)
+            if ema_7 is not None and ema_25 is not None:
+                return ema_7 > ema_25
             return False
 
         # Get the necessary data
