@@ -1,6 +1,8 @@
 import json
 import os
 import time
+from xml.sax.handler import all_features
+
 import schedule
 import logging
 import traceback
@@ -27,6 +29,7 @@ TRADING_PAIR = 'BNBUSDT'        # Select Cryptocurrency Trading Pair
 
 # Feature Intervals:
 FEATURES_INTERVALS = ['1m', '5m', '15m', '30m', '1h']
+SCALPING_INTERVALS = ['1m', '5m']
 
 # Profit - Loss:
 POSITION_TIMEOUT = 3*24              # Set The Timeout In Hours for Position.
@@ -57,8 +60,8 @@ DIP_INTERVAL = '1h'                  # Select The Interval For Buying a Dip.
 DIP_CYCLE = 60                       # Time in Minutes to Run the Dip Historical Context Process.
 
 # Amounts
-CAPITAL_AMOUNT = 27000               # Your Capital Investment.
-RISK_TOLERANCE = 0.35                # The Portion Amount you want to take risk of capital for each Buying position.
+CAPITAL_AMOUNT = 100               # Your Capital Investment.
+RISK_TOLERANCE = 0.25                # The Portion Amount you want to take risk of capital for each Buying position.
 MAX_TRADING_INV = 1.00               # Maximum Stable Trading Investment Budget Percent Of Capital.
 USDT_DIP_AMOUNT = 500                # Amount of Currency For Buying a Dip.
 AMOUNT_RSI_INTERVAL = '15m'          # Interval To get its RSI for Buying Amount Calculations Function.
@@ -90,12 +93,12 @@ class PositionManager:
         with open(self.positions_file, 'w') as file:
             json.dump(self.positions, file, indent=4)
 
-    def add_position(self, position_id, entry_price, amount, dip_flag):
+    def add_position(self, position_id, entry_price, amount, scalping_flag):
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Add timestamp
         self.positions[position_id] = {
             'entry_price': entry_price,
             'amount': amount,
-            'dip': dip_flag,
+            'scalping': scalping_flag,
             'timestamp': timestamp  # Save the timestamp
         }
         self.save_positions()
@@ -126,7 +129,8 @@ class BotManager:
                                             amount_rsi_interval=AMOUNT_RSI_INTERVAL,
                                             min_stable_intervals=MIN_STABLE_INTERVALS,
                                             roc_down_speed=ROC_DOWN_SPEED,
-                                            trading_interval=TRADING_INTERVAL
+                                            trading_interval=TRADING_INTERVAL,
+                                            scalping_intervals=SCALPING_INTERVALS
                                             )
         self.trader = Trader(symbol=TRADING_PAIR)  # Initialize the Trader class
         self.notifier = Notifier()
@@ -180,8 +184,8 @@ class BotManager:
         """
         Calculate the percentage price change between the upper and lower Bollinger Bands of the PREDICTOR_INTERVAL interval.
         """
-        upper_band = all_features[INTERVAL_BANDWIDTH].get('upper_band')
-        lower_band = all_features[INTERVAL_BANDWIDTH].get('lower_band')
+        upper_band = all_features['latest'][INTERVAL_BANDWIDTH].get('upper_band')
+        lower_band = all_features['latest'][INTERVAL_BANDWIDTH].get('lower_band')
 
         if upper_band and lower_band:
             price_change = ((upper_band - lower_band) / lower_band) * 100
@@ -243,17 +247,17 @@ class BotManager:
         """
         Calculate the total invested amount based on the current positions recorded in positions.json.
         Returns three values:
-        1. stable_invested: Invested amount where dip_flag != position['dip']
-        2. dip_invested: Invested amount where dip_flag == position['dip']
+        1. stable_invested: Invested amount where scalping_flag != position['scalping']
+        2. scalping_invested: Invested amount where scalping_flag == position['scalping']
         3. total_investment: Total invested amount for all positions
-        :return: stable_invested, dip_invested, total_investment
+        :return: stable_invested, scalping_invested, total_investment
         """
         try:
             # Get all positions
             positions = self.position_manager.get_positions()
             total_invested = 0.0
             stable_invested = 0.0
-            dip_invested = 0.0
+            scalping_invested = 0.0
 
             # Iterate over each position and calculate the invested amount
             for position_id, position in positions.items():
@@ -262,13 +266,13 @@ class BotManager:
                 invested_amount = entry_price * amount
                 total_invested += invested_amount
 
-                # Check the dip flag and categorize the investment
-                if position['dip'] == 1:
-                    dip_invested += invested_amount
+                # Check the scalping flag and categorize the investment
+                if position['scalping'] == 1:
+                    scalping_invested += invested_amount
                 else:
                     stable_invested += invested_amount
 
-            return stable_invested, dip_invested, total_invested
+            return stable_invested, scalping_invested, total_invested
 
         except Exception as e:
             logging.error(f"Error calculating invested budget: {e}")
@@ -283,10 +287,10 @@ class BotManager:
         :param interval: The specific interval to check (e.g., '5m', '15m', '1h').
         :return: True if MACD fast > MACD signal, otherwise raises an error.
         """
-        if interval in all_features:
-            macd = all_features[interval].get('MACD')
-            macd_signal = all_features[interval].get('MACD_signal')
-            macd_hist = all_features[interval].get('MACD_hist')
+        if interval in all_features['latest']:
+            macd = all_features['latest'][interval].get('MACD')
+            macd_signal = all_features['latest'][interval].get('MACD_signal')
+            macd_hist = all_features['latest'][interval].get('MACD_hist')
 
             if macd is not None and macd_signal is not None:
                 return macd >= macd_signal and macd_hist >= 0
@@ -297,7 +301,7 @@ class BotManager:
 
     def calculate_portfolio_take_profit(self, all_features):
         """
-        Calculate the average take profit for the portfolio where 'dip' = 0.
+        Calculate the average take profit for the portfolio where 'scalping' = 0.
         Uses the existing 'calculate_adjusted_take_profit' function from the DecisionMaker class.
         :return: The average take profit for stable positions in percentage.
         """
@@ -306,14 +310,14 @@ class BotManager:
             total_take_profit = 0.0
             count = 0
 
-            # Iterate over each position where 'dip' = 0
+            # Iterate over each position where 'scalping' = 0
             for position_id, position in positions.items():
-                if position['dip'] == 0:
+                if position['scalping'] == 0:
                     entry_price = float(position['entry_price'])
 
                     # Assuming you have the relevant bands (upper and lower) stored in all_features
-                    upper_band_profit = all_features[PROFIT_INTERVAL].get('upper_band', None)
-                    lower_band_profit = all_features[PROFIT_INTERVAL].get('lower_band', None)
+                    upper_band_profit = all_features['latest'][PROFIT_INTERVAL].get('upper_band', None)
+                    lower_band_profit = all_features['latest'][PROFIT_INTERVAL].get('lower_band', None)
 
                     # Calculate the adjusted take profit for this position
                     adjusted_take_profit = self.decision_maker.calculate_adjusted_take_profit(
@@ -336,7 +340,7 @@ class BotManager:
 
     def calculate_portfolio_adjusted_stop_loss(self, all_features):
         """
-        Calculate the average adjusted stop loss for the portfolio where 'dip' = 0.
+        Calculate the average adjusted stop loss for the portfolio where 'scalping' = 0.
         Uses the existing 'calculate_adjusted_stop_lower' and 'calculate_adjusted_stop_middle' functions from the DecisionMaker class.
         :return: The average adjusted stop loss for stable positions in percentage.
         """
@@ -345,15 +349,15 @@ class BotManager:
             total_stop_loss = 0.0
             count = 0
 
-            # Iterate over each position where 'dip' = 0 (stable positions)
+            # Iterate over each position where 'scalping' = 0 (stable positions)
             for position_id, position in positions.items():
-                if position['dip'] == 0:
+                if position['scalping'] == 0:
                     entry_price = float(position['entry_price'])
 
                     # Get the relevant Bollinger Bands from all_features for stop loss calculation
-                    lower_band_loss = all_features[LOSS_INTERVAL].get('lower_band', None)
-                    middle_band_loss = all_features[LOSS_INTERVAL].get('middle_band', None)
-                    upper_band_loss = all_features[LOSS_INTERVAL].get('upper_band', None)
+                    lower_band_loss = all_features['latest'][LOSS_INTERVAL].get('lower_band', None)
+                    middle_band_loss = all_features['latest'][LOSS_INTERVAL].get('middle_band', None)
+                    upper_band_loss = all_features['latest'][LOSS_INTERVAL].get('upper_band', None)
 
                     # Check the position of entry_price and calculate stop loss accordingly
                     if lower_band_loss is not None and middle_band_loss is not None and entry_price > lower_band_loss and entry_price < middle_band_loss:
@@ -384,9 +388,9 @@ class BotManager:
 
     def breaking_upper_bands(self, all_features, current_price):
 
-        upper_band_15m = all_features['15m'].get('upper_band', None)
-        upper_band_30m = all_features['30m'].get('upper_band', None)
-        upper_band_1h = all_features['1h'].get('upper_band', None)
+        upper_band_15m = all_features['latest']['15m'].get('upper_band', None)
+        upper_band_30m = all_features['latest']['30m'].get('upper_band', None)
+        upper_band_1h = all_features['latest']['1h'].get('upper_band', None)
 
         if current_price > upper_band_15m and current_price > upper_band_30m:
             return True
@@ -396,7 +400,7 @@ class BotManager:
 
     def breaking_upper_band(self, all_features, current_price):
 
-        upper_band = all_features[DIP_INTERVAL].get('upper_band', None)
+        upper_band = all_features['latest'][DIP_INTERVAL].get('upper_band', None)
 
         if current_price > upper_band:
             return True
@@ -556,22 +560,28 @@ class BotManager:
             print(f"\nrescheduled to run every {position_period} Seconds")
             logging.info(f"\nrescheduled to run every {position_period} Seconds")
 
+            market_data = self.data_collector.collect_data()
+            all_features = self.feature_processor.process(market_data)
+            stable_invested, scalping_invested, total_invested = self.invested_budget()
+            current_price = self.trader.get_current_price()
+            trading_cryptocurrency_amount = self.convert_usdt_to_crypto(current_price,
+                                                                        self.decision_maker.calculate_buy_amount
+                                                                        (all_features=all_features,
+                                                                         amount_atr_interval=AMOUNT_ATR_INTERVAL,
+                                                                         amount_rsi_interval=AMOUNT_RSI_INTERVAL,
+                                                                         capital=CAPITAL_AMOUNT))
+
+
             print("\nChecking if there is Stable Entries:")
             if self.stable_position():
                 # Taking Bot Manager Class Instance
                 bot_manager = BotManager()
-
-                # Get features and make a decision on whether to sell
-                market_data = self.data_collector.collect_data()
-                all_features = self.feature_processor.process(market_data)
-                stable_invested, dip_invested, total_invested = self.invested_budget()
 
                 market_stable,stable_intervals = self.decision_maker.market_downtrend_stable(all_features)
                 resistance_level, average_resistance = self.decision_maker.get_resistance_info(all_features)
                 support_level, average_support = self.decision_maker.get_support_info(all_features)
                 stopp_loss = self.decision_maker.loading_stop_loss()
 
-                current_price = self.trader.get_current_price()
                 if current_price is None:
                     print("Failed to get current price. Skipping position check.")
                     logging.info("Failed to get current price. Skipping position check.")
@@ -595,7 +605,7 @@ class BotManager:
                 print(f"---Stop Loss = {stopp_loss}---")
                 logging.info(f"---Stop Loss = {stopp_loss}---")
 
-                stable_positions_len = len([position for position_id, position in self.position_manager.get_positions().items() if position['dip'] == 0])
+                stable_positions_len = len([position for position_id, position in self.position_manager.get_positions().items() if position['scalping'] == 0])
                 print(f"Stable Positions Count: {stable_positions_len}")
                 logging.info(f"Stable Positions Count: {stable_positions_len}")
 
@@ -629,17 +639,17 @@ class BotManager:
                         for position_id, position in positions_copy:
                             entry_price = position['entry_price']
                             amount = position['amount']
-                            dip_flag = position['dip']
+                            scalping_flag = position['scalping']
 
                             gain_loose = round(self.calculate_gain_loose(entry_price, current_price), 2)
 
-                            if dip_flag == 0:
+                            if scalping_flag == 0:
                                 trade_type = 'Stable'
                                 print(f"Selling position {position_id}")
                                 logging.info(f"Selling position {position_id}")
                                 trade_status, order_details = self.trader.execute_trade(reversed_decision, amount)
                                 if trade_status == "Success":
-                                    stable_invested, dip_invested, total_invested = self.invested_budget()
+                                    stable_invested, scalping_invested, total_invested = self.invested_budget()
                                     profit_usdt = self.calculate_profit(trade_quantity=amount, sold_price=current_price,
                                                                         entry_price=entry_price)
                                     self.position_manager.remove_position(position_id)
@@ -652,7 +662,7 @@ class BotManager:
                                                                     f"Gain/Loose: {gain_loose}%\n"
                                                                     "Sell Mode: Trailing\n"
                                                                     f"Stable Invested: {round(stable_invested)} USDT\n"
-                                                                    f"Dip Invested: {round(dip_invested)} USDT\n"
+                                                                    f"Scalping Invested: {round(scalping_invested)} USDT\n"
                                                                     f"Total Invested: {round(total_invested)} USDT")
                                 else:
                                     error_message = f"Failed to execute Sell order: {order_details}"
@@ -669,7 +679,7 @@ class BotManager:
                     for position_id, position in positions_copy:
                         entry_price = position['entry_price']
                         amount = position['amount']
-                        dip_flag = position['dip']
+                        scalping_flag = position['scalping']
                         timestamp = position['timestamp']
 
                         if not all_features:
@@ -681,13 +691,13 @@ class BotManager:
                             "Suspended", current_price, entry_price, all_features, self.position_expired(timestamp, POSITION_TIMEOUT), macd_positive,bot_manager=bot_manager)
                         gain_loose = round(self.calculate_gain_loose(entry_price, current_price), 2)
 
-                        if final_decision == "Sell" and dip_flag == 0:
+                        if final_decision == "Sell" and scalping_flag == 0:
                             trade_type = 'Stable'
                             print(f"Selling position {position_id}")
                             logging.info(f"Selling position {position_id}")
                             trade_status, order_details = self.trader.execute_trade(final_decision, amount)
                             if trade_status == "Success":
-                                stable_invested, dip_invested, total_invested = self.invested_budget()
+                                stable_invested, scalping_invested, total_invested = self.invested_budget()
                                 profit_usdt = self.calculate_profit(trade_quantity=amount, sold_price=current_price,
                                                                     entry_price=entry_price)
                                 self.position_manager.remove_position(position_id)
@@ -698,65 +708,32 @@ class BotManager:
                                                                                   f"Gain/Loose: {gain_loose}%\n"
                                                                                   "Sell Mode: Fix-Loss/Profit\n"       
                                                                                   f"Stable Invested: {round(stable_invested)} USDT\n"
-                                                                                  f"Dip Invested: {round(dip_invested)} USDT\n"
+                                                                                  f"Scalping Invested: {round(scalping_invested)} USDT\n"
                                                                                   f"Total Invested: {round(total_invested)} USDT")
                             else:
                                 error_message = f"Failed to execute Sell order: {order_details}"
                                 self.save_error_to_csv(error_message)
                                 self.notifier.send_notification("Trade Error", error_message)
                         else:
-                            if dip_flag == 0:
+                            if scalping_flag == 0:
                                 print(f"Holding position: {position_id}, timestamp: {timestamp},Entry Price: {entry_price}, Current Price: {current_price}, ((Gain/Loose: {gain_loose}%))")
                                 logging.info(f"Holding position: {position_id}, timestamp: {timestamp}, Entry Price: {entry_price}, Current Price: {current_price}, ((Gain/Loose: {gain_loose}%))")
                                 print(f"dynamic_stop_loss_lower: {round(adjusted_stop_loss_lower, 2)}%, dynamic_stop_loss_middle: {round(adjusted_stop_loss_middle, 2)}%, dynamic_take_profit: {round(adjusted_take_profit, 2)}%\n")
                                 logging.info(f"dynamic_stop_loss_lower: {round(adjusted_stop_loss_lower, 2)}%, dynamic_stop_loss_middle: {round(adjusted_stop_loss_middle, 2)}%, dynamic_take_profit: {round(adjusted_take_profit, 2)}\n%")
 
                     print(f"Stable Invested: {round(stable_invested)} USDT\n"
-                                              f"Dip Invested: {round(dip_invested)} USDT\n"
+                                              f"Scalping Invested: {round(scalping_invested)} USDT\n"
                                               f"Total Invested: {round(total_invested)} USDT")
                     logging.info(f"Stable Invested: {round(stable_invested)} USDT\n"
-                                              f"Dip Invested: {round(dip_invested)} USDT\n"
+                                              f"Scalping Invested: {round(scalping_invested)} USDT\n"
                                               f"Total Invested: {round(total_invested)} USDT")
                     self.log_time("Position check", start_time)
+
             else:
                 print("No Stable Entry Founds")
 
-            if self.dip_position():
-                print("\nChecking if there is Dip Entries:")
-                current_price = self.trader.get_current_price()
-                positions_copy = [
-                    (position_id, position) for position_id, position in self.position_manager.get_positions().items()
-                    if position.get('dip') == 1
-                ]
-
-                # Calculate the average entry price using the new function
-                avg_entry_price = self.calculate_average_entry_price(positions_copy)
-
-                # Print and log the average entry price
-                print(f"Average Entry Price for Dip Positions: {avg_entry_price:.2f}")
-                logging.info(f"Average Entry Price for Dip Positions: {avg_entry_price:.2f}")
-
-                for position_id, position in positions_copy:
-                    entry_price = position['entry_price']
-                    gain_loose = round(self.calculate_gain_loose(entry_price, current_price), 2)
-                    amount = position['amount']
-                    print(
-                        f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
-                    logging.info(
-                        f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
-
-                stable_invested, dip_invested, total_invested = self.invested_budget()
-                print(f"\nStable Invested: {round(stable_invested)} USDT\n"
-                      f"Dip Invested: {round(dip_invested)} USDT\n"
-                      f"Total Invested: {round(total_invested)} USDT")
-                logging.info(f"Stable Invested: {round(stable_invested)} USDT\n"
-                             f"Dip Invested: {round(dip_invested)} USDT\n"
-                             f"Total Invested: {round(total_invested)} USDT")
-
-            else:
-                print("No Dip Entry Founds")
-
-
+            # Start Scalping Cycle Here
+            self.check_scalping_cycle(all_features, current_price, trading_cryptocurrency_amount)
 
         except Exception as e:
             logging.error(f"An error occurred during position check: {str(e)}")
@@ -775,7 +752,7 @@ class BotManager:
             # Collect market data and process features
             market_data = self.data_collector.collect_data()
             features = self.feature_processor.process(market_data)
-            trading_feature = features[TRADING_INTERVAL]
+            trading_feature = features['latest'][TRADING_INTERVAL]
 
             # Load existing data if the file already exists
             if os.path.exists(historical_file):
@@ -806,21 +783,9 @@ class BotManager:
         except Exception as e:
             print(f"Error saving Stable historical context for interval '{TRADING_INTERVAL}': {e}")
             logging.info(f"Error saving Stable historical context for interval '{TRADING_INTERVAL}': {e}")
+            self.save_error_to_csv(str(e))
+            self.notifier.send_notification("Saves stable historical context error", message=str(e))
 
-    def dip_position(self):
-        positions_copy = list(self.position_manager.get_positions().items())
-        for position_id, position in positions_copy:
-            dip_flag = position['dip']
-            if dip_flag == 1:
-                return True
-        return False
-
-    def stable_position(self):
-        positions_copy = list(self.position_manager.get_positions().items())
-        for position_id, position in positions_copy:
-            if position['dip'] == 0:
-                return True
-        return False
 
     def save_historical_context_for_dip(self):
         """
@@ -831,7 +796,7 @@ class BotManager:
             # Collect market data and process features
             market_data = self.data_collector.collect_data()
             features = self.feature_processor.process(market_data)
-            dip_feature = features[DIP_INTERVAL]
+            dip_feature = features['latest'][DIP_INTERVAL]
 
             # Prepare the historical file path based on the interval
             historical_file = os.path.join(data_directory, f'{DIP_INTERVAL}_dip_historical_context.json')
@@ -863,6 +828,23 @@ class BotManager:
         except Exception as e:
             print(f"Error saving Dip historical context for interval '{DIP_INTERVAL}': {e}")
             logging.info(f"Error saving Dip historical context for interval '{DIP_INTERVAL}': {e}")
+            self.save_error_to_csv(str(e))
+            self.notifier.send_notification("Saves Dip historical context error", message=str(e))
+
+    def scalping_positions(self):
+        positions_copy = list(self.position_manager.get_positions().items())
+        for position_id, position in positions_copy:
+            scalping_flag = position['scalping']
+            if scalping_flag == 1:
+                return True
+        return False
+
+    def stable_position(self):
+        positions_copy = list(self.position_manager.get_positions().items())
+        for position_id, position in positions_copy:
+            if position['scalping'] == 0:
+                return True
+        return False
 
     def price_above_SAR(self, all_features, intervals, current_price):
         """
@@ -874,23 +856,26 @@ class BotManager:
         :return: True if the current price is above the SAR value for all intervals, otherwise False.
         """
         for interval in intervals:
-            if interval in all_features:
-                sar_value = all_features[interval].get('SAR')
+            # Check if the interval exists in all_features['latest']
+            if interval not in all_features['latest']:
+                raise ValueError(f"Interval '{interval}' not found in all_features['latest'].")
 
-                if sar_value is None:
-                    raise ValueError(f"SAR value is not available for the interval {interval}.")
+            # Access SAR value from the 'latest' data of the interval
+            latest_features = all_features['latest'][interval]
+            sar_value = latest_features.get('SAR')
 
-                # Return False immediately if the condition is not met for any interval
-                if current_price <= sar_value:
-                    return False
-            else:
-                raise ValueError(f"Interval {interval} not found in all_features.")
+            if sar_value is None:
+                raise ValueError(f"SAR value is not available for the interval '{interval}'.")
+
+            # Return False immediately if the condition is not met for any interval
+            if current_price <= sar_value:
+                return False
 
         # Return True only if the current price is above SAR for all intervals
         return True
 
     def within_stable_budget(self):
-        stable_invested, dip_invested, total_invested = self.invested_budget()
+        stable_invested, Scalping_invested, total_invested = self.invested_budget()
         stable_invested_percent = stable_invested/CAPITAL_AMOUNT
         return stable_invested_percent <= MAX_TRADING_INV
 
@@ -902,7 +887,7 @@ class BotManager:
         :return: True if the price is too close to an existing position, otherwise False
         """
         try:
-            atr_value = feature[TRADING_INTERVAL].get('ATR', None)
+            atr_value = feature['latest'][TRADING_INTERVAL].get('ATR', None)
             # Loop through each position and check if the new buy price is too close
             for position_id, position in self.position_manager.get_positions().items():
                 existing_price = position.get('entry_price')
@@ -921,9 +906,9 @@ class BotManager:
         return False ,'NA'
 
     def ema_positive(self, all_features, interval):
-        if interval in all_features:
-            ema_7 = all_features[interval].get('EMA_7')
-            ema_25 = all_features[interval].get('EMA_25')
+        if interval in all_features['latest']:
+            ema_7 = all_features['latest'][interval].get('EMA_7')
+            ema_25 = all_features['latest'][interval].get('EMA_25')
 
 
             if ema_7 and ema_25:
@@ -1079,8 +1064,8 @@ class BotManager:
 
                     if trade_status == "Success":
                         position_id = str(int(time.time()))
-                        self.position_manager.add_position(position_id, current_price, trading_cryptocurrency_amount, dip_flag=0)
-                        stable_invested, dip_invested, total_invested = self.invested_budget()
+                        self.position_manager.add_position(position_id, current_price, trading_cryptocurrency_amount, scalping_flag=0)
+                        stable_invested, Scalping_invested, total_invested = self.invested_budget()
                         print(
                             f"New position added: {position_id}, Entry Price: {current_price}, Amount: {trading_cryptocurrency_amount}")
                         logging.info(
@@ -1088,34 +1073,8 @@ class BotManager:
                         self.notifier.send_notification("Stable Trade Executed",
                                                         f"Bought {trading_cryptocurrency_amount} {COIN} at ${current_price}\n"
                                                                           f"Stable Invested: {round(stable_invested)} USDT\n"
-                                                                          f"Dip Invested: {round(dip_invested)} USDT\n"
+                                                                          f"Scalping Invested: {round(Scalping_invested)} USDT\n"
                                                                           f"Total Invested: {round(total_invested)} USDT")
-                    else:
-                        error_message = f"Failed to execute Buy order: {order_details}"
-                        self.save_error_to_csv(error_message)
-                        logging.error(f"Failed to execute Buy order: {order_details}")
-                        self.notifier.send_notification("Trade Error", error_message, sound="intermission")
-
-                elif final_decision == "Buy_Dip":
-                    trade_execution_start = time.time()
-                    print("Executing Buying a Dip...")
-                    logging.info("Executing Buying a Dip...")
-                    trade_status, order_details = self.trader.execute_trade(final_decision, dip_cryptocurrency_amount)
-                    self.log_time("Trade execution (Buy) For Dip", trade_execution_start)
-
-                    if trade_status == "Success":
-                        position_id = str(int(time.time()))
-                        self.position_manager.add_position(position_id, current_price, dip_cryptocurrency_amount, dip_flag=1)
-                        stable_invested, dip_invested, total_invested = self.invested_budget()
-                        print(
-                            f"New position added: {position_id}, Entry Price: {current_price}, Amount: {dip_cryptocurrency_amount}")
-                        logging.info(
-                            f"New position added: {position_id}, Entry Price: {current_price}, Amount: {dip_cryptocurrency_amount}")
-                        self.notifier.send_notification("Dip Trade Executed",
-                                                        f"Bought {dip_cryptocurrency_amount} {COIN} at ${current_price}\n"
-                                                                 f"Stable Invested: {round(stable_invested)} USDT\n"
-                                                                 f"Dip Invested: {round(dip_invested)} USDT\n"
-                                                                 f"Total Invested: {round(total_invested)} USDT")
                     else:
                         error_message = f"Failed to execute Buy order: {order_details}"
                         self.save_error_to_csv(error_message)
@@ -1147,7 +1106,7 @@ class BotManager:
 
     def calculate_average_entry_price(self, positions_copy):
         """
-        Calculate the average entry price for all positions with a 'dip' flag set to 1.
+        Calculate the average entry price for all positions with a 'Scalping' flag set to 1.
         :param positions_copy: List of positions to calculate the average for.
         :return: The average entry price.
         """
@@ -1166,102 +1125,105 @@ class BotManager:
 
         return avg_entry_price
 
-    def check_dip_positions(self):
+
+
+    def check_scalping_cycle(self, all_features, current_price, trading_cryptocurrency_amount):
         try:
             start_time = time.time()
             cycle_start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            print(f"\n^^^^^^^^^^Dip Position check cycle started at {cycle_start_time}.^^^^^^^^^^")
+            print(f"\n^^^^^^^^^^^^^^^^^^^^Scalping cycle started at {cycle_start_time}.^^^^^^^^^^^^^^^^^^^^")
             logging.info(
-                f"//^^^^^^^^^^^^^^^^^^^^Dip Position check cycle started at {cycle_start_time}^^^^^^^^^^^^^^^^^^^^//")
+                f"//^^^^^^^^^^^^^^^^^^^^Scalping cycle started at {cycle_start_time}^^^^^^^^^^^^^^^^^^^^//")
 
-            # Loading dip_positions
-            if self.dip_position():
+            scalping_positions = self.scalping_positions()
+
+            # Get Scalping Decision Maker
+            decision = self.decision_maker.scalping_make_decision(all_features, scalping_positions)
+            print(f"Scalping Decision Maker Suggesting ///{decision}///")
+            logging.info(f"Scalping Decision Maker Suggesting ///{decision}///")
+
+            # Scalping Buy
+            if decision == "Buy_Sc":
+                trade_execution_start = time.time()
+                print("Executing Buying a Scalping...")
+                logging.info("Executing Buying a Scalping...")
+                trade_status, order_details = self.trader.execute_trade(decision, trading_cryptocurrency_amount)
+                self.log_time("Trade execution (Buy) For Scalping", trade_execution_start)
+
+                if trade_status == "Success":
+                    position_id = str(int(time.time()))
+                    self.position_manager.add_position(position_id, current_price, trading_cryptocurrency_amount,
+                                                       scalping_flag=1)
+                    stable_invested, Scalping_invested, total_invested = self.invested_budget()
+                    print(
+                        f"New position added: {position_id}, Entry Price: {current_price}, Amount: {trading_cryptocurrency_amount}")
+                    logging.info(
+                        f"New position added: {position_id}, Entry Price: {current_price}, Amount: {trading_cryptocurrency_amount}")
+                    self.notifier.send_notification("Scalping Trade Executed",
+                                                    f"Bought {trading_cryptocurrency_amount} {COIN} at ${current_price}\n"
+                                                    f"Stable Invested: {round(stable_invested)} USDT\n"
+                                                    f"Scalping Invested: {round(Scalping_invested)} USDT\n"
+                                                    f"Total Invested: {round(total_invested)} USDT")
+                else:
+                    error_message = f"Failed to execute Buy order: {order_details}"
+                    self.save_error_to_csv(error_message)
+                    logging.error(f"Failed to execute Buy order: {order_details}")
+                    self.notifier.send_notification("Trade Error", error_message, sound="intermission")
+
+            # Scalping Sell
+            if self.scalping_positions():
                 positions_copy = [
                     (position_id, position) for position_id, position in self.position_manager.get_positions().items()
-                    if position.get('dip') == 1
+                    if position.get('scalping') == 1
                 ]
 
-                # Calculate the average entry price
-                avg_entry_price = self.calculate_average_entry_price(positions_copy)
-
-                # Print and log the average entry price
-                print(f"Average Entry Price for Dip Positions: {avg_entry_price:.2f}")
-                logging.info(f"Average Entry Price for Dip Positions: {avg_entry_price:.2f}")
-
-                # Loading market data
-                market_data = self.data_collector.collect_data()
-                all_features = self.feature_processor.process(market_data)
-
-                # Loading Dip Historical context data
-                historical_data = self.feature_processor.get_dip_historical_data()
-
-                # Get current price
-                price_check_start = time.time()
-                print("Getting current price before executing the prediction...")
-                logging.info("Getting current price before executing the prediction...")
-                current_price = self.trader.get_current_price()
-                self.log_time("Current price check", price_check_start)
-                if current_price is None:
-                    print("Failed to get current price. Skipping this cycle.")
-                    logging.info("Failed to get current price. Skipping this cycle.")
-                    return
-
-                # Generate Dip Prediction
-                prediction_start = time.time()
-                print("Generating prediction...")
-                logging.info("Generating prediction...")
-                prediction, explanation = self.predictor.prompt_openai(current_price=current_price,
-                                                                       historical_data_2=historical_data,
-                                                                       prediction_type='Dip',
-                                                                       positions=positions_copy)
-                self.log_time("Prediction generation", prediction_start)
-                print(f"Predictor Recommends To  ///{prediction}///")
-                logging.info(f"Prediction: {prediction}. Explanation: {explanation}")
-
-                # Dip Trade Execution
+                # Scalping Trade Execution
                 for position_id, position in positions_copy:
                     entry_price = position['entry_price']
                     amount = position['amount']
 
                     gain_loose = round(self.calculate_gain_loose(entry_price, current_price), 2)
 
-                    if prediction == 'Sell':
-                        trade_type = 'Dip'
-                        print(f"Selling position {position_id}")
+                    if decision == 'Sell_Sc':
+                        trade_type = 'Scalping'
+                        print(f"Selling scalping position {position_id}")
                         logging.info(f"Selling position {position_id}")
-                        trade_status, order_details = self.trader.execute_trade(prediction, amount)
+                        trade_status, order_details = self.trader.execute_trade(decision, amount)
                         if trade_status == "Success":
                             profit_usdt = self.calculate_profit(trade_quantity=amount, sold_price=current_price,
                                                                 entry_price=entry_price)
-                            stable_invested, dip_invested, total_invested = self.invested_budget()
+                            stable_invested, Scalping_invested, total_invested = self.invested_budget()
                             self.position_manager.remove_position(position_id)
                             self.log_sold_position(position_id, trade_type, entry_price, current_price, profit_usdt,
                                                    gain_loose)
-                            print(f"Position {position_id} sold successfully")
-                            logging.info(f"Position {position_id} sold successfully")
-                            self.notifier.send_notification("Dip Trade Executed",
+                            print(f"Scalping Position {position_id} sold successfully")
+                            logging.info(f"Scalping Position {position_id} sold successfully")
+                            self.notifier.send_notification("Scalping Trade Executed",
                                                             f"Sold {amount} {COIN} at ${current_price}\n"
                                                             f"Gain/Loose: {gain_loose}%\n"
-                                                            "Sell Mode: Dip\n"
+                                                            "Sell Mode: Scalping\n"
                                                             f"Stable Invested: {round(stable_invested)} USDT\n"
-                                                            f"Dip Invested: {round(dip_invested)} USDT\n"
+                                                            f"Scalping Invested: {round(Scalping_invested)} USDT\n"
                                                             f"Total Invested: {round(total_invested)} USDT")
                         else:
-                            error_message = f"Failed to execute Sell order: {order_details}"
+                            error_message = f"Failed to execute scalping Sell order: {order_details}"
                             self.save_error_to_csv(error_message)
-                            self.notifier.send_notification("Trade Error", error_message, sound="intermission")
+                            self.notifier.send_notification("Scalping Trade Error", error_message, sound="intermission")
 
                     else:
-                        print("Prediction: ///Hold///")
-                        logging.info("Prediction: ///Hold///")
+                        print("Scalping Decision: ///Hold///")
+                        logging.info("Scalping Decision: ///Hold///")
                         print(
                             f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
                         logging.info(
                             f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
 
+
             else:
-                print("\nNo Dip Entry Founds")
-                logging.info("\nNo Dip Entry Founds")
+                print("\nNo Scalping Entry Founds")
+                logging.info("\nNo Scalping Entry Founds")
+
+            self.log_time("Scalping Cycle", start_time)
 
         except Exception as e:
             logging.error(f"An error occurred during position check: {str(e)}")
@@ -1428,9 +1390,6 @@ class BotManager:
             # Start the stable prediction cycle in a separate thread
             prediction_thread = threading.Thread(target=self.check_dip_historical_timeframe, daemon=True)
             prediction_thread.start()
-
-            # Schedule the dip check to run every 12 hours
-            # schedule.every(1).hours.do(self.check_dip_positions)
 
             # Continuously monitor position_period and run the scheduled tasks
             while True:

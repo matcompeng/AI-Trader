@@ -20,11 +20,11 @@ class Trader:
                 return "Error", "Failed to fetch current price."
 
             # Execute the trade based on the decision
-            if decision == "Buy" or decision == "Buy_Dip":
+            if decision == "Buy" or decision == "Buy_Sc":
                 order = self.client.order_market_buy(symbol=self.symbol, quantity=amount)
                 print(f"Buy Order Executed: {order}")
                 return "Success", order
-            elif decision == "Sell":
+            elif decision == "Sell" or decision == "Sell_Sc":
                 order = self.client.order_market_sell(symbol=self.symbol, quantity=amount)
                 print(f"Sell Order Executed: {order}")
                 return "Success", order

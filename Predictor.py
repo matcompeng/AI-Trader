@@ -134,16 +134,16 @@ class Predictor:
         prompt += "\n\n### Here is the current market data across different intervals:\n"
 
         # Include the current market data from different intervals
-        for interval, features in all_features.items():
-            if features:
+        for interval, latest_features in all_features['latest'].items():
+            if latest_features:
                 interval_prompt = (
                     f"Interval '{interval}':\n"
-                    f"RSI: {features['RSI']:.2f}, "
-                    f"MACD Hist: {features['MACD_hist']:.2f}, " 
-                    f"StochRSI %K: {features['stoch_rsi_k']:.2f}, "  # Updated to reflect stochRSI
-                    f"StochRSI %D: {features['stoch_rsi_d']:.2f}, "  # Updated to reflect stochRSI
-                    f"ADX: {features['ADX']:.2f}, "
-                    f"OBV: {features['OBV']:.2f}\n\n"
+                    f"RSI: {latest_features['RSI']:.2f}, " 
+                    f"MACD Hist: {latest_features['MACD_hist']:.2f}, "  
+                    f"StochRSI %K: {latest_features['stoch_rsi_k']:.2f}, "
+                    f"StochRSI %D: {latest_features['stoch_rsi_d']:.2f}, "
+                    f"ADX: {latest_features['ADX']:.2f}, "
+                    f"OBV: {latest_features['OBV']:.2f}\n\n"
                 )
                 prompt += interval_prompt
 

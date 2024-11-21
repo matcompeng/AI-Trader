@@ -21,7 +21,10 @@ class FeatureProcessor:
 
     def process(self, data):
         try:
-            all_features = {}
+            all_features = {
+                'latest': {},
+                'history': {}
+            }
 
             for interval, market_data in data.items():
                 # Extract the OHLCV DataFrame from the data dictionary
@@ -49,11 +52,17 @@ class FeatureProcessor:
                 df['EMA_25'] = talib.EMA(df['close'], timeperiod=25)
                 df['EMA_100'] = talib.EMA(df['close'], timeperiod=100)
 
-                df['MACD'], df['MACD_signal'], df['MACD_hist'] = talib.MACD(df['close'], fastperiod=12, slowperiod=26, signalperiod=9)
+                # Calculate MACD
+                df['MACD'], df['MACD_signal'], df['MACD_hist'] = talib.MACD(df['close'], fastperiod=12, slowperiod=26,
+                                                                            signalperiod=9)
+
+                # Calculate Bollinger Bands
                 df['upper_band'], df['middle_band'], df['lower_band'] = talib.BBANDS(df['close'], timeperiod=20)
+
+                # Calculate ADX
                 df['ADX'] = talib.ADX(df['high'], df['low'], df['close'], timeperiod=14)
 
-                # Calculate Stochastic RSI using the existing RSI calculation
+                # Calculate Stochastic RSI
                 df['stoch_rsi_k'], df['stoch_rsi_d'] = self.calculate_stoch_rsi(df['close'])
 
                 # Calculate ATR
@@ -62,10 +71,10 @@ class FeatureProcessor:
                 # Calculate OBV (On-Balance Volume)
                 df['OBV'] = talib.OBV(df['close'], df['volume'])
 
-                # Calculate VWAP manually with a length period of 14
+                # Calculate VWAP
                 df['VWAP'] = self.calculate_vwap(df, period=14)
 
-                # Add this line after other TA-Lib calculations (e.g., RSI, SMA, etc.)
+                # Calculate SAR
                 df['SAR'] = talib.SAR(df['high'], df['low'], acceleration=0.02, maximum=0.2)
 
                 # Calculate Rate of Change (ROC)
@@ -77,54 +86,52 @@ class FeatureProcessor:
                     self.price_value_1m = df['close'].iloc[-1]
 
                 # Calculate support and resistance levels based on the order book
-                support_level,resistance_level, average_support, average_resistance = self.calculate_support_resistance_from_orderbook(market_data['order_book'])
+                support_level, resistance_level, average_support, average_resistance = self.calculate_support_resistance_from_orderbook(
+                    market_data['order_book'])
                 df['support_level'] = support_level
                 df['resistance_level'] = resistance_level
                 df['average_support'] = average_support
                 df['average_resistance'] = average_resistance
 
-                # Calculate support and resistance levels based on current time for the specified intervals
-                # if interval in self.intervals:
-                #     support_level, resistance_level = self.calculate_support_resistance(df, interval)
-                #     df['support_level'] = support_level
-                #     df['resistance_level'] = resistance_level
-                # else:
-                #     df['support_level'] = None
-                #     df['resistance_level'] = None
+                # Store the historical data for the interval
+                all_features['history'][interval] = df
 
-                # Extract the latest row to use as the features
-                features = df.iloc[-1].to_dict()
+                # Extract the latest row as the features for this interval
+                latest_features = df.iloc[-1].to_dict()
 
                 # Add additional features from the original data (including order book)
-                features['last_price'] = float(market_data['last_price'])
-                features['bid'] = float(market_data['bid']) if market_data['bid'] else None
-                features['ask'] = float(market_data['ask']) if market_data['ask'] else None
-                features['high'] = float(market_data['high'])
-                features['low'] = float(market_data['low'])
-                features['volume'] = float(market_data['volume'])
+                latest_features['last_price'] = float(market_data['last_price'])
+                latest_features['bid'] = float(market_data['bid']) if market_data['bid'] else None
+                latest_features['ask'] = float(market_data['ask']) if market_data['ask'] else None
+                latest_features['high'] = float(market_data['high'])
+                latest_features['low'] = float(market_data['low'])
+                latest_features['volume'] = float(market_data['volume'])
 
                 # Add order book features
                 if 'order_book' in market_data:
                     order_book = market_data['order_book']
-                    features['top_bid'] = float(order_book['bids'][0][0]) if order_book['bids'] else None
-                    features['top_ask'] = float(order_book['asks'][0][0]) if order_book['asks'] else None
-                    features['bid_ask_spread'] = features['top_ask'] - features['top_bid'] if features['top_bid'] and features['top_ask'] else None
-                    features['bid_volume'] = sum(float(bid[1]) for bid in order_book['bids'])  # Sum of bid volumes
-                    features['ask_volume'] = sum(float(ask[1]) for ask in order_book['asks'])  # Sum of ask volumes
-                    features['stop_loss'] = self.suggest_stop_loss_based_on_order_book(order_book)
+                    latest_features['top_bid'] = float(order_book['bids'][0][0]) if order_book['bids'] else None
+                    latest_features['top_ask'] = float(order_book['asks'][0][0]) if order_book['asks'] else None
+                    latest_features['bid_ask_spread'] = latest_features['top_ask'] - latest_features['top_bid'] if \
+                    latest_features['top_bid'] and latest_features['top_ask'] else None
+                    latest_features['bid_volume'] = sum(
+                        float(bid[1]) for bid in order_book['bids'])  # Sum of bid volumes
+                    latest_features['ask_volume'] = sum(
+                        float(ask[1]) for ask in order_book['asks'])  # Sum of ask volumes
+                    latest_features['stop_loss'] = self.suggest_stop_loss_based_on_order_book(order_book)
 
-                # Store the features for this interval
-                all_features[interval] = features
+                # Store the latest features for this interval
+                all_features['latest'][interval] = latest_features
 
-            # Convert the features dictionary to a DataFrame and save it
-            features_df = pd.DataFrame.from_dict(all_features, orient='index')
-            self.save_to_csv(features_df)
+            # Convert the latest features dictionary to a DataFrame and save it
+            latest_features_df = pd.DataFrame.from_dict(all_features['latest'], orient='index')
+            self.save_to_csv(latest_features_df)
 
             return all_features
+
         except Exception as e:
             print(f"Error processing features: {e}")
             raise Exception("Failed to Process Features")
-
 
     def calculate_vwap(self, df, period=14):
         # Calculate the typical price (TP) for each period

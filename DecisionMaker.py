@@ -1,10 +1,12 @@
 import json
 import os
 
+import pandas as pd
+
 
 class DecisionMaker:
     def __init__(self, risk_tolerance=None, base_stop_loss=None, base_take_profit=None, trading_interval=None, profit_interval=None,
-                 loose_interval=None, dip_interval=None, amount_rsi_interval=None, amount_atr_interval=None, min_stable_intervals=None, gain_sell_threshold=None,roc_down_speed=None, data_directory='data', scalping_interval=None):
+                 loose_interval=None, dip_interval=None, amount_rsi_interval=None, amount_atr_interval=None, min_stable_intervals=None, gain_sell_threshold=None,roc_down_speed=None, data_directory='data', scalping_intervals=None):
         self.risk_tolerance = risk_tolerance
         self.base_stop_loss = base_stop_loss
         self.base_take_profit = base_take_profit
@@ -20,7 +22,8 @@ class DecisionMaker:
         self.sell_threshold = gain_sell_threshold  # 25% loss from max gain to trigger sell
         self.roc_down_speed = roc_down_speed
         self.trading_interval= trading_interval
-        self.scalping_interval = scalping_interval
+        self.scalping_intervals = scalping_intervals
+
 
     def save_max_gain(self):
         """
@@ -133,8 +136,8 @@ class DecisionMaker:
         """
 
         # Extract data for each interval
-        current_atr = all_features[amount_atr_interval].get('ATR', None)
-        current_stoch_rsi = all_features[amount_rsi_interval].get('stoch_rsi_k', None)
+        current_atr = all_features['latest'][amount_atr_interval].get('ATR', None)
+        current_stoch_rsi = all_features['latest'][amount_rsi_interval].get('stoch_rsi_k', None)
 
         # Ensure ATR and StochRSI values are available
         if current_atr is None or current_stoch_rsi is None:
@@ -246,98 +249,6 @@ class DecisionMaker:
             return -self.base_stop_loss
         return 0
 
-
-
-    def make_decision(self, prediction, current_price, entry_price, all_features, position_expired, macd_positive, bot_manager):
-        """
-        Make a final trading decision based on the prediction and risk management rules.
-        :param bot_manager:
-        :param macd_positive:
-        :param position_expired:
-        :param prediction: The initial prediction from the Predictor (Buy, Sell, Hold).
-        :param current_price: The current market price of the asset.
-        :param entry_price: The price at which the current position was entered (if any).
-        :param all_features: Dictionary containing features for multiple intervals.
-        :return: Final decision (Buy, Sell, Hold), adjusted_stop_loss, adjusted_take_profit.
-        """
-
-        def buy_price_too_close(instance=bot_manager, buy_price=current_price):
-            """
-            Checks if the buy price is too close to any existing bought positions based on the ATR value.
-            :param instance: Instance of the bot manager
-            :param buy_price: The price of the new buy decision
-            :return: True if the price is too close to an existing position, otherwise False
-            """
-
-            if all_features is None or self.trading_interval is None:
-                raise ValueError("All features and trading interval must be provided for comparison.")
-
-            # Extract the ATR value for the specified trading interval
-            atr_value = all_features[self.trading_interval].get('ATR', None)
-            if atr_value is None:
-                raise ValueError(f"ATR value not found for trading interval: {self.trading_interval}")
-
-            try:
-                # Loop through each position and check if the new buy price is too close
-                for position_id, position in instance.position_manager.get_positions().items():
-                    existing_price = position.get('entry_price')
-                    if existing_price:
-                        # Calculate the price difference
-                        price_difference = abs(buy_price - existing_price)
-
-                        # If the price difference is less than the ATR, decline the buy
-                        if price_difference <= atr_value:
-                            return True
-
-            except Exception as e:
-                raise Exception(f"Error checking positions: {e}")
-
-            # If no close positions are found, return False
-            return False
-
-        def scalping_ema_positive():
-            """
-            Check if EMA (7) is greater than EMA (25) for the interval specified by self.scalping_interval.
-            :return: True if EMA (7) > EMA (25), otherwise False.
-            """
-            ema_7 = all_features[self.scalping_interval].get('EMA_7', None)
-            ema_25 = all_features[self.scalping_interval].get('EMA_25', None)
-            if ema_7 is not None and ema_25 is not None:
-                return ema_7 > ema_25
-            return False
-
-        # Get the necessary data
-        lower_band_profit = all_features[self.profit_interval].get('lower_band', None)
-        upper_band_profit = all_features[self.profit_interval].get('upper_band', None)
-        lower_band_loss = all_features[self.loose_interval].get('lower_band', None)
-        middle_band_loss = all_features[self.loose_interval].get('middle_band', None)
-        upper_band_loss = all_features[self.loose_interval].get('upper_band', None)
-        market_stable, stable_intervals = self.market_downtrend_stable(all_features)
-        is_there_dip = self.is_there_dip(all_features)
-
-        # Adjust stop_loss based
-        adjusted_stop_loss_middle = self.calculate_adjusted_stop_middle(entry_price, upper_band_loss, middle_band_loss)
-        adjusted_stop_loss_lower = self.calculate_adjusted_stop_lower(entry_price, lower_band_loss, middle_band_loss)
-
-        # adjust take_profit base
-        adjusted_take_profit = self.calculate_adjusted_take_profit(entry_price, upper_band_profit, lower_band_profit)
-
-        if prediction == "Buy" and market_stable and not buy_price_too_close():
-            return "Buy", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
-
-        elif prediction == "Buy" and not market_stable and is_there_dip:
-            return "Buy_Dip", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
-
-        elif prediction == "Suspended" and entry_price:
-            if self.should_sell(current_price, entry_price, adjusted_stop_loss_lower, adjusted_stop_loss_middle,
-                                adjusted_take_profit, middle_band_loss, lower_band_loss, all_features, position_expired, macd_positive):
-                return "Sell", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
-
-        elif prediction == "Sell" and entry_price:
-            return "Sell", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
-
-        return "Hold", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
-
     def market_stable(self, all_features):
         """
         Check if the market is stable based on volatility and other criteria across multiple intervals.
@@ -347,7 +258,8 @@ class DecisionMaker:
         stable_intervals = 0
         total_intervals = len(all_features)
 
-        for interval, features in all_features.items():
+        for interval, latest_features in all_features['latest'].items():
+
             # Check ATR (Average True Range) to measure volatility
             # atr = features.get('ATR', None)
             # close_price = features.get('close', None)
@@ -357,13 +269,13 @@ class DecisionMaker:
             #         stable_intervals += 1
 
             # Additional checks for stability could include:
-            rsi = features.get('RSI', None)
+            rsi = latest_features.get('RSI', None)
             if rsi and 30 <= rsi <= 70:
                 stable_intervals += 1
 
-            close_price = features.get('close', None)
-            upper_band = features.get('upper_band', None)
-            lower_band = features.get('lower_band', None)
+            close_price = latest_features.get('close', None)
+            upper_band = latest_features.get('upper_band', None)
+            lower_band = latest_features.get('lower_band', None)
             if upper_band and lower_band and close_price:
                 if lower_band <= close_price <= upper_band:
                     stable_intervals += 1
@@ -384,19 +296,19 @@ class DecisionMaker:
         stable_count = 0
         total_intervals = len(all_features)
 
-        for interval, features in all_features.items():
+        for interval, latest_features in all_features['latest'].items():
 
-            roc = features.get('ROC', None)
+            roc = latest_features.get('ROC', None)
             if roc is not None:
                 if roc > self.roc_down_speed:
                     stable_count += 1
 
-            rsi = features.get('RSI', None)
+            rsi = latest_features.get('RSI', None)
             if rsi >= 30:
                 stable_count += 1
 
-            close_price = features.get('close', None)
-            lower_band = features.get('lower_band', None)
+            close_price = latest_features.get('close', None)
+            lower_band = latest_features.get('lower_band', None)
             if  lower_band and close_price:
                 if close_price >= lower_band:
                     stable_count += 1
@@ -410,15 +322,17 @@ class DecisionMaker:
 
     def get_resistance_info(self, all_features):
 
-        for interval, features in all_features.items():
+        for interval, latest_features in all_features['latest'].items():
+
             if interval == self.profit_interval:
-                return features.get('resistance_level', None), features.get('average_resistance', None)
+                return latest_features.get('resistance_level', None), latest_features.get('average_resistance', None)
 
     def get_support_info(self, all_features):
 
-        for interval, features in all_features.items():
+        for interval, latest_features in all_features['latest'].items():
+
             if interval == self.loose_interval:
-                return features.get('support_level', None), features.get('average_support', None)
+                return latest_features.get('support_level', None), latest_features.get('average_support', None)
 
     def support_level_stable(self, all_features):
         support_level, average_support = self.get_support_info(all_features)
@@ -433,9 +347,11 @@ class DecisionMaker:
         return False
 
     def get_stop_loss(self, all_features):
-        for interval, features in all_features.items():
+
+        for interval, latest_features in all_features['latest'].items():
+
             if interval == self.loose_interval:
-                return features.get('stop_loss', None)
+                return latest_features.get('stop_loss', None)
 
     def loading_stop_loss(self):
         """
@@ -455,8 +371,8 @@ class DecisionMaker:
 
     def is_there_dip(self, all_features):
 
-        interval_lower_band = all_features[self.dip_interval].get('lower_band', None)
-        interval_close_price = all_features[self.dip_interval].get('close', None)
+        interval_lower_band = all_features['latest'][self.dip_interval].get('lower_band', None)
+        interval_close_price = all_features['latest'][self.dip_interval].get('close', None)
 
         if interval_close_price < interval_lower_band:
             return True
@@ -497,4 +413,182 @@ class DecisionMaker:
         # If none of the above conditions are met, do not sell
         return False
 
-#  TODO: develop function calculate Dip amount dynamically with intervals RSI and FearGreed Index
+
+
+    def make_decision(self, prediction, current_price, entry_price, all_features, position_expired, macd_positive, bot_manager):
+        """
+        Make a final trading decision based on the prediction and risk management rules.
+        :param bot_manager:
+        :param macd_positive:
+        :param position_expired:
+        :param prediction: The initial prediction from the Predictor (Buy, Sell, Hold).
+        :param current_price: The current market price of the asset.
+        :param entry_price: The price at which the current position was entered (if any).
+        :param all_features: Dictionary containing features for multiple intervals.
+        :return: Final decision (Buy, Sell, Hold), adjusted_stop_loss, adjusted_take_profit.
+        """
+
+        def buy_price_too_close(instance=bot_manager, buy_price=current_price):
+            """
+            Checks if the buy price is too close to any existing bought positions based on the ATR value.
+            :param instance: Instance of the bot manager
+            :param buy_price: The price of the new buy decision
+            :return: True if the price is too close to an existing position, otherwise False
+            """
+
+            if all_features is None or self.trading_interval is None:
+                raise ValueError("All features and trading interval must be provided for comparison.")
+
+            # Extract the ATR value for the specified trading interval
+            atr_value = all_features['latest'][self.trading_interval].get('ATR', None)
+            if atr_value is None:
+                raise ValueError(f"ATR value not found for trading interval: {self.trading_interval}")
+
+            try:
+                # Loop through each position and check if the new buy price is too close
+                for position_id, position in instance.position_manager.get_positions().items():
+                    existing_price = position.get('entry_price')
+                    if existing_price:
+                        # Calculate the price difference
+                        price_difference = abs(buy_price - existing_price)
+
+                        # If the price difference is less than the ATR, decline the buy
+                        if price_difference <= atr_value:
+                            return True
+
+            except Exception as e:
+                raise Exception(f"Error checking positions: {e}")
+
+            # If no close positions are found, return False
+            return False
+
+        # Get the necessary data
+        lower_band_profit = all_features['latest'][self.profit_interval].get('lower_band', None)
+        upper_band_profit = all_features['latest'][self.profit_interval].get('upper_band', None)
+        lower_band_loss = all_features['latest'][self.loose_interval].get('lower_band', None)
+        middle_band_loss = all_features['latest'][self.loose_interval].get('middle_band', None)
+        upper_band_loss = all_features['latest'][self.loose_interval].get('upper_band', None)
+        market_stable, stable_intervals = self.market_downtrend_stable(all_features)
+        is_there_dip = self.is_there_dip(all_features)
+
+        # Adjust stop_loss based
+        adjusted_stop_loss_middle = self.calculate_adjusted_stop_middle(entry_price, upper_band_loss, middle_band_loss)
+        adjusted_stop_loss_lower = self.calculate_adjusted_stop_lower(entry_price, lower_band_loss, middle_band_loss)
+
+        # adjust take_profit base
+        adjusted_take_profit = self.calculate_adjusted_take_profit(entry_price, upper_band_profit, lower_band_profit)
+
+        if prediction == "Buy" and market_stable and not buy_price_too_close():
+            return "Buy", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
+
+        elif prediction == "Buy" and not market_stable and is_there_dip:
+            return "Buy_Dip", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
+
+        elif prediction == "Suspended" and entry_price:
+            if self.should_sell(current_price, entry_price, adjusted_stop_loss_lower, adjusted_stop_loss_middle,
+                                adjusted_take_profit, middle_band_loss, lower_band_loss, all_features, position_expired, macd_positive):
+                return "Sell", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
+
+        elif prediction == "Sell" and entry_price:
+            return "Sell", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
+
+        return "Hold", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
+
+
+
+    def scalping_make_decision(self, all_features, scalping_positions):
+
+        def scalping_ema_positive():
+            """
+            Check if EMA (7) is greater than EMA (25) for the interval specified by self.scalping_interval.
+            :return: True if EMA (7) > EMA (25), otherwise False.
+            """
+            ema_7 = all_features['latest'][self.scalping_intervals[1]].get('EMA_7', None)
+            print(f"Scalping EMA_7= {ema_7:.2f}")
+            ema_25 = all_features['latest'][self.scalping_intervals[1]].get('EMA_25', None)
+            print(f"Scalping EMA_25= {ema_25:.2f}")
+            if ema_7 is not None and ema_25 is not None:
+                print(f"scalping_ema_positive is {ema_7 > ema_25}\n")
+                return ema_7 > ema_25
+            return False
+
+        def stoch_rsi_cross_signal():
+            """
+            Check if StochRSI %K has crossed above or below %D for the specified scalping_interval.
+            :return: 'cross_above' if %K crossed above %D, 'cross_down' if %K crossed below %D, None otherwise.
+            """
+            # Get the historical data for the scalping interval
+            interval_data = all_features['history'].get(self.scalping_intervals[1], pd.DataFrame())
+
+            # Ensure that there are at least two data points for checking the crossover
+            if len(interval_data) >= 2:
+                # Get the previous and current values of StochRSI %K and %D
+                previous_k = interval_data.iloc[-2].get('stoch_rsi_k', None)
+                previous_d = interval_data.iloc[-2].get('stoch_rsi_d', None)
+                current_k = interval_data.iloc[-1].get('stoch_rsi_k', None)
+                current_d = interval_data.iloc[-1].get('stoch_rsi_d', None)
+
+                # Debugging print statements
+                if previous_k is not None and previous_d is not None and current_k is not None and current_d is not None:
+                    print(f"previous_k={previous_k:.2f}")
+                    print(f"previous_d={previous_d:.2f}")
+                    print(f"current_k={current_k:.2f}")
+                    print(f"current_d={current_d:.2f}\n")
+
+                    if previous_k <= previous_d and current_k > current_d:
+                        print("StochRSI Cross Signal: cross_above")
+                        return 'cross_above'
+                    elif previous_k >= previous_d and current_k < current_d:
+                        print("StochRSI Cross Signal: cross_down")
+                        return 'cross_down'
+
+            return None
+
+        def scalping_macd_positive():
+            """
+            Check if the MACD Histogram value has increased positively or decreased in negativity for the scalping interval.
+            :return: True if the MACD Histogram shows an increase in positive value or a decrease in negativity, otherwise False.
+            """
+            # Get the historical data for the scalping interval
+            interval_data = all_features['history'].get(self.scalping_intervals[0], pd.DataFrame())
+
+            # Ensure that there are at least two data points to compare
+            if len(interval_data) >= 2:
+                # Get the previous and current values of MACD histogram
+                previous_macd_hist = interval_data.iloc[-2].get('MACD_hist', None)
+                current_macd_hist = interval_data.iloc[-1].get('MACD_hist', None)
+
+                # Debugging print statements
+                if previous_macd_hist is not None and current_macd_hist is not None:
+                    print(f"previous_macd_hist={previous_macd_hist:.2f}")
+                    print(f"current_macd_hist={current_macd_hist:.2f}\n")
+
+                    # Check if the MACD histogram has increased positively or decreased in negativity
+                    if (current_macd_hist > previous_macd_hist) and (
+                            (current_macd_hist >= 0) or (previous_macd_hist < 0)
+                    ):
+                        return True
+
+            return False
+
+        # Decision Conditions For Scalping:
+        stoch_rsi_cross_signal()
+
+        if scalping_positions:
+            # If we have an active buy, we only consider selling
+            if stoch_rsi_cross_signal() == 'cross_down':
+
+                return 'Sell_Sc'
+            else:
+                return 'Hold'
+        else:
+            # If we don't have a scalping positions , we consider buying
+            if scalping_ema_positive() and scalping_macd_positive() and stoch_rsi_cross_signal() == 'cross_above':
+
+                return 'Buy_Sc'
+
+        # Default action is to hold
+        return 'Hold'
+
+
+
