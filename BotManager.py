@@ -552,9 +552,9 @@ class BotManager:
         try:
             start_time = time.time()
             cycle_start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            print(f"\n----------Stable Position check cycle started at {cycle_start_time}.----------")
+            print(f"\n--------------------Stable Position check cycle started at {cycle_start_time}.--------------------")
             logging.info(
-                f"//---------------------Stable Position check cycle started at {cycle_start_time}--------------------//")
+                f"//--------------------Stable Position check cycle started at {cycle_start_time}--------------------//")
 
             position_period = self.load_position_period()
             print(f"\nrescheduled to run every {position_period} Seconds")
@@ -931,9 +931,9 @@ class BotManager:
                 start_time = time.time()
                 cycle_start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 print(
-                    f"\n\n&&&&&&&&&&Prediction cycle started at {cycle_start_time}, running every {TRADING_INTERVAL}.&&&&&&&&&&")
+                    f"\n\n&&&&&&&&&&&&&&&&&&&&Prediction cycle started at {cycle_start_time}, running every {TRADING_INTERVAL}.&&&&&&&&&&&&&&&&&&&&")
                 logging.info(
-                    f"//&&&&&&&&&&&&&&&&&&&Prediction cycle started at {cycle_start_time}&&&&&&&&&&&&&&&&&&&//")
+                    f"//&&&&&&&&&&&&&&&&&&&&Prediction cycle started at {cycle_start_time}&&&&&&&&&&&&&&&&&&&&//")
 
                 # Collect market data
                 market_data_start = time.time()
@@ -1126,7 +1126,6 @@ class BotManager:
         return avg_entry_price
 
 
-
     def check_scalping_cycle(self, all_features, current_price, trading_cryptocurrency_amount):
         try:
             start_time = time.time()
@@ -1171,6 +1170,7 @@ class BotManager:
                     self.notifier.send_notification("Trade Error", error_message, sound="intermission")
 
             # Scalping Sell
+            print("\nChecking if there is Scalping Entries:")
             if self.scalping_positions():
                 positions_copy = [
                     (position_id, position) for position_id, position in self.position_manager.get_positions().items()
@@ -1218,16 +1218,16 @@ class BotManager:
                         logging.info(
                             f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
 
-
             else:
-                print("\nNo Scalping Entry Founds")
-                logging.info("\nNo Scalping Entry Founds")
+                print("No Scalping Entry Founds\n")
+                logging.info("\nNo Scalping Entry Founds\n")
 
             self.log_time("Scalping Cycle", start_time)
 
         except Exception as e:
             logging.error(f"An error occurred during position check: {str(e)}")
             self.save_error_to_csv(str(e))
+            self.notifier.send_notification(title='Scalping Cycle Error',message= str(e))
 
     def check_stable_prediction_timeframe(self):
         """

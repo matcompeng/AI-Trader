@@ -504,13 +504,12 @@ class DecisionMaker:
             :return: True if EMA (7) > EMA (25), otherwise False.
             """
             ema_7 = all_features['latest'][self.scalping_intervals[1]].get('EMA_7', None)
-            print(f"Scalping EMA_7= {ema_7:.2f}")
+            # print(f"Scalping EMA_7= {ema_7:.2f}")
             ema_25 = all_features['latest'][self.scalping_intervals[1]].get('EMA_25', None)
-            print(f"Scalping EMA_25= {ema_25:.2f}")
+            # print(f"Scalping EMA_25= {ema_25:.2f}")
             if ema_7 is not None and ema_25 is not None:
-                print(f"scalping_ema_positive is {ema_7 > ema_25}\n")
+                print(f"scalping_ema_positive: {ema_7 > ema_25}")
                 return ema_7 > ema_25
-            return False
 
         def stoch_rsi_cross_signal():
             """
@@ -529,20 +528,22 @@ class DecisionMaker:
                 current_d = interval_data.iloc[-1].get('stoch_rsi_d', None)
 
                 # Debugging print statements
-                if previous_k is not None and previous_d is not None and current_k is not None and current_d is not None:
-                    print(f"previous_k={previous_k:.2f}")
-                    print(f"previous_d={previous_d:.2f}")
-                    print(f"current_k={current_k:.2f}")
-                    print(f"current_d={current_d:.2f}\n")
+                # print(f"previous_k={previous_k:.2f}")
+                # print(f"previous_d={previous_d:.2f}")
+                # print(f"current_k={current_k:.2f}")
+                # print(f"current_d={current_d:.2f}")
 
-                    if previous_k <= previous_d and current_k > current_d:
-                        print("StochRSI Cross Signal: cross_above")
-                        return 'cross_above'
-                    elif previous_k >= previous_d and current_k < current_d:
-                        print("StochRSI Cross Signal: cross_down")
-                        return 'cross_down'
+                if previous_k <= previous_d and current_k > current_d:
+                    print("StochRSI Cross Signal: cross_above")
+                    return 'cross_above'
+                elif previous_k >= previous_d and current_k < current_d:
+                    print("StochRSI Cross Signal: cross_down")
+                    return 'cross_down'
+                else:
+                    print("StochRSI Cross Signal: No Signal")
+                    return 'No Signal'
 
-            return None
+
 
         def scalping_macd_positive():
             """
@@ -560,30 +561,31 @@ class DecisionMaker:
 
                 # Debugging print statements
                 if previous_macd_hist is not None and current_macd_hist is not None:
-                    print(f"previous_macd_hist={previous_macd_hist:.2f}")
-                    print(f"current_macd_hist={current_macd_hist:.2f}\n")
+                    # print(f"previous_macd_hist={previous_macd_hist:.2f}")
+                    # print(f"current_macd_hist={current_macd_hist:.2f}\n")
 
                     # Check if the MACD histogram has increased positively or decreased in negativity
-                    if (current_macd_hist > previous_macd_hist) and (
-                            (current_macd_hist >= 0) or (previous_macd_hist < 0)
-                    ):
+                    if current_macd_hist > previous_macd_hist:
+                        print("scalping_macd_positive: True")
                         return True
-
+            print("scalping_macd_positive: False")
             return False
 
         # Decision Conditions For Scalping:
-        stoch_rsi_cross_signal()
+        scalping_ema_positive = scalping_ema_positive()
+        scalping_macd_positive = scalping_macd_positive()
+        stoch_rsi_cross_signal = stoch_rsi_cross_signal()
 
         if scalping_positions:
             # If we have an active buy, we only consider selling
-            if stoch_rsi_cross_signal() == 'cross_down':
+            if stoch_rsi_cross_signal == 'cross_down':
 
                 return 'Sell_Sc'
             else:
                 return 'Hold'
         else:
             # If we don't have a scalping positions , we consider buying
-            if scalping_ema_positive() and scalping_macd_positive() and stoch_rsi_cross_signal() == 'cross_above':
+            if scalping_ema_positive and scalping_macd_positive and stoch_rsi_cross_signal == 'cross_above':
 
                 return 'Buy_Sc'
 
