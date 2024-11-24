@@ -124,7 +124,7 @@ class DecisionMaker:
             message = f"Error in checking for sell due to reversal: {e}"
             return "Hold" ,message
 
-    def calculate_buy_amount(self, all_features, amount_rsi_interval, amount_atr_interval, capital):
+    def calculate_buy_amount(self, all_features, amount_rsi_interval, amount_atr_interval, capital, current_price):
         """
         Calculate buy amount based on ATR (from 30m or 1h) and StochRSI (from 5m or 15m).
 
@@ -144,7 +144,7 @@ class DecisionMaker:
             raise ValueError("ATR or StochRSI data is missing.")
 
         # Calculate volatility factor
-        volatility_factor = 1 / current_atr
+        volatility_factor = current_atr / current_price
 
         # Calculate momentum factor with a piecewise linear interpolation
         if current_stoch_rsi <= 1:
@@ -565,14 +565,15 @@ class DecisionMaker:
                     # print(f"current_macd_hist={current_macd_hist:.2f}\n")
 
                     # Check if the MACD histogram has increased positively or decreased in negativity
-                    if current_macd_hist > previous_macd_hist:
+                    if ((current_macd_hist > 0 and previous_macd_hist > 0) and (current_macd_hist > previous_macd_hist) or
+                            (previous_macd_hist < 0 < current_macd_hist) and (current_macd_hist > previous_macd_hist)):
                         print("scalping_macd_positive: True")
                         return True
             print("scalping_macd_positive: False")
             return False
 
         # Decision Conditions For Scalping:
-        scalping_ema_positive = scalping_ema_positive()
+        # scalping_ema_positive = scalping_ema_positive()
         scalping_macd_positive = scalping_macd_positive()
         stoch_rsi_cross_signal = stoch_rsi_cross_signal()
 
@@ -585,7 +586,7 @@ class DecisionMaker:
                 return 'Hold'
         else:
             # If we don't have a scalping positions , we consider buying
-            if scalping_ema_positive and scalping_macd_positive and stoch_rsi_cross_signal == 'cross_above':
+            if scalping_macd_positive and stoch_rsi_cross_signal == 'cross_above':
 
                 return 'Buy_Sc'
 

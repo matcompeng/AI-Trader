@@ -24,8 +24,8 @@ from FearGreedIndex import FearGreedIndex
 # TODO : study ranging RISK_TOLERANCE with FearGreedIndex value
 # ##############################################Bot Configurations #################################################
 # Asset:
-COIN = 'BNB'                    # Select Cryptocurrency.
-TRADING_PAIR = 'BNBUSDT'        # Select Cryptocurrency Trading Pair
+COIN = 'DOGE'                    # Select Cryptocurrency.
+TRADING_PAIR = 'DOGEUSDT'        # Select Cryptocurrency Trading Pair
 
 # Feature Intervals:
 FEATURES_INTERVALS = ['1m', '5m', '15m', '30m', '1h']
@@ -41,6 +41,7 @@ ROC_DOWN_SPEED = -0.20               # Set The Min Acceptable Downtrend ROC Spee
 MIN_STABLE_INTERVALS = 1             # Set The Minimum Stable Intervals For Market Stable Condition.
 ORDERBOOK_THRESHOLD = 100            # Set Threshold of Orderbook Bid/Ask volume for support/resistance calculations.
 TRAILING_POSITIONS_COUNT = 1         # Define The Minimum Count For Stable Positions To start Trailing Check.
+VOLUME_THRESHOLD = 1000000            # Define The Min. Volume Threshold From OrderBook To Determine Stop Loss Level.
 
 # Predictor:
 PREDICTION_CYCLE = 15                # Time in Minutes to Run the Stable Prediction bot cycle.
@@ -119,7 +120,9 @@ class BotManager:
         api_secret = 'your_binance_api_secret'
 
         self.data_collector = DataCollector(api_key, api_secret, intervals=FEATURES_INTERVALS, symbol=TRADING_PAIR)
-        self.feature_processor = FeatureProcessor(intervals=FEATURES_INTERVALS, trading_interval=TRADING_INTERVAL, dip_interval=DIP_INTERVAL, orderbook_threshold=ORDERBOOK_THRESHOLD)
+        self.feature_processor = FeatureProcessor(intervals=FEATURES_INTERVALS, trading_interval=TRADING_INTERVAL,
+                                                  dip_interval=DIP_INTERVAL, orderbook_threshold=ORDERBOOK_THRESHOLD,
+                                                  volume_threshold=VOLUME_THRESHOLD ,loss_interval =LOSS_INTERVAL)
         self.chatgpt_client = ChatGPTClient()
         self.predictor = Predictor(self.chatgpt_client, coin=COIN, bot_manager=self,trading_interval=TRADING_INTERVAL, dip_interval=DIP_INTERVAL)
         self.decision_maker = DecisionMaker(base_take_profit=BASE_TAKE_PROFIT, base_stop_loss=BASE_STOP_LOSS,
@@ -177,7 +180,7 @@ class BotManager:
 
     def convert_usdt_to_crypto(self, current_price, usdt_amount):
         # Convert USDT amount to cryptocurrency amount and round to 5 decimal places
-        crypto_amount = round(usdt_amount / current_price, 2)
+        crypto_amount = round(usdt_amount / current_price, 5)
         return crypto_amount
 
     def calculate_prediction_bandwidth(self, all_features):
@@ -562,6 +565,12 @@ class BotManager:
 
             market_data = self.data_collector.collect_data()
             all_features = self.feature_processor.process(market_data)
+            bandwidth_price_change = self.calculate_prediction_bandwidth(all_features)
+
+            stopp_loss = self.decision_maker.loading_stop_loss()
+            print(f"|||Stop Loss Fixed at:   {stopp_loss:.4f}|||")
+            logging.info(f"|||Stop Loss Fixed at:   {stopp_loss:.4f}|||")
+
             stable_invested, scalping_invested, total_invested = self.invested_budget()
             current_price = self.trader.get_current_price()
             trading_cryptocurrency_amount = self.convert_usdt_to_crypto(current_price,
@@ -569,8 +578,9 @@ class BotManager:
                                                                         (all_features=all_features,
                                                                          amount_atr_interval=AMOUNT_ATR_INTERVAL,
                                                                          amount_rsi_interval=AMOUNT_RSI_INTERVAL,
-                                                                         capital=CAPITAL_AMOUNT))
-
+                                                                         capital=CAPITAL_AMOUNT,
+                                                                         current_price=current_price
+                                                                         ))
 
             print("\nChecking if there is Stable Entries:")
             if self.stable_position():
@@ -580,7 +590,6 @@ class BotManager:
                 market_stable,stable_intervals = self.decision_maker.market_downtrend_stable(all_features)
                 resistance_level, average_resistance = self.decision_maker.get_resistance_info(all_features)
                 support_level, average_support = self.decision_maker.get_support_info(all_features)
-                stopp_loss = self.decision_maker.loading_stop_loss()
 
                 if current_price is None:
                     print("Failed to get current price. Skipping position check.")
@@ -733,7 +742,10 @@ class BotManager:
                 print("No Stable Entry Founds")
 
             # Start Scalping Cycle Here
-            self.check_scalping_cycle(all_features, current_price, trading_cryptocurrency_amount)
+            if bandwidth_price_change > PREDICT_BANDWIDTH:
+                self.check_scalping_cycle(all_features, current_price, trading_cryptocurrency_amount)
+            else:
+                print(f"^^^^^^^^^^^^^^^^^^^Current BandWidth Price: {bandwidth_price_change} ,Scalping Suspended^^^^^^^^^^^^^^^^^^^")
 
         except Exception as e:
             logging.error(f"An error occurred during position check: {str(e)}")
@@ -1043,7 +1055,9 @@ class BotManager:
                                                                       (all_features=all_features,
                                                                       amount_atr_interval=AMOUNT_ATR_INTERVAL,
                                                                       amount_rsi_interval=AMOUNT_RSI_INTERVAL,
-                                                                      capital=CAPITAL_AMOUNT))
+                                                                      capital=CAPITAL_AMOUNT,
+                                                                       current_price=current_price
+                                                                       ))
 
                 dip_cryptocurrency_amount = self.convert_usdt_to_crypto(current_price, USDT_DIP_AMOUNT)
 
@@ -1140,6 +1154,9 @@ class BotManager:
             decision = self.decision_maker.scalping_make_decision(all_features, scalping_positions)
             print(f"Scalping Decision Maker Suggesting ///{decision}///")
             logging.info(f"Scalping Decision Maker Suggesting ///{decision}///")
+
+            print(f"trading_cryptocurrency_amount: {trading_cryptocurrency_amount}")
+            logging.info(f"trading_cryptocurrency_amount: {trading_cryptocurrency_amount}")
 
             # Scalping Buy
             if decision == "Buy_Sc":
@@ -1377,7 +1394,7 @@ class BotManager:
             self.stop_loss_process()  # Immediate run when the program starts
 
             # Schedule the stop loss process to run every hour
-            schedule.every(15).minutes.do(self.stop_loss_process).tag('stop_loss_process')
+            schedule.every(1).hour.do(self.stop_loss_process).tag('stop_loss_process')
 
             # Start the historical context cycle in a separate thread
             prediction_thread = threading.Thread(target=self.check_stable_prediction_timeframe, daemon=True)

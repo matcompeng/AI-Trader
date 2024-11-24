@@ -50,7 +50,7 @@ class DataCollector:
                 ticker = df.iloc[-1]
 
                 # Fetch order book data (bids, asks)
-                order_book = self.client.get_order_book(symbol=self.symbol, limit=500)
+                order_book = self.client.get_order_book(symbol=self.symbol, limit=1000)
 
                 # Collect all relevant data including the order book
                 data[interval] = {

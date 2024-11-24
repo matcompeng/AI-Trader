@@ -1,6 +1,7 @@
 import os
 from binance.client import Client
 from binance.exceptions import BinanceAPIException, BinanceOrderException
+from decimal import Decimal, ROUND_DOWN
 
 class Trader:
     def __init__(self, symbol):
@@ -11,6 +12,23 @@ class Trader:
 
         self.symbol = symbol
         self.client = Client(self.api_key, self.api_secret)
+        self.step_size = self.get_step_size()
+
+    def get_step_size(self):
+        try:
+            # Fetch exchange information to get the LOT_SIZE filter for the symbol
+            exchange_info = self.client.get_symbol_info(self.symbol)
+            for filter in exchange_info['filters']:
+                if filter['filterType'] == 'LOT_SIZE':
+                    return float(filter['stepSize'])
+        except Exception as e:
+            raise Exception(f"Error fetching LOT_SIZE for {self.symbol}: {e}")
+
+    def adjust_quantity(self, quantity):
+        step_size_decimal = Decimal(str(self.step_size))
+        quantity_decimal = Decimal(str(quantity))
+        adjusted_quantity = (quantity_decimal // step_size_decimal) * step_size_decimal
+        return float(adjusted_quantity)
 
     def execute_trade(self, decision, amount):
         try:
@@ -19,13 +37,20 @@ class Trader:
             if not current_price:
                 return "Error", "Failed to fetch current price."
 
+            # Adjust the amount to comply with Binance's LOT_SIZE
+            adjusted_amount = self.adjust_quantity(amount)
+            print(f"Adjusted trade amount {adjusted_amount}")
+            # Check if the adjusted amount is valid (greater than zero)
+            if adjusted_amount <= 0:
+                return "Error", f"Adjusted trade amount {adjusted_amount} is not valid."
+
             # Execute the trade based on the decision
             if decision == "Buy" or decision == "Buy_Sc":
-                order = self.client.order_market_buy(symbol=self.symbol, quantity=amount)
+                order = self.client.order_market_buy(symbol=self.symbol, quantity=adjusted_amount)
                 print(f"Buy Order Executed: {order}")
                 return "Success", order
             elif decision == "Sell" or decision == "Sell_Sc":
-                order = self.client.order_market_sell(symbol=self.symbol, quantity=amount)
+                order = self.client.order_market_sell(symbol=self.symbol, quantity=adjusted_amount)
                 print(f"Sell Order Executed: {order}")
                 return "Success", order
             else:

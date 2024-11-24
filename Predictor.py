@@ -91,24 +91,26 @@ class Predictor:
         prompt = self.trading_strategy
 
         # Include the historical context as one line per entry
-        if historical_data_1:
+        historical_data_short = all_features['history'].get(self.trading_interval, pd.DataFrame())
+        if not historical_data_short.empty:
             prompt += f"\n\n### Interval({self.trading_interval}) Historical Context:\n"
-            for entry in historical_data_1[-48:]:
-                historical_1_prompt = (
+            for entry in historical_data_short.iloc[-48:].to_dict(orient='records'):
+                historical_prompt = (
                     f"timestamp: {entry['timestamp']}, "
-                        f"Open: {entry['open']:.2f}, "
-                        f"High: {entry['high']:.2f}, "
-                        f"Low: {entry['low']:.2f}, "
-                        f"Close: {entry['close']:.2f}, "
-                        f"MACD Hist: {entry['MACD_hist']:.2f}\n"
+                    f"Open: {entry['open']:.2f}, "
+                    f"High: {entry['high']:.2f}, "
+                    f"Low: {entry['low']:.2f}, "
+                    f"Close: {entry['close']:.2f}, "
+                    f"MACD Hist: {entry['MACD_hist']:.2f}\n"
                 )
-                prompt += historical_1_prompt
+                prompt += historical_prompt
 
         # Include the historical context as one line per entry
-        if historical_data_2:
+        historical_data_long = all_features['history'].get(self.dip_interval, pd.DataFrame())
+        if not historical_data_long.empty:
             prompt += f"\n\n### Interval({self.dip_interval}) Historical Context:\n"
-            for entry in historical_data_2[-4:]:
-                historical_2_prompt = (
+            for entry in historical_data_long.iloc[-4:].to_dict(orient='records'):
+                historical_prompt = (
                     f"timestamp: {entry['timestamp']}, "
                     f"RSI: {entry['RSI']:.2f}, "
                     f"EMA (7): {entry['EMA_7']:.2f}, "
@@ -116,18 +118,18 @@ class Predictor:
                     f"MACD Hist: {entry['MACD_hist']:.2f}, "
                     f"OBV: {entry['OBV']:.2f}\n"
                 )
-                prompt += historical_2_prompt
+                prompt += historical_prompt
 
         # Include the historical StochRSI:
-        if historical_data_1:
+        if not historical_data_short.empty:
             prompt += f"\n\n### StochRSI Historical Context:\n"
-            for entry in historical_data_1[-2:]:
-                historical_3_prompt = (
+            for entry in historical_data_short[-2:]:
+                historical_prompt = (
                     f"timestamp: {entry['timestamp']}, "
                     f"StochRSI %K: {entry['stoch_rsi_k']:.2f}, "
                     f"StochRSI %D: {entry['stoch_rsi_d']:.2f}\n"
                 )
-                prompt += historical_3_prompt
+                prompt += historical_prompt
 
 
         # Start with the market data header

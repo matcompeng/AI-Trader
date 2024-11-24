@@ -3,11 +3,12 @@ import pandas as pd
 import talib
 from datetime import datetime, timedelta
 from DataCollector import DataCollector
+import numpy as np
 import json
 
 
 class FeatureProcessor:
-    def __init__(self, data_directory='data', intervals=None, trading_interval=None, dip_interval=None, dip_flag=None, orderbook_threshold=None):
+    def __init__(self, data_directory='data', intervals=None, trading_interval=None, loss_interval=None, dip_interval=None, dip_flag=None, orderbook_threshold=None, volume_threshold=None):
         self.data_directory = data_directory
         if not os.path.exists(self.data_directory):
             os.makedirs(self.data_directory)
@@ -18,6 +19,8 @@ class FeatureProcessor:
         self.orderbook_threshold = orderbook_threshold
         self.atr_value_1m = None
         self.price_value_1m = None
+        self.volume_threshold = volume_threshold
+        self.loss_interval  = loss_interval
 
     def process(self, data):
         try:
@@ -118,7 +121,8 @@ class FeatureProcessor:
                         float(bid[1]) for bid in order_book['bids'])  # Sum of bid volumes
                     latest_features['ask_volume'] = sum(
                         float(ask[1]) for ask in order_book['asks'])  # Sum of ask volumes
-                    latest_features['stop_loss'] = self.suggest_stop_loss_based_on_order_book(order_book)
+                    if interval == self.loss_interval :
+                        latest_features['stop_loss'] = self.suggest_stop_loss_based_on_order_book(order_book)
 
                 # Store the latest features for this interval
                 all_features['latest'][interval] = latest_features
@@ -244,7 +248,7 @@ class FeatureProcessor:
             # Always overwrite the existing file
             df.to_csv(file_path, mode='w', header=True, index=True)
 
-            print(f"Features saved to {file_path}")
+            # print(f"Features saved to {file_path}")
         except Exception as e:
             print(f"Error saving to CSV: {e}")
 
@@ -278,50 +282,84 @@ class FeatureProcessor:
         Calculates the gap threshold percentage based on the ATR of the '1m' interval.
         :return: Dynamic gap threshold percentage.
         """
-        dynamic_gap_threshold = min(0.2, (self.atr_value_1m / self.price_value_1m) * 100)
+        dynamic_gap_threshold = (self.atr_value_1m / self.price_value_1m) * 100
+        # print(f"dynamic_gap_threshold: {dynamic_gap_threshold}")
         return dynamic_gap_threshold
 
-    def suggest_stop_loss_based_on_order_book(self, order_book, volume_threshold=100):
+    def suggest_stop_loss_based_on_order_book(self, order_book, max_iterations=100, increment_multiplier=1.2):
         """
         Suggests a stop-loss price based on gaps in the order book bids.
 
         :param order_book: Dictionary containing bids and asks. The bids should be a list of [price, volume].
-        :param gap_threshold_percentage: Minimum percentage difference between two consecutive bids to consider as a gap.
-        :param volume_threshold: Minimum volume to consider a bid for accurate analysis.
+        :param max_iterations: Maximum number of iterations to increment the volume threshold.
+        :param increment_multiplier: Multiplier to increment the volume threshold in each iteration.
         :return: Suggested stop-loss price, or None if no significant gap is found.
         """
-        # Extract the bid prices and filter by volume threshold, then sort them in descending order
-        bids = order_book['bids']
-        bids = sorted([[float(price), float(volume)] for price, volume in bids if float(volume) >= volume_threshold],
-                      key=lambda x: x[0], reverse=True)
+        # Extract the bid prices and volumes, and convert them to floats
+        bids = [[float(price), float(volume)] for price, volume in order_book['bids']]
 
-        # List to store all significant gaps
+        if not bids:
+            print("Order book bids are empty.")
+            return None
+
+        # Extract all volumes from the bids
+        volumes = [bid[1] for bid in bids]
+
+        # Calculate initial volume threshold using the 75th percentile
+        volume_threshold = np.percentile(volumes, 75)
+
+        iteration = 0
         significant_gaps = []
 
-        # Iterate through the bids and look for significant gaps
-        for i in range(len(bids) - 1):
-            current_price = bids[i][0]
-            next_price = bids[i + 1][0]
+        # Iterate with incrementally increasing volume thresholds until we find significant gaps or reach max iterations
+        while iteration < max_iterations:
+            # Filter bids by the current volume threshold, and sort them in descending order of price
+            filtered_bids = sorted([bid for bid in bids if bid[1] >= volume_threshold], key=lambda x: x[0],
+                                   reverse=True)
 
-            # Calculate the percentage gap between consecutive bids
-            gap_percentage = ((current_price - next_price) / current_price) * 100
+            # Clear significant gaps list for the current iteration
+            significant_gaps.clear()
 
-            # If the gap exceeds the threshold, add it to the list
-            if gap_percentage >= self.calculate_gap_threshold():
-                significant_gaps.append((current_price, next_price))
+            # Iterate through the filtered bids and look for significant gaps
+            for i in range(len(filtered_bids) - 1):
+                current_price = filtered_bids[i][0]
+                next_price = filtered_bids[i + 1][0]
 
-        # Return the stop-loss value based on the second gap if found, otherwise use the first gap
+                # Calculate the percentage gap between consecutive bids
+                gap_percentage = ((current_price - next_price) / current_price) * 100
+                # print(f"gap_percentage: {gap_percentage:.2f}")
+
+                # If the gap exceeds the calculated gap threshold, add it to the list
+                if gap_percentage >= self.calculate_gap_threshold():
+                    significant_gaps.append((current_price, next_price))
+
+            # Check if we found any significant gaps
+            if significant_gaps:
+                break  # Stop if at least one significant gap is found
+
+            # Increment the volume threshold for the next iteration
+            volume_threshold *= increment_multiplier
+            iteration += 1
+            # print(f"Iteration {iteration}: Increased volume threshold to {volume_threshold:.2f}")
+
+        # Determine the stop-loss value based on the significant gaps found
         if len(significant_gaps) >= 2:
             second_gap = significant_gaps[1]
-            suggested_stop_loss = second_gap[1] - (1.0 * (second_gap[0] - second_gap[1]))
+            suggested_stop_loss = second_gap[1] - (2.0 * (second_gap[0] - second_gap[1]))
         elif len(significant_gaps) == 1:
             first_gap = significant_gaps[0]
-            suggested_stop_loss = first_gap[1] - (1.0 * (first_gap[0] - first_gap[1]))
+            suggested_stop_loss = first_gap[1] - (2.0 * (first_gap[0] - first_gap[1]))
         else:
+            # If no significant gaps are found after all iterations, use a default stop-loss strategy
+            print("No significant gaps found after max iterations.")
             suggested_stop_loss = None
 
-        return suggested_stop_loss
+        if suggested_stop_loss is None:
+            print("Stop loss value is not available.")
+        else:
+            print(f"|||Concurrent Stop Loss: {suggested_stop_loss:.4f}|||")
 
+        return suggested_stop_loss
 
 
 # Example usage:
