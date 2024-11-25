@@ -105,11 +105,11 @@ class Predictor:
             for _, row in historical_data_short.iloc[-48:].iterrows():
                 historical_prompt = (
                     f"timestamp: {row['timestamp']}, "
-                    f"Open: {row['open']:.2f}, "
-                    f"High: {row['high']:.2f}, "
-                    f"Low: {row['low']:.2f}, "
-                    f"Close: {row['close']:.2f}, "
-                    f"MACD Hist: {row['MACD_hist']:.2f}\n"
+                    f"Open: {row['open']:.5f}, "
+                    f"High: {row['high']:.5f}, "
+                    f"Low: {row['low']:.5f}, "
+                    f"Close: {row['close']:.5f}, "
+                    f"MACD Hist: {row['MACD_hist']:.5f}\n"
                 )
                 prompt += historical_prompt
 
@@ -120,11 +120,11 @@ class Predictor:
             for _, row in historical_data_long.iloc[-4:].iterrows():
                 historical_prompt = (
                     f"timestamp: {row['timestamp']}, "
-                    f"RSI: {row['RSI']:.2f}, "
-                    f"EMA (7): {row['EMA_7']:.2f}, "
-                    f"EMA (25): {row['EMA_25']:.2f}, "
-                    f"MACD Hist: {row['MACD_hist']:.2f}, "
-                    f"OBV: {row['OBV']:.2f}\n"
+                    f"RSI: {row['RSI']:.5f}, "
+                    f"EMA (7): {row['EMA_7']:.5f}, "
+                    f"EMA (25): {row['EMA_25']:.5f}, "
+                    f"MACD Hist: {row['MACD_hist']:.5f}, "
+                    f"OBV: {row['OBV']:.5f}\n"
                 )
                 prompt += historical_prompt
 
@@ -134,8 +134,8 @@ class Predictor:
             for _, row in historical_data_short.iloc[-2:].iterrows():
                 historical_prompt = (
                     f"timestamp: {row['timestamp']}, "
-                    f"StochRSI %K: {row['stoch_rsi_k']:.2f}, "
-                    f"StochRSI %D: {row['stoch_rsi_d']:.2f}\n"
+                    f"StochRSI %K: {row['stoch_rsi_k']:.5f}, "
+                    f"StochRSI %D: {row['stoch_rsi_d']:.5f}\n"
                 )
                 prompt += historical_prompt
 
@@ -148,12 +148,12 @@ class Predictor:
                 row = pd.Series(latest_features)
                 interval_prompt = (
                     f"Interval '{interval}':\n"
-                    f"RSI: {row['RSI']:.2f}, "
-                    f"MACD Hist: {row['MACD_hist']:.2f}, "
-                    f"StochRSI %K: {row['stoch_rsi_k']:.2f}, "
-                    f"StochRSI %D: {row['stoch_rsi_d']:.2f}, "
-                    f"ADX: {row['ADX']:.2f}, "
-                    f"OBV: {row['OBV']:.2f}\n\n"
+                    f"RSI: {row['RSI']:.5f}, "
+                    f"MACD Hist: {row['MACD_hist']:.5f}, "
+                    f"StochRSI %K: {row['stoch_rsi_k']:.5f}, "
+                    f"StochRSI %D: {row['stoch_rsi_d']:.5f}, "
+                    f"ADX: {row['ADX']:.5f}, "
+                    f"OBV: {row['OBV']:.5f}\n\n"
                 )
                 prompt += interval_prompt
 
@@ -208,21 +208,21 @@ class Predictor:
             for entry in historical_data:
                 historical_prompt = (
                     f"{entry['timestamp']}, "
-                    f"{entry['price_change']:.2f}%, "
-                    f"RSI: {entry['RSI']:.2f}, "
-                    f"SMA (7): {entry['SMA_7']:.2f}, "
-                    f"SMA (25): {entry['SMA_25']:.2f}, "
-                    f"MACD: {entry['MACD']:.2f}, "
-                    f"MACD Signal: {entry['MACD_signal']:.2f}, "
-                    f"MACD Hist: {entry['MACD_hist']:.2f}, "
-                    f"Bollinger Bands: {entry['upper_band']:.2f}, {entry['middle_band']:.2f}, {entry['lower_band']:.2f}, "
-                    f"Stoch RSI %K: {entry['stoch_rsi_k']:.2f}, "
-                    f"Stoch RSI %D: {entry['stoch_rsi_d']:.2f}, "
-                    f"ATR: {entry['ATR']:.2f}, "
-                    f"VWAP: {entry['VWAP']:.2f}, "
+                    f"{entry['price_change']:.5f}%, "
+                    f"RSI: {entry['RSI']:.5f}, "
+                    f"SMA (7): {entry['SMA_7']:.5f}, "
+                    f"SMA (25): {entry['SMA_25']:.5f}, "
+                    f"MACD: {entry['MACD']:.5f}, "
+                    f"MACD Signal: {entry['MACD_signal']:.5f}, "
+                    f"MACD Hist: {entry['MACD_hist']:.5f}, "
+                    f"Bollinger Bands: {entry['upper_band']:.5f}, {entry['middle_band']:.5f}, {entry['lower_band']:.5f}, "
+                    f"Stoch RSI %K: {entry['stoch_rsi_k']:.5f}, "
+                    f"Stoch RSI %D: {entry['stoch_rsi_d']:.5f}, "
+                    f"ATR: {entry['ATR']:.5f}, "
+                    f"VWAP: {entry['VWAP']:.5f}, "
                     f"Support: {entry['support_level']}, "
                     f"Resistance: {entry['resistance_level']}, "
-                    f"Last Price: {entry['last_price']:.2f}\n"
+                    f"Last Price: {entry['last_price']:.5f}\n"
                 )
                 prompt += historical_prompt
 
@@ -305,7 +305,7 @@ class Predictor:
         response = None
 
         if prediction_type == 'Stable' and prompt_type == 'predictor':
-            prompt = self.format_stable_prompt(all_features, current_price, historical_data_1, historical_data_2, current_obv)
+            prompt = self.format_stable_prompt(all_features, current_price, current_obv)
             self.save_predictor_prompt(prompt)
         elif prediction_type == 'Dip' and prompt_type == 'predictor':
             prompt = self.format_dip_prompt(positions, current_price, historical_data_2)

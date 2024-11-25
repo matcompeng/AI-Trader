@@ -1,6 +1,7 @@
 import json
 import os
 
+import numpy as np
 import pandas as pd
 
 
@@ -128,11 +129,12 @@ class DecisionMaker:
         """
         Calculate buy amount based on ATR (from 30m or 1h) and StochRSI (from 5m or 15m).
 
-        :param capital:
-        :param amount_atr_interval:
-        :param amount_rsi_interval:
+        :param capital: Available capital for trading.
+        :param amount_atr_interval: Interval to use for ATR calculation.
+        :param amount_rsi_interval: Interval to use for StochRSI calculation.
         :param all_features: A dictionary of dataframes for different intervals (e.g., '1m', '5m', '15m', '30m', '1h', '1d')
-        :return: Recommended buy amount
+        :param current_price: The current price of the asset.
+        :return: Recommended buy amount.
         """
 
         # Extract data for each interval
@@ -146,23 +148,31 @@ class DecisionMaker:
         # Calculate volatility factor
         volatility_factor = current_atr / current_price
 
-        # Calculate momentum factor with a piecewise linear interpolation
-        if current_stoch_rsi <= 1:
-            momentum_factor = 10
-        elif current_stoch_rsi >= 90:
-            momentum_factor = 1
-        else:
-            # Linear interpolation between StochRSI of 1 and 100
-            # momentum_factor decreases from 5 to 1 as StochRSI increases from 1 to 100
-            momentum_factor = 10 - (9 * (current_stoch_rsi - 1) / (90 - 1))
+        # Smooth StochRSI using the last 4 values from the historical data DataFrame
+        stoch_rsi_values = all_features['history'][amount_rsi_interval]['stoch_rsi_k'].iloc[-4:]
+        smoothed_stoch_rsi = stoch_rsi_values.mean()
+
+        # Calculate momentum factor with a sigmoid-like function for smoother scaling
+        momentum_factor = 10 * np.exp(-0.05 * (smoothed_stoch_rsi - 1))
+
+        # Adjust momentum factor based on trend strength (e.g., ADX)
+        adx_value = all_features['latest'][amount_rsi_interval].get('ADX', None)
+        if adx_value is not None and adx_value > 25:
+            momentum_factor *= 1.2  # Boost by 20% if a strong trend is detected
+
+        # Adjust momentum factor based on recent price change to reduce risk in volatile conditions
+        recent_price_change = all_features['latest'][amount_rsi_interval].get('price_change', 0.0)
+        if abs(recent_price_change) > 2:
+            momentum_factor *= 0.8  # Reduce by 20% if recent price change is significant
 
         # Adjust the buy amount based on both volatility and momentum factors
         adjusted_risk = self.risk_tolerance * volatility_factor * momentum_factor
         buy_amount = capital * adjusted_risk
 
         print(
-            f"ATR ({amount_atr_interval}): {current_atr:.2f}, StochRSI ({amount_rsi_interval}): {current_stoch_rsi:.2f}, Buy Amount: {buy_amount:.2f}")
+            f"ATR ({amount_atr_interval}): {current_atr:.2f}, Smoothed StochRSI ({amount_rsi_interval}): {smoothed_stoch_rsi:.2f}, Buy Amount: {buy_amount:.2f}")
         return buy_amount
+
 
     def calculate_adjusted_take_profit(self, entry_price, upper_band_profit, lower_band_profit):
         """
@@ -503,9 +513,9 @@ class DecisionMaker:
             Check if EMA (7) is greater than EMA (25) for the interval specified by self.scalping_interval.
             :return: True if EMA (7) > EMA (25), otherwise False.
             """
-            ema_7 = all_features['latest'][self.scalping_intervals[1]].get('EMA_7', None)
+            ema_7 = all_features['latest'][self.scalping_intervals[0]].get('EMA_7', None)
             # print(f"Scalping EMA_7= {ema_7:.2f}")
-            ema_25 = all_features['latest'][self.scalping_intervals[1]].get('EMA_25', None)
+            ema_25 = all_features['latest'][self.scalping_intervals[0]].get('EMA_25', None)
             # print(f"Scalping EMA_25= {ema_25:.2f}")
             if ema_7 is not None and ema_25 is not None:
                 print(f"scalping_ema_positive: {ema_7 > ema_25}")
@@ -573,7 +583,7 @@ class DecisionMaker:
             return False
 
         # Decision Conditions For Scalping:
-        # scalping_ema_positive = scalping_ema_positive()
+        scalping_ema_positive = scalping_ema_positive()
         scalping_macd_positive = scalping_macd_positive()
         stoch_rsi_cross_signal = stoch_rsi_cross_signal()
 
@@ -586,7 +596,7 @@ class DecisionMaker:
                 return 'Hold'
         else:
             # If we don't have a scalping positions , we consider buying
-            if scalping_macd_positive and stoch_rsi_cross_signal == 'cross_above':
+            if scalping_ema_positive and scalping_macd_positive and stoch_rsi_cross_signal == 'cross_above':
 
                 return 'Buy_Sc'
 
