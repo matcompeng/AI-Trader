@@ -85,52 +85,59 @@ class Predictor:
         if not os.path.exists(self.data_directory):
             os.makedirs(self.data_directory)
 
-    def format_stable_prompt(self, all_features, current_price, historical_data_1,historical_data_2, current_obv):
 
-        #trading strategy section before historical context
+    def format_stable_prompt(self, all_features, current_price, current_obv):
+        """
+        Formats the prompt for the OpenAI API, including historical context and current market data.
+
+        :param all_features: The dictionary containing processed feature data for all intervals.
+        :param current_price: The current price of the cryptocurrency.
+        :param current_obv: Current OBV (On Balance Volume) data.
+        :return: Formatted prompt string.
+        """
+        # Trading strategy section before historical context
         prompt = self.trading_strategy
 
-        # Include the historical context as one line per entry
+        # Include the historical context as one line per entry for the trading interval
         historical_data_short = all_features['history'].get(self.trading_interval, pd.DataFrame())
         if not historical_data_short.empty:
             prompt += f"\n\n### Interval({self.trading_interval}) Historical Context:\n"
-            for entry in historical_data_short.iloc[-48:].to_dict(orient='records'):
+            for _, row in historical_data_short.iloc[-48:].iterrows():
                 historical_prompt = (
-                    f"timestamp: {entry['timestamp']}, "
-                    f"Open: {entry['open']:.2f}, "
-                    f"High: {entry['high']:.2f}, "
-                    f"Low: {entry['low']:.2f}, "
-                    f"Close: {entry['close']:.2f}, "
-                    f"MACD Hist: {entry['MACD_hist']:.2f}\n"
+                    f"timestamp: {row['timestamp']}, "
+                    f"Open: {row['open']:.2f}, "
+                    f"High: {row['high']:.2f}, "
+                    f"Low: {row['low']:.2f}, "
+                    f"Close: {row['close']:.2f}, "
+                    f"MACD Hist: {row['MACD_hist']:.2f}\n"
                 )
                 prompt += historical_prompt
 
-        # Include the historical context as one line per entry
+        # Include the historical context for the dip interval
         historical_data_long = all_features['history'].get(self.dip_interval, pd.DataFrame())
         if not historical_data_long.empty:
             prompt += f"\n\n### Interval({self.dip_interval}) Historical Context:\n"
-            for entry in historical_data_long.iloc[-4:].to_dict(orient='records'):
+            for _, row in historical_data_long.iloc[-4:].iterrows():
                 historical_prompt = (
-                    f"timestamp: {entry['timestamp']}, "
-                    f"RSI: {entry['RSI']:.2f}, "
-                    f"EMA (7): {entry['EMA_7']:.2f}, "
-                    f"EMA (25): {entry['EMA_25']:.2f}, "
-                    f"MACD Hist: {entry['MACD_hist']:.2f}, "
-                    f"OBV: {entry['OBV']:.2f}\n"
+                    f"timestamp: {row['timestamp']}, "
+                    f"RSI: {row['RSI']:.2f}, "
+                    f"EMA (7): {row['EMA_7']:.2f}, "
+                    f"EMA (25): {row['EMA_25']:.2f}, "
+                    f"MACD Hist: {row['MACD_hist']:.2f}, "
+                    f"OBV: {row['OBV']:.2f}\n"
                 )
                 prompt += historical_prompt
 
-        # Include the historical StochRSI:
+        # Include the historical StochRSI context for the trading interval
         if not historical_data_short.empty:
             prompt += f"\n\n### StochRSI Historical Context:\n"
-            for entry in historical_data_short[-2:]:
+            for _, row in historical_data_short.iloc[-2:].iterrows():
                 historical_prompt = (
-                    f"timestamp: {entry['timestamp']}, "
-                    f"StochRSI %K: {entry['stoch_rsi_k']:.2f}, "
-                    f"StochRSI %D: {entry['stoch_rsi_d']:.2f}\n"
+                    f"timestamp: {row['timestamp']}, "
+                    f"StochRSI %K: {row['stoch_rsi_k']:.2f}, "
+                    f"StochRSI %D: {row['stoch_rsi_d']:.2f}\n"
                 )
                 prompt += historical_prompt
-
 
         # Start with the market data header
         prompt += "\n\n### Here is the current market data across different intervals:\n"
@@ -138,14 +145,15 @@ class Predictor:
         # Include the current market data from different intervals
         for interval, latest_features in all_features['latest'].items():
             if latest_features:
+                row = pd.Series(latest_features)
                 interval_prompt = (
                     f"Interval '{interval}':\n"
-                    f"RSI: {latest_features['RSI']:.2f}, " 
-                    f"MACD Hist: {latest_features['MACD_hist']:.2f}, "  
-                    f"StochRSI %K: {latest_features['stoch_rsi_k']:.2f}, "
-                    f"StochRSI %D: {latest_features['stoch_rsi_d']:.2f}, "
-                    f"ADX: {latest_features['ADX']:.2f}, "
-                    f"OBV: {latest_features['OBV']:.2f}\n\n"
+                    f"RSI: {row['RSI']:.2f}, "
+                    f"MACD Hist: {row['MACD_hist']:.2f}, "
+                    f"StochRSI %K: {row['stoch_rsi_k']:.2f}, "
+                    f"StochRSI %D: {row['stoch_rsi_d']:.2f}, "
+                    f"ADX: {row['ADX']:.2f}, "
+                    f"OBV: {row['OBV']:.2f}\n\n"
                 )
                 prompt += interval_prompt
 
@@ -156,7 +164,7 @@ class Predictor:
             "Please do the following Steps:\n"
             "STEP 1: Process all mentioned rules of points 1, 2, 3, 4, and 5 in trading strategy with taking into consideration point 10.\n"
             "STEP 2: Taking the evaluations from STEP 1, Generate the Buy or Hold Signal using points 6, 7, 8, and 9 with taking into consideration point 10. \n"
-            "STEP 3: Before providing a final recommendation in your response, the system must perform a cross-check validation to ensure all conditions align with the trading strategy,this includes:\n"
+            "STEP 3: Before providing a final recommendation in your response, the system must perform a cross-check validation to ensure all conditions align with the trading strategy, this includes:\n"
             "          - Re-evaluating each rule mentioned in trading strategy again (1, 2, 3, 4, and 5) to confirm that all thresholds and conditions are correctly applied.\n"
             "          - Identifying any conflicting indicators or overlooked thresholds (e.g., ADX below 20 despite bullish conditions).\n"
             "          - Ensure no single indicator overrides the combined analysis unless specified by the strategy as a strict rule.\n"
@@ -165,6 +173,7 @@ class Predictor:
         )
 
         return prompt
+
 
     def format_strategy_response_prompt(self, response):
 
