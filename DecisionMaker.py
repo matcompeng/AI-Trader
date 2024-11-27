@@ -24,8 +24,7 @@ class DecisionMaker:
         self.roc_down_speed = roc_down_speed
         self.trading_interval= trading_interval
         self.scalping_intervals = scalping_intervals
-        self.price_has_crossed_upper_band_after_buy_0 = False
-        self.price_has_crossed_upper_band_after_buy_1 = False
+        self.price_has_crossed_upper_band_after_buy = False
 
 
     def save_max_gain(self):
@@ -63,21 +62,21 @@ class DecisionMaker:
     def calculate_stable_portfolio_gain(self, bot_manager, current_price):
         """
         Calculate the total portfolio gain/loss based on the current positions and the current market price,
-        only for positions where the dip_flag is not equal to position['dip'].
+        only for positions where the scalping_flag is not equal to position['dip'].
         This method uses the calculate_gain_loose and invested_budget methods from BotManager class.
         :param bot_manager: Instance of BotManager to access existing methods.
         :param current_price: The current market price to compare with entry prices.
-        :return: Average portfolio gain/loss in percentage for positions where dip_flag != position['dip'].
+        :return: Average portfolio gain/loss in percentage for positions where scalping_flag != position['dip'].
         """
         total_gain_percent = 0.0
         valid_positions_count = 0
 
-        # Iterate over each position and calculate percentage gain/loss only if dip_flag != position['dip']
+        # Iterate over each position and calculate percentage gain/loss only if scalping_flag != position['dip']
         for position_id, position in bot_manager.position_manager.get_positions().items():
-            dip_flag = position.get('dip', None)
+            scalping_flag = position.get('scalping', None)
 
-            # Check if the dip_flag condition is met (only consider stable positions)
-            if dip_flag == 0:
+            # Check if the scalping_flag condition is met (only consider stable positions)
+            if scalping_flag == 0:
                 entry_price = float(position['entry_price'])
                 gain_loss_percent = bot_manager.calculate_gain_loose(entry_price, current_price)
 
@@ -519,11 +518,20 @@ class DecisionMaker:
         def scalping_ema_positive():
             ema_7 = all_features['latest'][self.scalping_intervals[1]].get('EMA_7', None)
             ema_25 = all_features['latest'][self.scalping_intervals[1]].get('EMA_25', None)
+            flag = False
             if ema_7 is not None and ema_25 is not None:
-                return ema_7 > ema_25
-            return False
+                flag = ema_7 > ema_25
+                print(f"Scalping EMA Positive: {'||Passed||' if flag else '||Failed||'}") # (EMA 7: {ema_7}, EMA 25: {ema_25})")
+            else:
+                print("Scalping EMA Positive: ||Error|| ,Missing EMA values)")
+            return flag
 
         def stoch_rsi_cross_signal():
+            """
+            Check if StochRSI %K has crossed above or below %D for the specified scalping_interval.
+            :return: 'cross_above' if %K crossed above %D, 'cross_down' if %K crossed below %D,
+                     'overbought' if %K > 80, 'oversold' if %K < 20, otherwise 'No Signal'.
+            """
             interval_data = all_features['history'].get(self.scalping_intervals[1], pd.DataFrame())
 
             if len(interval_data) >= 2:
@@ -532,10 +540,32 @@ class DecisionMaker:
                 current_k = interval_data.iloc[-1].get('stoch_rsi_k', None)
                 current_d = interval_data.iloc[-1].get('stoch_rsi_d', None)
 
-                if previous_k <= previous_d and current_k > current_d:
-                    return 'cross_above'
-                elif previous_k >= previous_d and current_k < current_d:
-                    return 'cross_down'
+                if previous_k is not None and previous_d is not None and current_k is not None and current_d is not None:
+                    # Cross above
+                    if previous_k <= previous_d and current_k > current_d:
+                        print(
+                            "StochRSI Cross Signal: ||cross_above||") # (Previous %K <= Previous %D, Current %K > Current %D)")
+                        return 'cross_above'
+                    # Cross down
+                    elif previous_k >= previous_d and current_k < current_d:
+                        print(
+                            "StochRSI Cross Signal: ||cross_down||") # (Previous %K >= Previous %D, Current %K < Current %D)")
+                        return 'cross_down'
+                    # Overbought condition
+                    elif current_k > 80:
+                        print(f"StochRSI Signal: ||overbought||") # (Current %K: {current_k})")
+                        return 'overbought'
+                    # Oversold condition
+                    elif current_k < 20:
+                        print(f"StochRSI Signal: ||oversold||") # (Current %K: {current_k})")
+                        return 'oversold'
+
+                else:
+                    print("StochRSI Cross Signal: ||Error|| ,Missing StochRSI values)")
+            else:
+                print("StochRSI Cross Signal: ||Error|| ,Insufficient data points)")
+
+            print("StochRSI Cross Signal: ||No Signal||")
             return 'No Signal'
 
         def scalping_macd_positive():
@@ -545,8 +575,16 @@ class DecisionMaker:
                 previous_macd_hist = interval_data.iloc[-2].get('MACD_hist', None)
                 current_macd_hist = interval_data.iloc[-1].get('MACD_hist', None)
 
-                if current_macd_hist > previous_macd_hist:
-                    return True
+                if previous_macd_hist is not None and current_macd_hist is not None:
+                    flag = current_macd_hist > previous_macd_hist
+                    print(
+                        f"Scalping MACD Positive: {'||Passed||' if flag else '||Failed||'}") # (Previous MACD Hist: {previous_macd_hist}, Current MACD Hist: {current_macd_hist})")
+                    return flag
+                else:
+                    print("Scalping MACD Positive: ||Error|| ,Missing MACD histogram values)")
+            else:
+                print("Scalping MACD Positive: ||Error|| ,Insufficient data points)")
+
             return False
 
         def update_price_has_crossed_upper_band_flag():
@@ -554,24 +592,31 @@ class DecisionMaker:
             if upper_band is not None and current_price > upper_band:
                 self.price_has_crossed_upper_band_after_buy = True
 
-        # Additional Filter Functions
         def adx_filter():
             adx = all_features['latest'][self.scalping_intervals[1]].get('ADX', None)
-            return adx is not None and adx >= 25
+            flag = adx is not None and adx >= 20
+            print(f"ADX Filter: {'||Passed||' if flag else '||Failed||'}") # (ADX: {adx})")
+            return flag
 
         def volume_filter():
             volume = all_features['latest'][self.scalping_intervals[1]].get('volume', None)
             average_volume = all_features['history'][self.scalping_intervals[1]]['volume'].tail(20).mean()
-            return volume is not None and volume >= 0.8 * average_volume
+            flag = volume is not None and volume >= 0.8 * average_volume
+            print(f"Volume Filter: {'||Passed||' if flag else '||Failed||'}") # (Current Volume: {volume}, Average Volume: {average_volume})")
+            return flag
 
         def overbought_oversold_filter():
             rsi = all_features['latest'][self.scalping_intervals[1]].get('RSI', None)
-            return rsi is not None and 30 < rsi < 70
+            flag = rsi is not None and 30 < rsi < 70
+            print(f"Overbought/Oversold Filter: {'||Passed||' if flag else '||Failed||'}") # (RSI: {rsi})")
+            return flag
 
         def atr_filter():
             atr = all_features['latest'][self.scalping_intervals[1]].get('ATR', None)
             average_atr = all_features['history'][self.scalping_intervals[1]]['ATR'].tail(20).mean()
-            return atr is not None and 0.75 * average_atr <= atr <= 1.5 * average_atr
+            flag = atr is not None and 0.75 * average_atr <= atr <= 1.5 * average_atr
+            print(f"ATR Filter: {'||Passed||' if flag else '||Failed||'}") # (Current ATR: {atr}, Average ATR: {average_atr})")
+            return flag
 
         # Decision Conditions For Scalping:
         scalping_ema_positive = scalping_ema_positive()
@@ -588,22 +633,23 @@ class DecisionMaker:
         update_price_has_crossed_upper_band_flag()
 
         if scalping_positions:
-            # If we have an active buy, we consider selling under two conditions:
+            # If we have an active buy, we consider selling under certain conditions:
             upper_band = all_features['latest'][self.scalping_intervals[1]].get('upper_band', None)
             if self.price_has_crossed_upper_band_after_buy and upper_band is not None and current_price < upper_band:
                 return 'Sell_Sc'
-            elif stoch_rsi_signal == 'cross_down':
+            elif stoch_rsi_signal == 'cross_down' or stoch_rsi_signal == 'overbought':
                 return 'Sell_Sc'
             else:
                 return 'Hold'
         else:
             # If we don't have scalping positions, we consider buying, but only if all filters pass
-            if scalping_ema_positive and scalping_macd_positive and stoch_rsi_signal == 'cross_above' and adx_pass and volume_pass and rsi_pass and atr_pass:
+            if (scalping_ema_positive and scalping_macd_positive and (
+                    stoch_rsi_signal == 'cross_above' or stoch_rsi_signal == 'oversold')
+                    and adx_pass and volume_pass and rsi_pass and atr_pass):
                 self.price_has_crossed_upper_band_after_buy = False
                 return 'Buy_Sc'
-
-        # Default action is to hold
-        return 'Hold'
+            else:
+                return 'Hold'
 
 
 
