@@ -517,10 +517,6 @@ class DecisionMaker:
         """
 
         def scalping_ema_positive():
-            """
-            Check if EMA (7) is greater than EMA (25) for the interval specified by self.scalping_interval.
-            :return: True if EMA (7) > EMA (25), otherwise False.
-            """
             ema_7 = all_features['latest'][self.scalping_intervals[1]].get('EMA_7', None)
             ema_25 = all_features['latest'][self.scalping_intervals[1]].get('EMA_25', None)
             if ema_7 is not None and ema_25 is not None:
@@ -528,10 +524,6 @@ class DecisionMaker:
             return False
 
         def stoch_rsi_cross_signal():
-            """
-            Check if StochRSI %K has crossed above or below %D for the specified scalping_interval.
-            :return: 'cross_above' if %K crossed above %D, 'cross_down' if %K crossed below %D, None otherwise.
-            """
             interval_data = all_features['history'].get(self.scalping_intervals[1], pd.DataFrame())
 
             if len(interval_data) >= 2:
@@ -547,10 +539,6 @@ class DecisionMaker:
             return 'No Signal'
 
         def scalping_macd_positive():
-            """
-            Check if the MACD Histogram value has increased positively or decreased in negativity for the scalping interval.
-            :return: True if the MACD Histogram shows an increase in positive value or a decrease in negativity, otherwise False.
-            """
             interval_data = all_features['history'].get(self.scalping_intervals[1], pd.DataFrame())
 
             if len(interval_data) >= 2:
@@ -562,43 +550,61 @@ class DecisionMaker:
             return False
 
         def update_price_has_crossed_upper_band_flag():
-            """
-            Update the flag indicating whether the current price has crossed above the upper Bollinger Band after a buy.
-            """
             upper_band = all_features['latest'][self.scalping_intervals[1]].get('upper_band', None)
             if upper_band is not None and current_price > upper_band:
                 self.price_has_crossed_upper_band_after_buy = True
+
+        # Additional Filter Functions
+        def adx_filter():
+            adx = all_features['latest'][self.scalping_intervals[1]].get('ADX', None)
+            return adx is not None and adx >= 25
+
+        def volume_filter():
+            volume = all_features['latest'][self.scalping_intervals[1]].get('volume', None)
+            average_volume = all_features['history'][self.scalping_intervals[1]]['volume'].tail(20).mean()
+            return volume is not None and volume >= 0.8 * average_volume
+
+        def overbought_oversold_filter():
+            rsi = all_features['latest'][self.scalping_intervals[1]].get('RSI', None)
+            return rsi is not None and 30 < rsi < 70
+
+        def atr_filter():
+            atr = all_features['latest'][self.scalping_intervals[1]].get('ATR', None)
+            average_atr = all_features['history'][self.scalping_intervals[1]]['ATR'].tail(20).mean()
+            return atr is not None and 0.75 * average_atr <= atr <= 1.5 * average_atr
 
         # Decision Conditions For Scalping:
         scalping_ema_positive = scalping_ema_positive()
         scalping_macd_positive = scalping_macd_positive()
         stoch_rsi_signal = stoch_rsi_cross_signal()
 
+        # Apply filters to determine if we should proceed with buying
+        adx_pass = adx_filter()
+        volume_pass = volume_filter()
+        rsi_pass = overbought_oversold_filter()
+        atr_pass = atr_filter()
+
         # Update the flag for price crossing above the upper Bollinger Band
         update_price_has_crossed_upper_band_flag()
 
         if scalping_positions:
             # If we have an active buy, we consider selling under two conditions:
-            # 1. The price has crossed above the upper band and then falls below it.
-            # 2. StochRSI gives a 'cross_down' signal (acting as a stop-loss).
             upper_band = all_features['latest'][self.scalping_intervals[1]].get('upper_band', None)
             if self.price_has_crossed_upper_band_after_buy and upper_band is not None and current_price < upper_band:
-                # Price has fallen below the upper band after going above it, trigger a sell
                 return 'Sell_Sc'
             elif stoch_rsi_signal == 'cross_down':
-                # StochRSI generates a 'cross_down' signal, acting as a stop-loss trigger
                 return 'Sell_Sc'
             else:
                 return 'Hold'
         else:
-            # If we don't have scalping positions, we consider buying
-            if scalping_ema_positive and scalping_macd_positive and stoch_rsi_signal == 'cross_above':
-                # Reset the flag for crossing above the upper band after buying
+            # If we don't have scalping positions, we consider buying, but only if all filters pass
+            if scalping_ema_positive and scalping_macd_positive and stoch_rsi_signal == 'cross_above' and adx_pass and volume_pass and rsi_pass and atr_pass:
                 self.price_has_crossed_upper_band_after_buy = False
                 return 'Buy_Sc'
 
         # Default action is to hold
         return 'Hold'
+
 
 
 
