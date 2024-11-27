@@ -1151,7 +1151,7 @@ class BotManager:
             scalping_positions = self.scalping_positions()
 
             # Get Scalping Decision Maker
-            decision = self.decision_maker.scalping_make_decision(all_features, scalping_positions)
+            decision = self.decision_maker.scalping_make_decision(all_features, scalping_positions, current_price)
             print(f"Scalping Decision Maker Suggesting ///{decision}///")
             logging.info(f"Scalping Decision Maker Suggesting ///{decision}///")
 

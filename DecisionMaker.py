@@ -24,6 +24,8 @@ class DecisionMaker:
         self.roc_down_speed = roc_down_speed
         self.trading_interval= trading_interval
         self.scalping_intervals = scalping_intervals
+        self.price_has_crossed_upper_band_after_buy_0 = False
+        self.price_has_crossed_upper_band_after_buy_1 = False
 
 
     def save_max_gain(self):
@@ -504,104 +506,100 @@ class DecisionMaker:
 
         return "Hold", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
 
+    def scalping_make_decision(self, all_features, scalping_positions, current_price):
+        """
+        Make a scalping decision based on various technical indicators and whether a scalping position exists.
 
-
-    def scalping_make_decision(self, all_features, scalping_positions):
+        :param all_features: Dictionary containing all market data.
+        :param scalping_positions: Boolean indicating if there are any active scalping positions.
+        :param current_price: Current price of the asset.
+        :return: Decision to 'Buy_Sc', 'Sell_Sc', or 'Hold'.
+        """
 
         def scalping_ema_positive():
             """
             Check if EMA (7) is greater than EMA (25) for the interval specified by self.scalping_interval.
             :return: True if EMA (7) > EMA (25), otherwise False.
             """
-            ema_7 = all_features['latest'][self.scalping_intervals[0]].get('EMA_7', None)
-            # print(f"Scalping EMA_7= {ema_7:.2f}")
-            ema_25 = all_features['latest'][self.scalping_intervals[0]].get('EMA_25', None)
-            # print(f"Scalping EMA_25= {ema_25:.2f}")
+            ema_7 = all_features['latest'][self.scalping_intervals[1]].get('EMA_7', None)
+            ema_25 = all_features['latest'][self.scalping_intervals[1]].get('EMA_25', None)
             if ema_7 is not None and ema_25 is not None:
-                print(f"scalping_ema_positive: {ema_7 > ema_25}")
                 return ema_7 > ema_25
+            return False
 
         def stoch_rsi_cross_signal():
             """
             Check if StochRSI %K has crossed above or below %D for the specified scalping_interval.
             :return: 'cross_above' if %K crossed above %D, 'cross_down' if %K crossed below %D, None otherwise.
             """
-            # Get the historical data for the scalping interval
             interval_data = all_features['history'].get(self.scalping_intervals[1], pd.DataFrame())
 
-            # Ensure that there are at least two data points for checking the crossover
             if len(interval_data) >= 2:
-                # Get the previous and current values of StochRSI %K and %D
                 previous_k = interval_data.iloc[-2].get('stoch_rsi_k', None)
                 previous_d = interval_data.iloc[-2].get('stoch_rsi_d', None)
                 current_k = interval_data.iloc[-1].get('stoch_rsi_k', None)
                 current_d = interval_data.iloc[-1].get('stoch_rsi_d', None)
 
-                # Debugging print statements
-                # print(f"previous_k={previous_k:.2f}")
-                # print(f"previous_d={previous_d:.2f}")
-                # print(f"current_k={current_k:.2f}")
-                # print(f"current_d={current_d:.2f}")
-
                 if previous_k <= previous_d and current_k > current_d:
-                    print("StochRSI Cross Signal: cross_above")
                     return 'cross_above'
                 elif previous_k >= previous_d and current_k < current_d:
-                    print("StochRSI Cross Signal: cross_down")
                     return 'cross_down'
-                else:
-                    print("StochRSI Cross Signal: No Signal")
-                    return 'No Signal'
-
-
+            return 'No Signal'
 
         def scalping_macd_positive():
             """
             Check if the MACD Histogram value has increased positively or decreased in negativity for the scalping interval.
             :return: True if the MACD Histogram shows an increase in positive value or a decrease in negativity, otherwise False.
             """
-            # Get the historical data for the scalping interval
-            interval_data = all_features['history'].get(self.scalping_intervals[0], pd.DataFrame())
+            interval_data = all_features['history'].get(self.scalping_intervals[1], pd.DataFrame())
 
-            # Ensure that there are at least two data points to compare
             if len(interval_data) >= 2:
-                # Get the previous and current values of MACD histogram
                 previous_macd_hist = interval_data.iloc[-2].get('MACD_hist', None)
                 current_macd_hist = interval_data.iloc[-1].get('MACD_hist', None)
 
-                # Debugging print statements
-                if previous_macd_hist is not None and current_macd_hist is not None:
-                    # print(f"previous_macd_hist={previous_macd_hist:.2f}")
-                    # print(f"current_macd_hist={current_macd_hist:.2f}\n")
-
-                    # Check if the MACD histogram has increased positively or decreased in negativity
-                    if ((current_macd_hist > 0 and previous_macd_hist > 0) and (current_macd_hist > previous_macd_hist) or
-                            (previous_macd_hist < 0 < current_macd_hist) and (current_macd_hist > previous_macd_hist)):
-                        print("scalping_macd_positive: True")
-                        return True
-            print("scalping_macd_positive: False")
+                if current_macd_hist > previous_macd_hist:
+                    return True
             return False
+
+        def update_price_has_crossed_upper_band_flag():
+            """
+            Update the flag indicating whether the current price has crossed above the upper Bollinger Band after a buy.
+            """
+            upper_band = all_features['latest'][self.scalping_intervals[1]].get('upper_band', None)
+            if upper_band is not None and current_price > upper_band:
+                self.price_has_crossed_upper_band_after_buy = True
 
         # Decision Conditions For Scalping:
         scalping_ema_positive = scalping_ema_positive()
         scalping_macd_positive = scalping_macd_positive()
-        stoch_rsi_cross_signal = stoch_rsi_cross_signal()
+        stoch_rsi_signal = stoch_rsi_cross_signal()
+
+        # Update the flag for price crossing above the upper Bollinger Band
+        update_price_has_crossed_upper_band_flag()
 
         if scalping_positions:
-            # If we have an active buy, we only consider selling
-            if stoch_rsi_cross_signal == 'cross_down':
-
+            # If we have an active buy, we consider selling under two conditions:
+            # 1. The price has crossed above the upper band and then falls below it.
+            # 2. StochRSI gives a 'cross_down' signal (acting as a stop-loss).
+            upper_band = all_features['latest'][self.scalping_intervals[1]].get('upper_band', None)
+            if self.price_has_crossed_upper_band_after_buy and upper_band is not None and current_price < upper_band:
+                # Price has fallen below the upper band after going above it, trigger a sell
+                return 'Sell_Sc'
+            elif stoch_rsi_signal == 'cross_down':
+                # StochRSI generates a 'cross_down' signal, acting as a stop-loss trigger
                 return 'Sell_Sc'
             else:
                 return 'Hold'
         else:
-            # If we don't have a scalping positions , we consider buying
-            if scalping_ema_positive and scalping_macd_positive and stoch_rsi_cross_signal == 'cross_above':
-
+            # If we don't have scalping positions, we consider buying
+            if scalping_ema_positive and scalping_macd_positive and stoch_rsi_signal == 'cross_above':
+                # Reset the flag for crossing above the upper band after buying
+                self.price_has_crossed_upper_band_after_buy = False
                 return 'Buy_Sc'
 
         # Default action is to hold
         return 'Hold'
+
 
 
 
