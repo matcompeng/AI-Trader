@@ -369,6 +369,13 @@ class DecisionMaker:
             if interval == self.loose_interval:
                 return latest_features.get('stop_loss', None)
 
+    def get_stop_loss_scalping(self, all_features):
+
+        for interval, latest_features in all_features['latest'].items():
+
+            if interval == self.scalping_intervals[0]:
+                return latest_features.get('stop_loss_scalping', None)
+
     def loading_stop_loss(self):
         """
         Load the stop_loss value from the stop_loss.json file in the data directory.
@@ -383,6 +390,22 @@ class DecisionMaker:
                 raise FileNotFoundError(f"{stop_loss_file} does not exist.")
         except Exception as e:
             print(f"Error loading stop_loss from file: {e}")
+            raise
+
+    def loading_stop_loss_scalping(self):
+        """
+        Load the stop_loss value from the stop_loss.json file in the data directory.
+        """
+        try:
+            stop_loss_scalping_file = os.path.join(self.data_directory, 'stop_loss_scalping.json')
+            if os.path.exists(stop_loss_scalping_file):
+                with open(stop_loss_scalping_file, 'r') as file:
+                    data = json.load(file)
+                    return data.get('stop_loss', None)
+            else:
+                raise FileNotFoundError(f"{stop_loss_scalping_file} does not exist.")
+        except Exception as e:
+            print(f"Error loading stop_loss_scalping from file: {e}")
             raise
 
     def is_there_dip(self, all_features):
@@ -513,11 +536,14 @@ class DecisionMaker:
 
     # ------------------------------------------------------------------------------------------------------------------------------------------
 
-    def scalping_make_decision(self, all_features, scalping_positions, entry_gain_loss=None):
+    def scalping_make_decision(self, all_features, scalping_positions, entry_gain_loss=None, current_price=None):
         """
         Make a scalping decision based on technical indicators.
 
+        :param stop_loss_scalping_value:
         :param all_features: Dictionary containing all market data.
+        :param scalping_positions: Boolean indicating if there are any active scalping positions.
+        :param entry_gain_loss: Current gain or loss percentage of the active scalping position.
         :return: Decision to 'Buy_Sc', 'Sell_Sc', or 'Hold'.
         """
 
@@ -536,14 +562,23 @@ class DecisionMaker:
                     return 'No Signal'
 
                 # Check if the %K is at 0 (oversold)
-                if current_k == 0:
+                if current_k <= 0 and self.oversold_reached == False:
+                    self.oversold_reached = True
+                    log_message = "StochRSI Signal: ||Oversold Reached||"
+                    print(log_message)
+                    logging.info(log_message)
+                    return 'No Signal'  # Not a signal yet, just note that we reached oversold
+
+                # If %K has reached zero and then rose above zero
+                if self.oversold_reached and current_k > 0:
+                    self.oversold_reached = False  # Reset the flag
                     log_message = f"StochRSI Signal: ||oversold||"
                     print(log_message)
                     logging.info(log_message)
                     return 'oversold'
 
                 # Check if the %K is at 95 (overbought)
-                elif current_k == 90:
+                elif current_k > 90:
                     log_message = f"StochRSI Signal: ||overbought||"
                     print(log_message)
                     logging.info(log_message)
@@ -603,13 +638,18 @@ class DecisionMaker:
         # Decision logic based on StochRSI and RSI signals
         if scalping_positions:
 
+            stop_loss_scalping_value = self.loading_stop_loss_scalping()
+
             if stoch_signal == 'overbought' and rsi_signal == 'RSI_Up':
                 log_message = "Scalping Decision: ||Sell_Sc|| (StochRSI: overbought, RSI: RSI_Up)"
                 print(log_message)
                 logging.info(log_message)
                 return 'Sell_Sc'
 
-            elif entry_gain_loss < -0.50:
+            elif current_price  < stop_loss_scalping_value:
+                log_message = f"Scalping Decision: ||Sell_Sc|| For Stop Loss (Entry Gain/Loss: {entry_gain_loss})"
+                print(log_message)
+                logging.info(log_message)
                 return 'Sell_Sc'
 
         else:

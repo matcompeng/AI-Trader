@@ -125,6 +125,8 @@ class FeatureProcessor:
                         float(ask[1]) for ask in order_book['asks'])  # Sum of ask volumes
                     if interval == self.loss_interval :
                         latest_features['stop_loss'] = self.suggest_stop_loss_based_on_order_book(order_book)
+                    if interval == '1m' :
+                        latest_features['stop_loss_scalping'] = self.stop_loss_based_on_order_book_for_scalping(order_book)
 
                 # Store the latest features for this interval
                 all_features['latest'][interval] = latest_features
@@ -360,6 +362,76 @@ class FeatureProcessor:
             print("Stop loss value is not available.")
         else:
             print(f"|||Concurrent Stop Loss: {suggested_stop_loss:.4f}|||")
+
+        return suggested_stop_loss
+
+
+    def stop_loss_based_on_order_book_for_scalping(self, order_book, max_iterations=100, increment_multiplier=1.2):
+        """
+        Suggests a stop-loss price for scalping based on the first significant gap in the order book bids.
+
+        :param order_book: Dictionary containing bids and asks. The bids should be a list of [price, volume].
+        :param max_iterations: Maximum number of iterations to increment the volume threshold.
+        :param increment_multiplier: Multiplier to increment the volume threshold in each iteration.
+        :return: Suggested stop-loss price, or None if no significant gap is found.
+        """
+        # Extract the bid prices and volumes, and convert them to floats
+        bids = [[float(price), float(volume)] for price, volume in order_book['bids']]
+
+        if not bids:
+            print("Order book bids are empty.")
+            return None
+
+        # Extract all volumes from the bids
+        volumes = [bid[1] for bid in bids]
+
+        # Calculate initial volume threshold using the 75th percentile
+        volume_threshold = np.percentile(volumes, 75)
+
+        iteration = 0
+        significant_gap = None
+
+        # Iterate with incrementally increasing volume thresholds until we find the first significant gap or reach max iterations
+        while iteration < max_iterations:
+            # Filter bids by the current volume threshold, and sort them in descending order of price
+            filtered_bids = sorted([bid for bid in bids if bid[1] >= volume_threshold], key=lambda x: x[0],
+                                   reverse=True)
+
+            # Iterate through the filtered bids and look for the first significant gap
+            for i in range(len(filtered_bids) - 1):
+                current_price = filtered_bids[i][0]
+                next_price = filtered_bids[i + 1][0]
+
+                # Calculate the percentage gap between consecutive bids
+                gap_percentage = ((current_price - next_price) / current_price) * 100
+                # print(f"gap_percentage: {gap_percentage:.2f}")
+
+                # If the gap exceeds the calculated gap threshold, set it as the first significant gap
+                if gap_percentage >= self.calculate_gap_threshold():
+                    significant_gap = (current_price, next_price)
+                    break
+
+            # Stop iteration if a significant gap is found
+            if significant_gap:
+                break
+
+            # Increment the volume threshold for the next iteration
+            volume_threshold *= increment_multiplier
+            iteration += 1
+            # print(f"Iteration {iteration}: Increased volume threshold to {volume_threshold:.2f}")
+
+        # Determine the stop-loss value based on the first significant gap found
+        if significant_gap:
+            suggested_stop_loss = significant_gap[1] - (0.1 * (significant_gap[0] - significant_gap[1]))
+        else:
+            # If no significant gap is found after all iterations, use a default stop-loss strategy
+            print("No significant gaps found after max iterations.")
+            suggested_stop_loss = None
+
+        if suggested_stop_loss is None:
+            print("Stop loss value is not available.")
+        else:
+            print(f"|||Scalping Stop Loss: {suggested_stop_loss:.4f}|||")
 
         return suggested_stop_loss
 

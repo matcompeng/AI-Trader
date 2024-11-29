@@ -52,7 +52,7 @@ X_INDEX = ['pending']                # Stop The Predictor In these Indexes.
 
 # Stable Trading:
 TRADING_INTERVAL = '15m'             # Select The Interval For Stable 'Buy' Trading And Gathering Historical Context.
-POSITION_CYCLE = [10, 5]            # Time periods in Seconds To Check Positions [Short,Long].
+POSITION_CYCLE = [5, 5]              # Time periods in Seconds To Check Positions [Short,Long].
 HISTORICAL_STABLE_CYCLE = 15         # Time in Minutes to process Stable Historical Context.
 CHECK_POSITIONS_ON_BUY = True        # Set True If You Need Bot Manager Check The Positions During Buy Cycle.
 
@@ -520,6 +520,41 @@ class BotManager:
                                                     sound="intermission")
                     print("Stop loss process has stopped due to repeated errors.")
 
+    def stop_loss_process_scalping(self):
+        """
+        Get the stop loss value from the decision maker, log the information, and save it to the file system.
+        """
+        attempt = 0
+        max_attempts = 3
+
+        while attempt < max_attempts:
+            try:
+                market_data = self.data_collector.collect_data()
+                all_features = self.feature_processor.process(market_data)
+
+                if not all_features:
+                    raise ValueError("Failed to process features. Raising error for retry.")
+
+                stop_loss_value = self.decision_maker.get_stop_loss_scalping(all_features)
+                if stop_loss_value is not None:
+                    logging.info(f"Stop loss value retrieved: {stop_loss_value}")
+                    print(f"Stop loss value: {stop_loss_value}")
+                    self.save_stop_loss_scalping(stop_loss_value)  # Save the stop loss value to the file system
+                else:
+                    logging.info("Stop loss value is not available.")
+                    print("Stop loss value is not available.")
+                break  # Break the retry loop if successful
+            except Exception as e:
+                attempt += 1
+                error_message = f"Error occurred in stop_loss_process_scalping (Attempt {attempt}): {e}"
+                logging.error(error_message)
+                self.save_error_to_csv(error_message)
+                if attempt >= max_attempts:
+                    self.notifier.send_notification("Stop Loss Scalping Process Error",
+                                                    f"The stop loss Scalping process encountered repeated errors and is stopping. Error: {e}",
+                                                    sound="intermission")
+                    print("Stop loss Scalping process has stopped due to repeated errors.")
+
     def save_stop_loss(self, stop_loss_value):
         """
         Save the stop loss value to the stop_loss.json file in the data directory,
@@ -550,6 +585,38 @@ class BotManager:
             # Log the error message
             logging.error(f"Failed to save stop loss value to file: {e}")
             print(f"Error saving stop loss value: {e}")
+
+
+    def save_stop_loss_scalping(self, stop_loss_value):
+        """
+        Save the stop loss value to the stop_loss_scalping.json file in the data directory,
+        including the timestamp of the save.
+        """
+        try:
+            # Define the path for stop_loss_scalping file
+            stop_loss_scalping_file = os.path.join(data_directory, 'stop_loss_scalping.json')
+
+            # Get the current timestamp
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+            # Create the data to save including the timestamp
+            data = {
+                'stop_loss': stop_loss_value,
+                'timestamp': timestamp
+            }
+
+            # Write the data to the stop_loss_scalping file
+            with open(stop_loss_scalping_file, 'w') as file:
+                json.dump(data, file, indent=4)
+
+            # Log the success message
+            logging.info(f"Stop loss value {stop_loss_value} saved to {stop_loss_scalping_file} at {timestamp}")
+            print(f"Stop loss value {stop_loss_value} saved to {stop_loss_scalping_file} at {timestamp}")
+
+        except Exception as e:
+            # Log the error message
+            logging.error(f"Failed to save scalping stop loss value to file: {e}")
+            print(f"Error saving scalping stop loss value: {e}")
 
     def check_stable_positions(self):
         try:
@@ -1165,7 +1232,10 @@ class BotManager:
 
                     gain_loose = round(self.calculate_gain_loose(entry_price, current_price), 2)
 
-                    decision_sell = self.decision_maker.scalping_make_decision(all_features, scalping_positions, entry_gain_loss=gain_loose)
+                    decision_sell = self.decision_maker.scalping_make_decision(all_features, scalping_positions,
+                                                                               entry_gain_loss=gain_loose,
+                                                                               current_price=current_price
+                                                                               )
 
                     if decision_sell == 'Sell_Sc':
                         trade_type = 'Scalping'
@@ -1392,11 +1462,15 @@ class BotManager:
 
             # Run the stop_loss_process immediately when the program starts
             print("Running initial stop_loss_process...")
-            logging.info("Running initial stop_loss_process...")
+            logging.info("Running initial stop_loss_processes...")
             self.stop_loss_process()  # Immediate run when the program starts
+            self.stop_loss_process_scalping() # Immediate run when the program starts
 
             # Schedule the stop loss process to run every hour
             schedule.every(1).hour.do(self.stop_loss_process).tag('stop_loss_process')
+
+            # Schedule the stop loss process to run every hour
+            schedule.every(5).minutes.do(self.stop_loss_process_scalping).tag('stop_loss_process_scalping')
 
             # Start the historical context cycle in a separate thread
             prediction_thread = threading.Thread(target=self.check_stable_prediction_timeframe, daemon=True)
