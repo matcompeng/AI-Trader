@@ -3,6 +3,7 @@ import os
 
 import numpy as np
 import pandas as pd
+import logging
 
 
 class DecisionMaker:
@@ -25,6 +26,10 @@ class DecisionMaker:
         self.trading_interval= trading_interval
         self.scalping_intervals = scalping_intervals
         self.price_has_crossed_upper_band_after_buy = False
+
+        # Configure logging to save in the data directory
+        log_file_path = os.path.join(self.data_directory, 'bot_manager.log')
+        logging.basicConfig(filename=log_file_path, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
     def save_max_gain(self):
@@ -280,7 +285,7 @@ class DecisionMaker:
             #         stable_intervals += 1
 
             # Additional checks for stability could include:
-            rsi = latest_features.get('RSI', None)
+            rsi = latest_features.get('RSI_14', None)
             if rsi and 30 <= rsi <= 70:
                 stable_intervals += 1
 
@@ -314,7 +319,7 @@ class DecisionMaker:
                 if roc > self.roc_down_speed:
                     stable_count += 1
 
-            rsi = latest_features.get('RSI', None)
+            rsi = latest_features.get('RSI_14', None)
             if rsi >= 30:
                 stable_count += 1
 
@@ -505,178 +510,118 @@ class DecisionMaker:
 
         return "Hold", adjusted_stop_loss_lower, adjusted_stop_loss_middle, adjusted_take_profit
 
-    def scalping_make_decision(self, all_features, scalping_positions, current_price, entry_price=None):
+
+    # ------------------------------------------------------------------------------------------------------------------------------------------
+
+    def scalping_make_decision(self, all_features, scalping_positions):
         """
-        Make a scalping decision based on various technical indicators and whether a scalping position exists.
+        Make a scalping decision based on technical indicators.
 
         :param all_features: Dictionary containing all market data.
-        :param scalping_positions: Boolean indicating if there are any active scalping positions.
-        :param current_price: Current price of the asset.
-        :param entry_price: The entry price of the active position (if any).
         :return: Decision to 'Buy_Sc', 'Sell_Sc', or 'Hold'.
         """
 
-        def scalping_ema_positive():
-            ema_7 = all_features['latest'][self.scalping_intervals[1]].get('EMA_7', None)
-            ema_25 = all_features['latest'][self.scalping_intervals[1]].get('EMA_25', None)
-            flag = False
-            if ema_7 is not None and ema_25 is not None:
-                flag = ema_7 > ema_25
-                print(f"Scalping EMA Positive: {'||Passed||' if flag else '||Failed||'}")
+        def stoch_rsi_signal():
+            interval_data = all_features['latest'].get(self.scalping_intervals[0], pd.DataFrame())
+
+            if len(interval_data) > 0:
+                current_k = interval_data.get('stoch_rsi_k', None)
+                current_d = interval_data.get('stoch_rsi_d', None)
+
+                # Ensure that current_k and current_d are not None
+                if current_k is None or current_d is None:
+                    log_message = "StochRSI Cross Signal: ||Error|| ,Missing StochRSI values (current_k or current_d is None)"
+                    print(log_message)
+                    logging.info(log_message)
+                    return 'No Signal'
+
+                # Check if the %K is at 0 (oversold)
+                if current_k == 0:
+                    log_message = f"StochRSI Signal: ||oversold||"
+                    print(log_message)
+                    logging.info(log_message)
+                    return 'oversold'
+
+                # Check if the %K is at 95 (overbought)
+                elif current_k == 90:
+                    log_message = f"StochRSI Signal: ||overbought||"
+                    print(log_message)
+                    logging.info(log_message)
+                    return 'overbought'
+
             else:
-                print("Scalping EMA Positive: ||Error|| ,Missing EMA values)")
-            return flag
+                log_message = "StochRSI Cross Signal: ||Error|| ,Insufficient data points)"
+                print(log_message)
+                logging.info(log_message)
 
-        def stoch_rsi_cross_signal():
-            """
-            Check if StochRSI %K has crossed above or below %D for the specified scalping_interval.
-            :return: 'cross_above' if %K crossed above %D, 'cross_down' if %K crossed below %D,
-                     'overbought' if %K > 80, 'oversold' if %K < 20, otherwise 'No Signal'.
-            """
-            interval_data = all_features['history'].get(self.scalping_intervals[1], pd.DataFrame())
-
-            if len(interval_data) >= 2:
-                previous_k = interval_data.iloc[-2].get('stoch_rsi_k', None)
-                previous_d = interval_data.iloc[-2].get('stoch_rsi_d', None)
-                current_k = interval_data.iloc[-1].get('stoch_rsi_k', None)
-                current_d = interval_data.iloc[-1].get('stoch_rsi_d', None)
-
-                if previous_k is not None and previous_d is not None and current_k is not None and current_d is not None:
-                    # Cross above
-                    if (previous_k <= previous_d and current_k > current_d) and current_k <= 60:
-                        print("StochRSI Cross Signal: ||cross_above||")
-                        return 'cross_above'
-                    # Cross down
-                    elif previous_k >= previous_d and current_k < current_d:
-                        print("StochRSI Cross Signal: ||cross_down||")
-                        return 'cross_down'
-                    # Overbought condition
-                    elif current_k > 80:
-                        print(f"StochRSI Signal: ||overbought||")
-                        return 'overbought'
-                    # Oversold condition
-                    elif current_k < 20:
-                        print(f"StochRSI Signal: ||oversold||")
-                        return 'oversold'
-
-                else:
-                    print("StochRSI Cross Signal: ||Error|| ,Missing StochRSI values)")
-            else:
-                print("StochRSI Cross Signal: ||Error|| ,Insufficient data points)")
-
-            print("StochRSI Cross Signal: ||No Signal||")
+            log_message = "StochRSI Signal: ||No Signal||"
+            print(log_message)
+            logging.info(log_message)
             return 'No Signal'
 
-        def scalping_macd_positive():
-            interval_data = all_features['history'].get(self.scalping_intervals[1], pd.DataFrame())
-
-            if len(interval_data) >= 2:
-                previous_macd_hist = interval_data.iloc[-2].get('MACD_hist', None)
-                current_macd_hist = interval_data.iloc[-1].get('MACD_hist', None)
-
-                if previous_macd_hist is not None and current_macd_hist is not None:
-                    flag = current_macd_hist > previous_macd_hist
-                    print(f"Scalping MACD Positive: {'||Passed||' if flag else '||Failed||'}")
-                    return flag
-                else:
-                    print("Scalping MACD Positive: ||Error|| ,Missing MACD histogram values)")
-            else:
-                print("Scalping MACD Positive: ||Error|| ,Insufficient data points)")
-
-            return False
-
-        def update_price_has_crossed_upper_band_flag():
-            upper_band = all_features['latest'][self.scalping_intervals[1]].get('upper_band', None)
-            if upper_band is not None and current_price > upper_band:
-                self.price_has_crossed_upper_band_after_buy = True
-
-        def adx_filter():
-            adx = all_features['latest'][self.scalping_intervals[1]].get('ADX', None)
-            flag = adx is not None and adx >= 15
-            print(f"ADX Filter: {'||Passed||' if flag else '||Failed||'}")
-            return flag
-
-        def volume_support():
-            volume = all_features['latest'][self.scalping_intervals[1]].get('volume', None)
-            average_volume = all_features['history'][self.scalping_intervals[1]]['volume'].tail(20).mean()
-            flag = volume is not None and volume >= 0.5 * average_volume
-            print(f"Volume Support: {'||Passed||' if flag else '||Failed||'}")
-            return flag
-
-        def overbought_oversold_filter():
-            rsi = all_features['latest'][self.scalping_intervals[1]].get('RSI', None)
-            flag = rsi is not None and 30 < rsi < 70
-            print(f"Overbought/Oversold Filter: {'||Passed||' if flag else '||Failed||'}")
-            return flag
-
-        def atr_filter():
-            atr = all_features['latest'][self.scalping_intervals[1]].get('ATR', None)
-            average_atr = all_features['history'][self.scalping_intervals[1]]['ATR'].tail(20).mean()
-            flag = atr is not None and 0.75 * average_atr <= atr <= 1.5 * average_atr
-            print(f"ATR Filter: {'||Passed||' if flag else '||Failed||'}")
-            return flag
-
-        def volume_resistance():
+        def rsi_signal():
             """
-            Detect potential resistance based on low current volume compared to historical average volume.
-            :return: True if current volume is significantly lower than recent average, indicating possible resistance.
+            Generate a signal based on RSI values (6, 14, 24).
+            :return: Signal 'RSI_Down', 'RSI_Up', or 'No Signal'.
             """
-            volume = all_features['latest'][self.scalping_intervals[1]].get('volume', None)
-            average_volume = all_features['history'][self.scalping_intervals[1]]['volume'].tail(20).mean()
-            flag = volume is not None and volume <= 0.5 * average_volume
-            print(f"Volume Resistance: {'||Passed||' if flag else '||Failed||'}")
-            return flag
+            interval_data = all_features['latest'].get(self.scalping_intervals[0], pd.DataFrame())
 
-        def calculate_entry_gain_loss(entry_price, current_price):
-            """
-            Calculate the gain or loss of the current position based on entry price and current price.
-            :param entry_price: The price at which the position was entered.
-            :param current_price: The current market price.
-            :return: Gain or loss percentage.
-            """
-            if entry_price is None:
-                return 0.0
-            gain_loss = ((current_price - entry_price) / entry_price) * 100
-            print(f"Entry Gain/Loss: {gain_loss:.2f}%")
-            return gain_loss
+            # Get RSI values for the specified interval
+            rsi_6 = interval_data.get('RSI_6', None)
+            rsi_14 = interval_data.get('RSI_14', None)
+            rsi_24 = interval_data.get('RSI_24', None)
 
-        # Decision Conditions For Scalping:
-        # scalping_ema_positive = scalping_ema_positive()
-        # scalping_macd_positive = scalping_macd_positive()
-        stoch_rsi_signal = stoch_rsi_cross_signal()
+            # Check if all RSI values are available
+            if rsi_6 is None or rsi_14 is None or rsi_24 is None:
+                log_message = f"RSI Signal: ||Error|| ,Missing RSI values for interval: {self.scalping_intervals[0]})"
+                print(log_message)
+                logging.info(log_message)
+                return 'No Signal'
 
-        # Apply filters to determine if we should proceed with buying
-        adx_pass = adx_filter()
-        volume_pass = volume_support()
-        volume_resistance = volume_resistance()
-        rsi_pass = overbought_oversold_filter()
-        atr_pass = atr_filter()
+            # Determine the signal based on RSI conditions
+            if rsi_6 < 30 and (rsi_6 < rsi_14 < rsi_24):
+                log_message = f"RSI Signal: ||RSI_Down|| (RSI_6: {rsi_6}, RSI_14: {rsi_14}, RSI_24: {rsi_24})"
+                print(log_message)
+                logging.info(log_message)
+                return 'RSI_Down'
+            elif rsi_6 > 70 and (rsi_6 > rsi_14 > rsi_24):
+                log_message = f"RSI Signal: ||RSI_Up|| (RSI_6: {rsi_6}, RSI_14: {rsi_14}, RSI_24: {rsi_24})"
+                print(log_message)
+                logging.info(log_message)
+                return 'RSI_Up'
 
-        # Update the flag for price crossing above the upper Bollinger Band
-        update_price_has_crossed_upper_band_flag()
+            log_message = "RSI Signal: ||No Signal||"
+            print(log_message)
+            logging.info(log_message)
+            return 'No Signal'
 
+
+        # Get signals from the defined functions
+        stoch_signal = stoch_rsi_signal()
+        rsi_signal = rsi_signal()
+
+        # Decision logic based on StochRSI and RSI signals
         if scalping_positions:
-            # If we have an active buy, we consider selling under certain conditions:
-            upper_band = all_features['latest'][self.scalping_intervals[1]].get('upper_band', None)
-            entry_gain_loss = calculate_entry_gain_loss(entry_price, current_price)
-            if self.price_has_crossed_upper_band_after_buy and upper_band is not None and current_price < upper_band:
+
+            if stoch_signal == 'overbought' and rsi_signal == 'RSI_Up':
+                log_message = "Scalping Decision: ||Sell_Sc|| (StochRSI: overbought, RSI: RSI_Up)"
+                print(log_message)
+                logging.info(log_message)
                 return 'Sell_Sc'
-            elif stoch_rsi_signal == 'cross_down' or stoch_rsi_signal == 'overbought':
-                return 'Sell_Sc'
-            elif entry_gain_loss >= 0.30 and volume_resistance:
-                return 'Sell_Sc'
-            elif entry_gain_loss <= -0.15:
-                return 'Sell_Sc'
-            else:
-                return 'Hold'
+
         else:
-            # If we don't have scalping positions, we consider buying, but only if all filters pass
-            if ((stoch_rsi_signal == 'cross_above' or stoch_rsi_signal == 'oversold')
-                    and adx_pass and volume_pass and rsi_pass and atr_pass):
-                self.price_has_crossed_upper_band_after_buy = False
+
+            if stoch_signal == 'oversold' and rsi_signal == 'RSI_Down':
+                log_message = "Scalping Decision: ||Buy_Sc|| (StochRSI: oversold, RSI: RSI_Down)"
+                print(log_message)
+                logging.info(log_message)
                 return 'Buy_Sc'
-            else:
-                return 'Hold'
+
+        # If no conditions are met, return 'Hold'
+        log_message = "Scalping Decision: ||Hold|| (No definitive conditions met for Buy or Sell)"
+        print(log_message)
+        logging.info(log_message)
+        return 'Hold'
 
 
 

@@ -122,7 +122,7 @@ class Predictor:
             for _, row in historical_data_long.iloc[-4:].iterrows():
                 historical_prompt = (
                     f"timestamp: {row['timestamp']}, "
-                    f"RSI: {row['RSI']:.5f}, "
+                    f"RSI (14): {row['RSI_14']:.5f}, "
                     f"EMA (7): {row['EMA_7']:.5f}, "
                     f"EMA (25): {row['EMA_25']:.5f}, "
                     f"MACD Hist: {row['MACD_hist']:.5f}, "
@@ -150,7 +150,7 @@ class Predictor:
                 row = pd.Series(latest_features)
                 interval_prompt = (
                     f"Interval '{interval}':\n"
-                    f"RSI: {row['RSI']:.5f}, "
+                    f"RSI (14): {row['RSI_14']:.5f}, "
                     f"MACD Hist: {row['MACD_hist']:.5f}, "
                     f"StochRSI %K: {row['stoch_rsi_k']:.5f}, "
                     f"StochRSI %D: {row['stoch_rsi_d']:.5f}, "
@@ -214,7 +214,7 @@ class Predictor:
                 historical_prompt = (
                     f"{entry['timestamp']}, "
                     f"{entry['price_change']:.5f}%, "
-                    f"RSI: {entry['RSI']:.5f}, "
+                    f"RSI (14): {entry['RSI_14']:.5f}, "
                     f"SMA (7): {entry['SMA_7']:.5f}, "
                     f"SMA (25): {entry['SMA_25']:.5f}, "
                     f"MACD: {entry['MACD']:.5f}, "

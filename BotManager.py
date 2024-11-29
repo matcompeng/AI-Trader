@@ -1150,42 +1150,6 @@ class BotManager:
 
             scalping_positions = self.scalping_positions()
 
-            # Get Scalping Decision Maker
-            decision = self.decision_maker.scalping_make_decision(all_features, scalping_positions, current_price)
-            print(f"Scalping Decision Maker Suggesting ///{decision}///")
-            logging.info(f"Scalping Decision Maker Suggesting ///{decision}///")
-
-            print(f"trading_cryptocurrency_amount: {trading_cryptocurrency_amount}")
-            logging.info(f"trading_cryptocurrency_amount: {trading_cryptocurrency_amount}")
-
-            # Scalping Buy
-            if decision == "Buy_Sc":
-                trade_execution_start = time.time()
-                print("Executing Buying a Scalping...")
-                logging.info("Executing Buying a Scalping...")
-                trade_status, order_details = self.trader.execute_trade(decision, trading_cryptocurrency_amount)
-                self.log_time("Trade execution (Buy) For Scalping", trade_execution_start)
-
-                if trade_status == "Success":
-                    position_id = str(int(time.time()))
-                    self.position_manager.add_position(position_id, current_price, trading_cryptocurrency_amount,
-                                                       scalping_flag=1)
-                    stable_invested, Scalping_invested, total_invested = self.invested_budget()
-                    print(
-                        f"New position added: {position_id}, Entry Price: {current_price}, Amount: {trading_cryptocurrency_amount}")
-                    logging.info(
-                        f"New position added: {position_id}, Entry Price: {current_price}, Amount: {trading_cryptocurrency_amount}")
-                    self.notifier.send_notification("Scalping Trade Executed",
-                                                    f"Bought {trading_cryptocurrency_amount} {COIN} at ${current_price}\n"
-                                                    f"Stable Invested: {round(stable_invested)} USDT\n"
-                                                    f"Scalping Invested: {round(Scalping_invested)} USDT\n"
-                                                    f"Total Invested: {round(total_invested)} USDT")
-                else:
-                    error_message = f"Failed to execute Buy order: {order_details}"
-                    self.save_error_to_csv(error_message)
-                    logging.error(f"Failed to execute Buy order: {order_details}")
-                    self.notifier.send_notification("Trade Error", error_message, sound="intermission")
-
             # Scalping Sell
             print("\nChecking if there is Scalping Entries:")
             if self.scalping_positions():
@@ -1201,11 +1165,13 @@ class BotManager:
 
                     gain_loose = round(self.calculate_gain_loose(entry_price, current_price), 2)
 
-                    if decision == 'Sell_Sc':
+                    decision_sell = self.decision_maker.scalping_make_decision(all_features, scalping_positions)
+
+                    if decision_sell == 'Sell_Sc':
                         trade_type = 'Scalping'
                         print(f"Selling scalping position {position_id}")
                         logging.info(f"Selling position {position_id}")
-                        trade_status, order_details = self.trader.execute_trade(decision, amount)
+                        trade_status, order_details = self.trader.execute_trade(decision_sell, amount)
                         if trade_status == "Success":
                             profit_usdt = self.calculate_profit(trade_quantity=amount, sold_price=current_price,
                                                                 entry_price=entry_price)
@@ -1238,6 +1204,42 @@ class BotManager:
             else:
                 print("No Scalping Entry Founds\n")
                 logging.info("\nNo Scalping Entry Founds\n")
+
+                # Get Scalping Decision Maker for Buy
+                decision_buy = self.decision_maker.scalping_make_decision(all_features, scalping_positions)
+                print(f"Scalping Decision Maker Suggesting ///{decision_buy}///")
+                logging.info(f"Scalping Decision Maker Suggesting ///{decision_buy}///")
+
+                print(f"trading_cryptocurrency_amount: {trading_cryptocurrency_amount}")
+                logging.info(f"trading_cryptocurrency_amount: {trading_cryptocurrency_amount}")
+
+                # Scalping Buy
+                if decision_buy == "Buy_Sc":
+                    trade_execution_start = time.time()
+                    print("Executing Buying a Scalping...")
+                    logging.info("Executing Buying a Scalping...")
+                    trade_status, order_details = self.trader.execute_trade(decision_buy, trading_cryptocurrency_amount)
+                    self.log_time("Trade execution (Buy) For Scalping", trade_execution_start)
+
+                    if trade_status == "Success":
+                        position_id = str(int(time.time()))
+                        self.position_manager.add_position(position_id, current_price, trading_cryptocurrency_amount,
+                                                           scalping_flag=1)
+                        stable_invested, Scalping_invested, total_invested = self.invested_budget()
+                        print(
+                            f"New position added: {position_id}, Entry Price: {current_price}, Amount: {trading_cryptocurrency_amount}")
+                        logging.info(
+                            f"New position added: {position_id}, Entry Price: {current_price}, Amount: {trading_cryptocurrency_amount}")
+                        self.notifier.send_notification("Scalping Trade Executed",
+                                                        f"Bought {trading_cryptocurrency_amount} {COIN} at ${current_price}\n"
+                                                        f"Stable Invested: {round(stable_invested)} USDT\n"
+                                                        f"Scalping Invested: {round(Scalping_invested)} USDT\n"
+                                                        f"Total Invested: {round(total_invested)} USDT")
+                    else:
+                        error_message = f"Failed to execute Buy order: {order_details}"
+                        self.save_error_to_csv(error_message)
+                        logging.error(f"Failed to execute Buy order: {order_details}")
+                        self.notifier.send_notification("Trade Error", error_message, sound="intermission")
 
             self.log_time("Scalping Cycle", start_time)
 
