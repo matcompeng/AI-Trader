@@ -25,7 +25,7 @@ class DecisionMaker:
         self.roc_down_speed = roc_down_speed
         self.trading_interval= trading_interval
         self.scalping_intervals = scalping_intervals
-        self.price_has_crossed_upper_band_after_buy = False
+        self.oversold_reached = False  # Track if `current_k` has ever reached zero
 
         # Configure logging to save in the data directory
         log_file_path = os.path.join(self.data_directory, 'bot_manager.log')
@@ -513,7 +513,7 @@ class DecisionMaker:
 
     # ------------------------------------------------------------------------------------------------------------------------------------------
 
-    def scalping_make_decision(self, all_features, scalping_positions):
+    def scalping_make_decision(self, all_features, scalping_positions, entry_gain_loss=None):
         """
         Make a scalping decision based on technical indicators.
 
@@ -607,6 +607,9 @@ class DecisionMaker:
                 log_message = "Scalping Decision: ||Sell_Sc|| (StochRSI: overbought, RSI: RSI_Up)"
                 print(log_message)
                 logging.info(log_message)
+                return 'Sell_Sc'
+
+            elif entry_gain_loss < -0.50:
                 return 'Sell_Sc'
 
         else:

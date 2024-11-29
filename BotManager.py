@@ -1165,7 +1165,7 @@ class BotManager:
 
                     gain_loose = round(self.calculate_gain_loose(entry_price, current_price), 2)
 
-                    decision_sell = self.decision_maker.scalping_make_decision(all_features, scalping_positions)
+                    decision_sell = self.decision_maker.scalping_make_decision(all_features, scalping_positions, entry_gain_loss=gain_loose)
 
                     if decision_sell == 'Sell_Sc':
                         trade_type = 'Scalping'
