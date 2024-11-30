@@ -562,7 +562,7 @@ class DecisionMaker:
                     return 'No Signal'
 
                 # Check if the %K is at 0 (oversold)
-                if current_k <= 0 and self.oversold_reached == False:
+                if current_k <= 0.000001 and self.oversold_reached == False:
                     self.oversold_reached = True
                     log_message = "StochRSI Signal: ||Oversold Reached||"
                     print(log_message)
@@ -570,7 +570,7 @@ class DecisionMaker:
                     return 'No Signal'  # Not a signal yet, just note that we reached oversold
 
                 # If %K has reached zero and then rose above zero
-                if self.oversold_reached and current_k > 0:
+                if self.oversold_reached and current_k > 0.000001:
                     self.oversold_reached = False  # Reset the flag
                     log_message = f"StochRSI Signal: ||oversold||"
                     print(log_message)
