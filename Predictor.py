@@ -50,9 +50,9 @@ class Predictor:
 
             "5. **StochRSI Rule**:\n"
             "   1. Validate the historical condition first:\n"
-            "       - **Historical %k/%D**: Dose **historical %k value <= historical %D value** in any of 'StochRSI historical context data'.\n"
+            "       - **Historical %k**: Dose ** historical %k value < 20 ** in all of 'StochRSI historical context data'.\n"
             "   2. then proceed to the current condition:\n"
-            f"      - **Current %k/%D**: Dose **current %k value > current %D value** in '{self.trading_interval}' current market data interval.\n"
+            f"      - **Current %k**: Dose ** current %k value < 20 ** in '{self.trading_interval}' current market data interval.\n"
             "   - If either fails, immediately flag the rule as false without proceeding further\n\n"
 
             "6. **Strict RSI Condition Rule**:\n"
@@ -61,7 +61,6 @@ class Predictor:
 
             "7. **Buy After Dip Reversal**:\n"
             "   -  Follow this flowchart to confirm a reversal and to ensure accuracy in decision-making:\n"
-            f"      - *Uptrend Momentum rule check*: If Uptrend Momentum rule (Rule 4 applies) is true, proceed to check 'StochRSI Check'\n"
             "       - *StochRSI Rule Check*: if StochRSI Rule (Rule 5 applies) is true, proceed to check 'OBV Confirmation'.\n"
             "       - *OBV Confirmation*: Is OBV increasing, suggesting higher buying volume (Rule 1 applies)? If yes, consider a 'Buy' signal.\n\n"
 

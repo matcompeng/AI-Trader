@@ -26,6 +26,8 @@ class DecisionMaker:
         self.trading_interval= trading_interval
         self.scalping_intervals = scalping_intervals
         self.oversold_reached = False  # Track if `current_k` has ever reached zero
+        self.overbought_reached = False
+        self.lowest_k_reached = None
 
         # Configure logging to save in the data directory
         log_file_path = os.path.join(self.data_directory, 'bot_manager.log')
@@ -547,6 +549,31 @@ class DecisionMaker:
         :return: Decision to 'Buy_Sc', 'Sell_Sc', or 'Hold'.
         """
 
+        def ema_status():
+            interval_data = all_features['latest'].get(self.scalping_intervals[0], pd.DataFrame())
+
+            ema_7 = interval_data.get('EMA_7', None)
+            ema_25 = interval_data.get('EMA_25', None)
+
+            if ema_7 is None or ema_25 is None:
+                log_message = "EMA Status: ||Error|| ,Missing EMA values (EMA_7 or EMA_25 is None)"
+                print(log_message)
+                logging.info(log_message)
+                return 'No Signal'
+
+            if ema_7 > ema_25:
+                log_message = "EMA Status: ||ema_positive||"
+                print(log_message)
+                logging.info(log_message)
+                return 'ema_positive'
+            elif ema_7 < ema_25:
+                log_message = "EMA Status: ||ema_negative||"
+                print(log_message)
+                logging.info(log_message)
+                return 'ema_negative'
+
+            return 'No Signal'
+
         def stoch_rsi_signal():
             interval_data = all_features['latest'].get(self.scalping_intervals[0], pd.DataFrame())
 
@@ -561,23 +588,27 @@ class DecisionMaker:
                     logging.info(log_message)
                     return 'No Signal'
 
-                # Check if the %K is at 0 (oversold)
-                if current_k <= 0.000001 and self.oversold_reached == False:
-                    self.oversold_reached = True
-                    log_message = "StochRSI Signal: ||Oversold Reached||"
-                    print(log_message)
-                    logging.info(log_message)
-                    return 'No Signal'  # Not a signal yet, just note that we reached oversold
+                # Only trigger the mechanism when current_k <= 3
+                if current_k <= 10:
+                    # Initialize or update the lowest value of %K
+                    if self.lowest_k_reached is None or current_k < self.lowest_k_reached:
+                        self.lowest_k_reached = current_k
+                        log_message = f"Updated Lowest StochRSI K Value: ||{self.lowest_k_reached}||"
+                        print(log_message)
+                        logging.info(log_message)
 
-                # If %K has reached zero and then rose above zero
-                if self.oversold_reached and current_k > 0.000001:
-                    self.oversold_reached = False  # Reset the flag
-                    log_message = f"StochRSI Signal: ||oversold||"
-                    print(log_message)
-                    logging.info(log_message)
-                    return 'oversold'
+                    # Check if %K has reversed significantly from the lowest value
+                    if self.lowest_k_reached is not None and current_k > self.lowest_k_reached:
+                        reversal_threshold = self.lowest_k_reached * 1.1  # Set a 10% increase as a significant reversal
+                        if current_k > reversal_threshold:
+                            log_message = f"StochRSI Signal: ||Oversold Reversal Detected|| (Lowest K: {self.lowest_k_reached}, Current K: {current_k})"
+                            print(log_message)
+                            logging.info(log_message)
+                            # Reset the lowest value after detecting a reversal
+                            self.lowest_k_reached = None
+                            return 'oversold'
 
-                # Check if the %K is at 95 (overbought)
+                # Check if %K is at an overbought level
                 elif current_k > 90:
                     log_message = f"StochRSI Signal: ||overbought||"
                     print(log_message)
@@ -630,31 +661,82 @@ class DecisionMaker:
             logging.info(log_message)
             return 'No Signal'
 
+        def rsi_fast_signal():
+            """
+            Generate a signal based on RSI values (6, 14).
+            :return: Signal 'RSI_Fast_Up' or 'RSI_Fast_Down'.
+            """
+            interval_data = all_features['latest'].get(self.scalping_intervals[0], pd.DataFrame())
+
+            rsi_6 = interval_data.get('RSI_6', None)
+            rsi_14 = interval_data.get('RSI_14', None)
+
+            if rsi_6 is None or rsi_14 is None:
+                log_message = f"RSI Fast Signal: ||Error|| ,Missing RSI values for interval: {self.scalping_intervals[0]})"
+                print(log_message)
+                logging.info(log_message)
+                return 'No Signal'
+
+            if rsi_6 > rsi_14:
+                log_message = "RSI Fast Signal: ||RSI_Fast_Up||"
+                print(log_message)
+                logging.info(log_message)
+                return 'RSI_Fast_Up'
+            elif rsi_6 < rsi_14:
+                log_message = "RSI Fast Signal: ||RSI_Fast_Down||"
+                print(log_message)
+                logging.info(log_message)
+                return 'RSI_Fast_Down'
+
+            return 'No Signal'
 
         # Get signals from the defined functions
         stoch_signal = stoch_rsi_signal()
-        rsi_signal = rsi_signal()
+        ema_signal = ema_status()
+        rsi_signal_value = rsi_signal()
+        rsi_fast_signal_value = rsi_fast_signal()
 
-        # Decision logic based on StochRSI and RSI signals
+        # Decision logic based on StochRSI, EMA, and RSI signals
         if scalping_positions:
 
             stop_loss_scalping_value = self.loading_stop_loss_scalping()
 
-            if stoch_signal == 'overbought' and rsi_signal == 'RSI_Up':
-                log_message = "Scalping Decision: ||Sell_Sc|| (StochRSI: overbought, RSI: RSI_Up)"
+            if ema_signal == 'ema_positive' and (stoch_signal == 'overbought' or self.overbought_reached == True):
+                self.overbought_reached = True
+                log_message = "Scalping Decision: ||Overbought Reached with EMA Positive|| (StochRSI: overbought)"
                 print(log_message)
                 logging.info(log_message)
-                return 'Sell_Sc'
+                # Wait for RSI to give RSI_Down signal
+                if rsi_signal_value == 'RSI_Down' or rsi_signal_value == 'No Signal':
+                    log_message = "Scalping Decision: ||Sell_Sc|| (RSI: RSI_Down after overbought)"
+                    print(log_message)
+                    logging.info(log_message)
+                    self.overbought_reached = False  # Reset the flag after sell
+                    return 'Sell_Sc'
 
-            elif current_price  < stop_loss_scalping_value:
+            elif ema_signal == 'ema_negative' and (stoch_signal == 'overbought' or self.overbought_reached == True):
+                self.overbought_reached = True
+                log_message = "Scalping Decision: ||Overbought Reached with EMA Negative|| (StochRSI: overbought)"
+                print(log_message)
+                logging.info(log_message)
+                # Wait for RSI Fast Signal to give RSI_Fast_Down
+                if rsi_fast_signal_value == 'RSI_Fast_Down' or rsi_fast_signal_value == 'No Signal':
+                    log_message = "Scalping Decision: ||Sell_Sc|| (RSI Fast: RSI_Fast_Down after overbought)"
+                    print(log_message)
+                    logging.info(log_message)
+                    self.overbought_reached = False  # Reset the flag after sell
+                    return 'Sell_Sc'
+
+            elif current_price < stop_loss_scalping_value:
                 log_message = f"Scalping Decision: ||Sell_Sc|| For Stop Loss (Entry Gain/Loss: {entry_gain_loss})"
                 print(log_message)
                 logging.info(log_message)
+                self.overbought_reached = False  # Reset the flag after sell
                 return 'Sell_Sc'
 
         else:
 
-            if stoch_signal == 'oversold' and rsi_signal == 'RSI_Down':
+            if stoch_signal == 'oversold' and rsi_signal_value == 'RSI_Down':
                 log_message = "Scalping Decision: ||Buy_Sc|| (StochRSI: oversold, RSI: RSI_Down)"
                 print(log_message)
                 logging.info(log_message)
@@ -665,6 +747,8 @@ class DecisionMaker:
         print(log_message)
         logging.info(log_message)
         return 'Hold'
+
+
 
 
 

@@ -365,7 +365,6 @@ class FeatureProcessor:
 
         return suggested_stop_loss
 
-
     def stop_loss_based_on_order_book_for_scalping(self, order_book, max_iterations=100, increment_multiplier=1.2):
         """
         Suggests a stop-loss price for scalping based on the first significant gap in the order book bids.
@@ -376,6 +375,7 @@ class FeatureProcessor:
         :return: Suggested stop-loss price, or None if no significant gap is found.
         """
         # Extract the bid prices and volumes, and convert them to floats
+        # Limiting to the first 100 bids
         bids = [[float(price), float(volume)] for price, volume in order_book['bids']]
 
         if not bids:
@@ -404,7 +404,6 @@ class FeatureProcessor:
 
                 # Calculate the percentage gap between consecutive bids
                 gap_percentage = ((current_price - next_price) / current_price) * 100
-                # print(f"gap_percentage: {gap_percentage:.2f}")
 
                 # If the gap exceeds the calculated gap threshold, set it as the first significant gap
                 if gap_percentage >= self.calculate_gap_threshold():
@@ -418,7 +417,6 @@ class FeatureProcessor:
             # Increment the volume threshold for the next iteration
             volume_threshold *= increment_multiplier
             iteration += 1
-            # print(f"Iteration {iteration}: Increased volume threshold to {volume_threshold:.2f}")
 
         # Determine the stop-loss value based on the first significant gap found
         if significant_gap:
