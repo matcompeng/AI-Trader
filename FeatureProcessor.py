@@ -422,14 +422,14 @@ class FeatureProcessor:
 
         # Determine the stop-loss value based on the first significant gap found
         if significant_gap:
-            suggested_stop_loss = significant_gap[1] - (0.1 * (significant_gap[0] - significant_gap[1]))
+            suggested_stop_loss = significant_gap[0] - (1.0 * (significant_gap[0] - significant_gap[1]))
         else:
             # If no significant gap is found after all iterations, use a default stop-loss strategy
             print("No significant gaps found after max iterations.")
             suggested_stop_loss = None
 
         if suggested_stop_loss is None:
-            print("Stop loss value is not available.")
+            print("Scalping Stop loss value is not available.")
         else:
             print(f"|||Scalping Stop Loss: {suggested_stop_loss:.4f}|||")
 

@@ -1286,6 +1286,9 @@ class BotManager:
                 # Scalping Buy
                 if decision_buy == "Buy_Sc":
                     trade_execution_start = time.time()
+                    print("Updating Scalping Stop Loss Price...")
+                    logging.info("Updating Scalping Stop Loss Price...")
+                    self.stop_loss_process_scalping()
                     print("Executing Buying a Scalping...")
                     logging.info("Executing Buying a Scalping...")
                     trade_status, order_details = self.trader.execute_trade(decision_buy, trading_cryptocurrency_amount)
