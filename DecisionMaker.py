@@ -659,13 +659,30 @@ class DecisionMaker:
                 logging.info(log_message)
                 return 'No Signal'
 
-            # Determine the signal based on RSI conditions
-            if rsi_6 < 30 and (rsi_6 < rsi_14 < rsi_24):
+            # Get the EMA status to determine the thresholds for RSI
+            ema_signal = ema_status()
+
+            # Set the dynamic thresholds for RSI based on EMA status
+            if ema_signal == 'ema_positive':
+                rsi_high_threshold = 80
+                rsi_low_threshold = 40
+            elif ema_signal == 'ema_negative':
+                rsi_high_threshold = 70
+                rsi_low_threshold = 30
+            else:
+                # If EMA status is not positive or negative, no action required
+                log_message = "RSI Signal: ||No Action|| - EMA status not clear"
+                print(log_message)
+                logging.info(log_message)
+                return 'No Signal'
+
+            # Determine the signal based on RSI conditions with dynamic thresholds
+            if rsi_6 < rsi_low_threshold and (rsi_6 < rsi_14 < rsi_24):
                 log_message = f"RSI Signal: ||RSI_Down|| (RSI_6: {rsi_6}, RSI_14: {rsi_14}, RSI_24: {rsi_24})"
                 print(log_message)
                 logging.info(log_message)
                 return 'RSI_Down'
-            elif rsi_6 > 70 and (rsi_6 > rsi_14 > rsi_24):
+            elif rsi_6 > rsi_high_threshold and (rsi_6 > rsi_14 > rsi_24):
                 log_message = f"RSI Signal: ||RSI_Up|| (RSI_6: {rsi_6}, RSI_14: {rsi_14}, RSI_24: {rsi_24})"
                 print(log_message)
                 logging.info(log_message)
