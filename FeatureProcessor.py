@@ -376,7 +376,7 @@ class FeatureProcessor:
         """
         # Extract the bid prices and volumes, and convert them to floats
         # Limiting to the first 100 bids
-        bids = [[float(price), float(volume)] for price, volume in order_book['bids']]
+        bids = [[float(price), float(volume)] for price, volume in order_book['bids'][:500]]
 
         if not bids:
             print("Order book bids are empty.")
@@ -420,7 +420,7 @@ class FeatureProcessor:
 
         # Determine the stop-loss value based on the first significant gap found
         if significant_gap:
-            suggested_stop_loss = significant_gap[0] - (1.0 * (significant_gap[0] - significant_gap[1]))
+            suggested_stop_loss = significant_gap[0] + (1.0 * (significant_gap[0] - significant_gap[1]))
         else:
             # If no significant gap is found after all iterations, use a default stop-loss strategy
             print("No significant gaps found after max iterations.")

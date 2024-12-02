@@ -161,7 +161,7 @@ class DecisionMaker:
         smoothed_stoch_rsi = stoch_rsi_values.mean()
 
         # Calculate momentum factor with a sigmoid-like function for smoother scaling
-        momentum_factor = 10 * np.exp(-0.05 * (smoothed_stoch_rsi - 1))
+        momentum_factor = 100 * np.exp(-0.05 * (smoothed_stoch_rsi - 1))
 
         # Adjust momentum factor based on trend strength (e.g., ADX)
         adx_value = all_features['latest'][amount_rsi_interval].get('ADX', None)
@@ -588,8 +588,23 @@ class DecisionMaker:
                     logging.info(log_message)
                     return 'No Signal'
 
-                # Only trigger the mechanism when current_k <= 3
-                if current_k <= 10:
+                # Get the EMA status to determine the trigger threshold
+                ema_signal = ema_status()
+
+                # Set the dynamic threshold based on the EMA status
+                if ema_signal == 'ema_positive':
+                    trigger_threshold = 10
+                elif ema_signal == 'ema_negative':
+                    trigger_threshold = 1
+                else:
+                    # If EMA status is not positive or negative, no action required
+                    log_message = "StochRSI Signal: ||No Action|| - EMA status not clear"
+                    print(log_message)
+                    logging.info(log_message)
+                    return 'No Signal'
+
+                # Only trigger the mechanism when current_k <= trigger_threshold
+                if current_k <= trigger_threshold or self.lowest_k_reached is not None:
                     # Initialize or update the lowest value of %K
                     if self.lowest_k_reached is None or current_k < self.lowest_k_reached:
                         self.lowest_k_reached = current_k
@@ -707,7 +722,7 @@ class DecisionMaker:
                 print(log_message)
                 logging.info(log_message)
                 # Wait for RSI to give RSI_Down signal
-                if rsi_signal_value == 'RSI_Down' or rsi_signal_value == 'No Signal':
+                if rsi_signal_value != 'RSI_Up':
                     log_message = "Scalping Decision: ||Sell_Sc|| (RSI: RSI_Down after overbought)"
                     print(log_message)
                     logging.info(log_message)
@@ -720,7 +735,7 @@ class DecisionMaker:
                 print(log_message)
                 logging.info(log_message)
                 # Wait for RSI Fast Signal to give RSI_Fast_Down
-                if rsi_fast_signal_value == 'RSI_Fast_Down' or rsi_fast_signal_value == 'No Signal':
+                if rsi_fast_signal_value != 'RSI_Fast_Up':
                     log_message = "Scalping Decision: ||Sell_Sc|| (RSI Fast: RSI_Fast_Down after overbought)"
                     print(log_message)
                     logging.info(log_message)
