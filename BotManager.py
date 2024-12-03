@@ -37,11 +37,10 @@ BASE_TAKE_PROFIT = 0.30              # Define Base Take Profit Percentage %.
 BASE_STOP_LOSS = 0.10                # Define Base Stop Loose  Percentage %.
 PROFIT_INTERVAL = '1h'               # Select The Interval For Take Profit Calculations.
 LOSS_INTERVAL = '1h'                 # Select The Interval For Stop Loose Calculations.
-ROC_DOWN_SPEED = -0.20               # Set The Min Acceptable Downtrend ROC Speed as Market Stable Condition.
-MIN_STABLE_INTERVALS = 1             # Set The Minimum Stable Intervals For Market Stable Condition.
+ROC_SPEED = (-1, 1)                  # Set The Min Acceptable Downtrend ROC Speed as Market Stable Condition.
+MIN_STABLE_INTERVALS = 3             # Set The Minimum Stable Intervals For Market Stable Condition.
 ORDERBOOK_THRESHOLD = 100            # Set Threshold of Orderbook Bid/Ask volume for support/resistance calculations.
 TRAILING_POSITIONS_COUNT = 1         # Define The Minimum Count For Stable Positions To start Trailing Check.
-VOLUME_THRESHOLD = 1000000            # Define The Min. Volume Threshold From OrderBook To Determine Stop Loss Level.
 
 # Predictor:
 PREDICTION_CYCLE = 15                # Time in Minutes to Run the Stable Prediction bot cycle.
@@ -52,7 +51,7 @@ X_INDEX = ['pending']                # Stop The Predictor In these Indexes.
 
 # Stable Trading:
 TRADING_INTERVAL = '15m'             # Select The Interval For Stable 'Buy' Trading And Gathering Historical Context.
-POSITION_CYCLE = [5, 5]              # Time periods in Seconds To Check Positions [Short,Long].
+POSITION_CYCLE = (5, 5)              # Time periods in Seconds To Check Positions [Short,Long].
 HISTORICAL_STABLE_CYCLE = 15         # Time in Minutes to process Stable Historical Context.
 CHECK_POSITIONS_ON_BUY = True        # Set True If You Need Bot Manager Check The Positions During Buy Cycle.
 
@@ -122,7 +121,7 @@ class BotManager:
         self.data_collector = DataCollector(api_key, api_secret, intervals=FEATURES_INTERVALS, symbol=TRADING_PAIR)
         self.feature_processor = FeatureProcessor(intervals=FEATURES_INTERVALS, trading_interval=TRADING_INTERVAL,
                                                   dip_interval=DIP_INTERVAL, orderbook_threshold=ORDERBOOK_THRESHOLD,
-                                                  volume_threshold=VOLUME_THRESHOLD ,loss_interval =LOSS_INTERVAL)
+                                                  loss_interval =LOSS_INTERVAL)
         self.chatgpt_client = ChatGPTClient()
         self.predictor = Predictor(self.chatgpt_client, coin=COIN, bot_manager=self,trading_interval=TRADING_INTERVAL, dip_interval=DIP_INTERVAL)
         self.decision_maker = DecisionMaker(base_take_profit=BASE_TAKE_PROFIT, base_stop_loss=BASE_STOP_LOSS,
@@ -131,7 +130,7 @@ class BotManager:
                                             amount_atr_interval=AMOUNT_ATR_INTERVAL,
                                             amount_rsi_interval=AMOUNT_RSI_INTERVAL,
                                             min_stable_intervals=MIN_STABLE_INTERVALS,
-                                            roc_down_speed=ROC_DOWN_SPEED,
+                                            roc_speed=ROC_SPEED,
                                             trading_interval=TRADING_INTERVAL,
                                             scalping_intervals=SCALPING_INTERVALS
                                             )
@@ -654,7 +653,6 @@ class BotManager:
                 # Taking Bot Manager Class Instance
                 bot_manager = BotManager()
 
-                market_stable,stable_intervals = self.decision_maker.market_downtrend_stable(all_features)
                 resistance_level, average_resistance = self.decision_maker.get_resistance_info(all_features)
                 support_level, average_support = self.decision_maker.get_support_info(all_features)
 
@@ -662,9 +660,6 @@ class BotManager:
                     print("Failed to get current price. Skipping position check.")
                     logging.info("Failed to get current price. Skipping position check.")
                     return
-
-                print(f"Stable Intervals= {stable_intervals} ,{market_stable}")
-                logging.info(f"Stable Intervals= {stable_intervals} ,{market_stable}")
 
                 if support_level and  average_support:
                     print(f"Support Level:{support_level:.1f} ,Average Support:{average_support:.1f}")
@@ -809,10 +804,13 @@ class BotManager:
                 print("No Stable Entry Founds")
 
             # Start Scalping Cycle Here
+
+
             if bandwidth_price_change > PREDICT_BANDWIDTH:
                 self.check_scalping_cycle(all_features, current_price, trading_cryptocurrency_amount)
             else:
-                print(f"^^^^^^^^^^^^^^^^^^^Current BandWidth Price: {bandwidth_price_change} ,Scalping Suspended^^^^^^^^^^^^^^^^^^^")
+                if bandwidth_price_change < PREDICT_BANDWIDTH:
+                    print(f"^^^^^^^^^^^^^^^^^^^Current BandWidth Price: {bandwidth_price_change} ,Scalping Suspended^^^^^^^^^^^^^^^^^^^")
 
         except Exception as e:
             logging.error(f"An error occurred during position check: {str(e)}")
@@ -1276,6 +1274,11 @@ class BotManager:
                 logging.info("\nNo Scalping Entry Founds\n")
 
                 # Get Scalping Decision Maker for Buy
+
+                market_stable, stable_intervals = self.decision_maker.market_stable(all_features)
+                print(f"|||Market Stable: {market_stable}, Stable Intervals: {stable_intervals:.2f}|||")
+                logging.info(f"|||Market Stable: {market_stable}, Stable Intervals: {stable_intervals:.2f}|||")
+
                 decision_buy = self.decision_maker.scalping_make_decision(all_features, scalping_positions)
                 print(f"Scalping Decision Maker Suggesting ///{decision_buy}///")
                 logging.info(f"Scalping Decision Maker Suggesting ///{decision_buy}///")
@@ -1284,7 +1287,7 @@ class BotManager:
                 logging.info(f"trading_cryptocurrency_amount: {trading_cryptocurrency_amount}")
 
                 # Scalping Buy
-                if decision_buy == "Buy_Sc":
+                if decision_buy == "Buy_Sc" and market_stable:
                     trade_execution_start = time.time()
                     print("Updating Scalping Stop Loss Price...")
                     logging.info("Updating Scalping Stop Loss Price...")
@@ -1313,6 +1316,11 @@ class BotManager:
                         self.save_error_to_csv(error_message)
                         logging.error(f"Failed to execute Buy order: {order_details}")
                         self.notifier.send_notification("Trade Error", error_message, sound="intermission")
+
+                elif  decision_buy == "Buy_Sc" and not market_stable:
+                    self.notifier.send_notification(title="Scalper" ,message=f"Entry Opportunity Exist, But Market Not Stable\n"
+                                                                             f"Stable Intervals: {stable_intervals:.2f}\n"
+                                                                             f"Current Price: {current_price}")
 
             self.log_time("Scalping Cycle", start_time)
 

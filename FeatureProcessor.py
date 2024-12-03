@@ -8,7 +8,7 @@ import json
 
 
 class FeatureProcessor:
-    def __init__(self, data_directory='data', intervals=None, trading_interval=None, loss_interval=None, dip_interval=None, dip_flag=None, orderbook_threshold=None, volume_threshold=None):
+    def __init__(self, data_directory='data', intervals=None, trading_interval=None, loss_interval=None, dip_interval=None, dip_flag=None, orderbook_threshold=None):
         self.data_directory = data_directory
         if not os.path.exists(self.data_directory):
             os.makedirs(self.data_directory)
@@ -19,7 +19,6 @@ class FeatureProcessor:
         self.orderbook_threshold = orderbook_threshold
         self.atr_value_1m = None
         self.price_value_1m = None
-        self.volume_threshold = volume_threshold
         self.loss_interval  = loss_interval
 
     def process(self, data):

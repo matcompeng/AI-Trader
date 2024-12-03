@@ -8,7 +8,7 @@ import logging
 
 class DecisionMaker:
     def __init__(self, risk_tolerance=None, base_stop_loss=None, base_take_profit=None, trading_interval=None, profit_interval=None,
-                 loose_interval=None, dip_interval=None, amount_rsi_interval=None, amount_atr_interval=None, min_stable_intervals=None, gain_sell_threshold=None,roc_down_speed=None, data_directory='data', scalping_intervals=None):
+                 loose_interval=None, dip_interval=None, amount_rsi_interval=None, amount_atr_interval=None, min_stable_intervals=None, gain_sell_threshold=None, roc_speed=None, data_directory='data', scalping_intervals=None):
         self.risk_tolerance = risk_tolerance
         self.base_stop_loss = base_stop_loss
         self.base_take_profit = base_take_profit
@@ -22,7 +22,7 @@ class DecisionMaker:
         self.max_gain_file = os.path.join(self.data_directory, 'max_gain.json')
         self.max_gain = self.load_max_gain()  # Load max gain from the file
         self.sell_threshold = gain_sell_threshold  # 25% loss from max gain to trigger sell
-        self.roc_down_speed = roc_down_speed
+        self.roc_speed = roc_speed
         self.trading_interval= trading_interval
         self.scalping_intervals = scalping_intervals
         self.oversold_reached = False  # Track if `current_k` has ever reached zero
@@ -273,37 +273,34 @@ class DecisionMaker:
         :param all_features: Dictionary containing features for multiple intervals.
         :return: True if the market is stable, False otherwise.
         """
-        stable_intervals = 0
+        stable_count = 0
         total_intervals = len(all_features)
 
         for interval, latest_features in all_features['latest'].items():
 
-            # Check ATR (Average True Range) to measure volatility
-            # atr = features.get('ATR', None)
-            # close_price = features.get('close', None)
-            # if atr and close_price:
-            #     relative_atr = atr / close_price
-            #     if relative_atr <= self.volatility_threshold:
-            #         stable_intervals += 1
+
+            roc = latest_features.get('ROC', None)
+            if roc is not None:
+                if self.roc_speed[0] < roc < self.roc_speed[1]:
+                    stable_count += 1
 
             # Additional checks for stability could include:
             rsi = latest_features.get('RSI_14', None)
             if rsi and 30 <= rsi <= 70:
-                stable_intervals += 1
+                stable_count += 1
 
             close_price = latest_features.get('close', None)
             upper_band = latest_features.get('upper_band', None)
             lower_band = latest_features.get('lower_band', None)
             if upper_band and lower_band and close_price:
                 if lower_band <= close_price <= upper_band:
-                    stable_intervals += 1
+                    stable_count += 1
 
-        # Consider the market stable if a majority of intervals indicate stability
-        # if stable_intervals >= (total_intervals * 2 * 0.75):  # e.g., 4 out of 5 intervals must be stable
-        if total_intervals - (total_intervals - (stable_intervals / 2)) >= self.min_stable_intervals:  # e.g., 5 out of 6 intervals must be stable
+        stable_intervals = total_intervals - (total_intervals - (stable_count / 3))
+        if stable_intervals >= self.min_stable_intervals:  # e.g., 5 out of 6 intervals must be stable
             return True, stable_intervals
 
-        return False
+        return False, stable_intervals
 
     def market_downtrend_stable(self, all_features):
         """
@@ -318,7 +315,7 @@ class DecisionMaker:
 
             roc = latest_features.get('ROC', None)
             if roc is not None:
-                if roc > self.roc_down_speed:
+                if roc > self.roc_speed[0]:
                     stable_count += 1
 
             rsi = latest_features.get('RSI_14', None)
