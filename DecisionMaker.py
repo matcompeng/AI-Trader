@@ -755,19 +755,16 @@ class DecisionMaker:
                     log_message = f"Gain Trailing Lock: ||Trailing Sell Signal Activated|| (Entry Gain: {entry_gain_loss}%, Stop Loss Threshold: {trailing_stop_loss}%)"
                     print(log_message)
                     logging.info(log_message)
-                    self.max_gain_reached = None  # Reset the flag after sell
                     return 'trailing_sell'
                 else:
                     log_message = f"Gain Trailing Lock: ||Trailing Sell Locked|| (Entry Gain: {entry_gain_loss}%, Stop Loss Threshold: {trailing_stop_loss}%)"
                     print(log_message)
                     logging.info(log_message)
-                    self.max_gain_reached = None  # Reset the flag after sell
                     return 'No Signal'
             else:
                 log_message = f"Gain Trailing Lock: ||Trailing Sell Testing|| (Entry Gain: {entry_gain_loss}%, trailing_start_gain: {trailing_start_gain}%)"
                 print(log_message)
                 logging.info(log_message)
-                self.max_gain_reached = None  # Reset the flag after sell
                 return 'No Signal'
 
 
@@ -794,6 +791,7 @@ class DecisionMaker:
                     print(log_message)
                     logging.info(log_message)
                     self.overbought_reached = False  # Reset the flag after sell
+                    self.max_gain_reached = None  # Reset the flag after sell
                     return 'Sell_Sc'
 
             elif ema_signal == 'ema_negative' and (stoch_signal == 'overbought' or self.overbought_reached == True):
@@ -807,6 +805,7 @@ class DecisionMaker:
                     print(log_message)
                     logging.info(log_message)
                     self.overbought_reached = False  # Reset the flag after sell
+                    self.max_gain_reached = None  # Reset the flag after sell
                     return 'Sell_Sc'
 
             elif current_price < stop_loss_scalping_value:
@@ -814,6 +813,7 @@ class DecisionMaker:
                 print(log_message)
                 logging.info(log_message)
                 self.overbought_reached = False  # Reset the flag after sell
+                self.max_gain_reached = None  # Reset the flag after sell
                 return 'Sell_Sc'
 
             elif trailing_signal == 'trailing_sell':
@@ -821,6 +821,7 @@ class DecisionMaker:
                 print(log_message)
                 logging.info(log_message)
                 self.overbought_reached = False  # Reset the flag after sell
+                self.max_gain_reached = None  # Reset the flag after sell
                 return 'Sell_Sc'
 
         else:
