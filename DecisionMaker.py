@@ -28,6 +28,7 @@ class DecisionMaker:
         self.oversold_reached = False  # Track if `current_k` has ever reached zero
         self.overbought_reached = False
         self.lowest_k_reached = None
+        self.max_gain_reached = None
 
         # Configure logging to save in the data directory
         log_file_path = os.path.join(self.data_directory, 'bot_manager.log')
@@ -719,13 +720,65 @@ class DecisionMaker:
 
             return 'No Signal'
 
+        def gain_trailing_lock():
+            """
+            Lock gain and provide a trailing sell signal based on entry_gain_loss.
+            """
+            if entry_gain_loss is None:
+                return 'No Signal'
+
+            # Get the EMA status to determine the dynamic trailing start gain
+            ema_signal = ema_status()
+
+            # Set the dynamic trailing start gain based on EMA status
+            if ema_signal == 'ema_positive':
+                trailing_start_gain = 0.30  # 0.30%
+            elif ema_signal == 'ema_negative':
+                trailing_start_gain = 0.25  # 0.25%
+            else:
+                trailing_start_gain = 0.30  # Default to 0.30%
+
+            # Check if we need to initialize or update the maximum gain reached
+            if not hasattr(self,
+                           'max_gain_reached') or self.max_gain_reached is None or entry_gain_loss > self.max_gain_reached:
+                self.max_gain_reached = entry_gain_loss
+                log_message = f"Gain Trailing Lock: ||Updated Max Gain Reached|| (New Max Gain: {self.max_gain_reached}%)"
+                print(log_message)
+                logging.info(log_message)
+
+            # Only activate trailing stop if we are above the starting gain threshold
+            if self.max_gain_reached >= trailing_start_gain:
+                # Set trailing stop loss at half of the highest gain reached
+                trailing_stop_loss = self.max_gain_reached / 2
+
+                if entry_gain_loss <= trailing_stop_loss:
+                    log_message = f"Gain Trailing Lock: ||Trailing Sell Signal Activated|| (Entry Gain: {entry_gain_loss}%, Stop Loss Threshold: {trailing_stop_loss}%)"
+                    print(log_message)
+                    logging.info(log_message)
+                    self.max_gain_reached = None  # Reset the flag after sell
+                    return 'trailing_sell'
+                else:
+                    log_message = f"Gain Trailing Lock: ||Trailing Sell Locked|| (Entry Gain: {entry_gain_loss}%, Stop Loss Threshold: {trailing_stop_loss}%)"
+                    print(log_message)
+                    logging.info(log_message)
+                    self.max_gain_reached = None  # Reset the flag after sell
+                    return 'No Signal'
+            else:
+                log_message = f"Gain Trailing Lock: ||Trailing Sell Testing|| (Entry Gain: {entry_gain_loss}%, trailing_start_gain: {trailing_start_gain}%)"
+                print(log_message)
+                logging.info(log_message)
+                self.max_gain_reached = None  # Reset the flag after sell
+                return 'No Signal'
+
+
         # Get signals from the defined functions
         stoch_signal = stoch_rsi_signal()
         ema_signal = ema_status()
         rsi_signal_value = rsi_signal()
         rsi_fast_signal_value = rsi_fast_signal()
+        trailing_signal = gain_trailing_lock()
 
-        # Decision logic based on StochRSI, EMA, and RSI signals
+        # Decision logic based on StochRSI, EMA, RSI, and gain trailing signals
         if scalping_positions:
 
             stop_loss_scalping_value = self.loading_stop_loss_scalping()
@@ -763,6 +816,13 @@ class DecisionMaker:
                 self.overbought_reached = False  # Reset the flag after sell
                 return 'Sell_Sc'
 
+            elif trailing_signal == 'trailing_sell':
+                log_message = "Scalping Decision: ||Sell_Sc|| (Trailing Stop Loss Activated)"
+                print(log_message)
+                logging.info(log_message)
+                self.overbought_reached = False  # Reset the flag after sell
+                return 'Sell_Sc'
+
         else:
 
             if stoch_signal == 'oversold' and rsi_signal_value == 'RSI_Down':
@@ -776,6 +836,7 @@ class DecisionMaker:
         print(log_message)
         logging.info(log_message)
         return 'Hold'
+
 
 
 

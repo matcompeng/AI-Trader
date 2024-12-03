@@ -1308,6 +1308,7 @@ class BotManager:
                             f"New position added: {position_id}, Entry Price: {current_price}, Amount: {trading_cryptocurrency_amount}")
                         self.notifier.send_notification("Scalping Trade Executed",
                                                         f"Bought {trading_cryptocurrency_amount} {COIN} at ${current_price}\n"
+                                                        f"Stable Intervals: {stable_intervals:.2f}\n"
                                                         f"Stable Invested: {round(stable_invested)} USDT\n"
                                                         f"Scalping Invested: {round(Scalping_invested)} USDT\n"
                                                         f"Total Invested: {round(total_invested)} USDT")
