@@ -420,7 +420,7 @@ class FeatureProcessor:
         # Determine the stop-loss value based on the first quarter descending from the highest bid volume to the first significant gap found
         if significant_gap:
             highest_bid = filtered_bids[0][0]
-            suggested_stop_loss = highest_bid - (0.20 * (highest_bid - significant_gap[1]))
+            suggested_stop_loss = highest_bid - (0.10 * (highest_bid - significant_gap[1]))
         else:
             # If no significant gap is found after all iterations, use a default stop-loss strategy
             print("No significant gaps found after max iterations.")

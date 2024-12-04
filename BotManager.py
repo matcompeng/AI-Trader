@@ -38,7 +38,7 @@ BASE_STOP_LOSS = 0.10                # Define Base Stop Loose  Percentage %.
 PROFIT_INTERVAL = '1h'               # Select The Interval For Take Profit Calculations.
 LOSS_INTERVAL = '1h'                 # Select The Interval For Stop Loose Calculations.
 ROC_SPEED = (-1, 1)                  # Set The Min Acceptable Downtrend ROC Speed as Market Stable Condition.
-MIN_STABLE_INTERVALS = 3             # Set The Minimum Stable Intervals For Market Stable Condition.
+MIN_STABLE_INTERVALS = 4             # Set The Minimum Stable Intervals For Market Stable Condition.
 ORDERBOOK_THRESHOLD = 100            # Set Threshold of Orderbook Bid/Ask volume for support/resistance calculations.
 TRAILING_POSITIONS_COUNT = 1         # Define The Minimum Count For Stable Positions To start Trailing Check.
 
@@ -51,7 +51,7 @@ X_INDEX = ['pending']                # Stop The Predictor In these Indexes.
 
 # Stable Trading:
 TRADING_INTERVAL = '15m'             # Select The Interval For Stable 'Buy' Trading And Gathering Historical Context.
-POSITION_CYCLE = (5, 5)              # Time periods in Seconds To Check Positions [Short,Long].
+POSITION_CYCLE = (2, 2)              # Time periods in Seconds To Check Positions [Short,Long].
 HISTORICAL_STABLE_CYCLE = 15         # Time in Minutes to process Stable Historical Context.
 CHECK_POSITIONS_ON_BUY = True        # Set True If You Need Bot Manager Check The Positions During Buy Cycle.
 

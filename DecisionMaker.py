@@ -591,9 +591,9 @@ class DecisionMaker:
 
                 # Set the dynamic threshold based on the EMA status
                 if ema_signal == 'ema_positive':
-                    trigger_threshold = 10
+                    trigger_threshold = 15
                 elif ema_signal == 'ema_negative':
-                    trigger_threshold = 1
+                    trigger_threshold = 10
                 else:
                     # If EMA status is not positive or negative, no action required
                     log_message = "StochRSI Signal: ||No Action|| - EMA status not clear"
@@ -612,7 +612,7 @@ class DecisionMaker:
 
                     # Check if %K has reversed significantly from the lowest value
                     if self.lowest_k_reached is not None and current_k > self.lowest_k_reached:
-                        reversal_threshold = self.lowest_k_reached * 1.1  # Set a 10% increase as a significant reversal
+                        reversal_threshold = self.lowest_k_reached * 1.50  # Set a 50% increase as a significant reversal
                         if current_k > reversal_threshold:
                             log_message = f"StochRSI Signal: ||Oversold Reversal Detected|| (Lowest K: {self.lowest_k_reached}, Current K: {current_k})"
                             print(log_message)
@@ -663,10 +663,10 @@ class DecisionMaker:
             # Set the dynamic thresholds for RSI based on EMA status
             if ema_signal == 'ema_positive':
                 rsi_high_threshold = 80
-                rsi_low_threshold = 40
+                rsi_low_threshold = 45
             elif ema_signal == 'ema_negative':
                 rsi_high_threshold = 70
-                rsi_low_threshold = 30
+                rsi_low_threshold = 35
             else:
                 # If EMA status is not positive or negative, no action required
                 log_message = "RSI Signal: ||No Action|| - EMA status not clear"
@@ -732,9 +732,9 @@ class DecisionMaker:
 
             # Set the dynamic trailing start gain based on EMA status
             if ema_signal == 'ema_positive':
-                trailing_start_gain = 0.30  # 0.30%
+                trailing_start_gain = 0.20  # 0.30%
             elif ema_signal == 'ema_negative':
-                trailing_start_gain = 0.25  # 0.25%
+                trailing_start_gain = 0.10  # 0.25%
             else:
                 trailing_start_gain = 0.30  # Default to 0.30%
 
