@@ -66,6 +66,8 @@ MAX_TRADING_INV = 1.00               # Maximum Stable Trading Investment Budget 
 USDT_DIP_AMOUNT = 500                # Amount of Currency For Buying a Dip.
 AMOUNT_RSI_INTERVAL = '15m'          # Interval To get its RSI for Buying Amount Calculations Function.
 AMOUNT_ATR_INTERVAL = '1h'           # Interval To get its ATR for Buying Amount Calculations Function.
+
+SCALPING_CYCLE = 'ON'
 # ##################################################################################################################
 
 # Create the data directory if it doesn't exist
@@ -806,8 +808,9 @@ class BotManager:
             # Start Scalping Cycle Here
 
 
-            if bandwidth_price_change > PREDICT_BANDWIDTH:
-                self.check_scalping_cycle(all_features, current_price, trading_cryptocurrency_amount)
+            if bandwidth_price_change > PREDICT_BANDWIDTH and SCALPING_CYCLE == 'ON':
+                for interval in SCALPING_INTERVALS:
+                    self.check_scalping_cycle(all_features, current_price, trading_cryptocurrency_amount, scalping_interval=interval)
             else:
                 if bandwidth_price_change < PREDICT_BANDWIDTH:
                     print(f"^^^^^^^^^^^^^^^^^^^Current BandWidth Price: {bandwidth_price_change} ,Scalping Suspended^^^^^^^^^^^^^^^^^^^")
@@ -908,11 +911,13 @@ class BotManager:
             self.save_error_to_csv(str(e))
             self.notifier.send_notification("Saves Dip historical context error", message=str(e))
 
-    def scalping_positions(self):
+    def scalping_positions(self, scalping_interval):
         positions_copy = list(self.position_manager.get_positions().items())
         for position_id, position in positions_copy:
             scalping_flag = position['scalping']
-            if scalping_flag == 1:
+            if scalping_flag == 1 and scalping_interval == SCALPING_INTERVALS[0]:
+                return True
+            elif scalping_flag == 2 and scalping_interval == SCALPING_INTERVALS[1]:
                 return True
         return False
 
@@ -1205,22 +1210,25 @@ class BotManager:
         return avg_entry_price
 
 
-    def check_scalping_cycle(self, all_features, current_price, trading_cryptocurrency_amount):
+    def check_scalping_cycle(self, all_features, current_price, trading_cryptocurrency_amount, scalping_interval):
         try:
             start_time = time.time()
             cycle_start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            print(f"\n^^^^^^^^^^^^^^^^^^^^Scalping cycle started at {cycle_start_time}.^^^^^^^^^^^^^^^^^^^^")
+            print(f"\n^^^^^^^^^^^^^^^^^^^^Scalping cycle started at {cycle_start_time} For interval {scalping_interval}.^^^^^^^^^^^^^^^^^^^^")
             logging.info(
-                f"//^^^^^^^^^^^^^^^^^^^^Scalping cycle started at {cycle_start_time}^^^^^^^^^^^^^^^^^^^^//")
+                f"//^^^^^^^^^^^^^^^^^^^^Scalping cycle started at {cycle_start_time} For interval {scalping_interval}.^^^^^^^^^^^^^^^^^^^^//")
 
-            scalping_positions = self.scalping_positions()
+            scalping_positions = self.scalping_positions(scalping_interval)
+
+            # Determine the scalping flag based on the scalping_interval
+            scalping_flag = 1 if scalping_interval == SCALPING_INTERVALS[0] else 2
 
             # Scalping Sell
-            print("\nChecking if there is Scalping Entries:")
-            if self.scalping_positions():
+            print("\nChecking if there are Scalping Entries:")
+            if scalping_positions:
                 positions_copy = [
                     (position_id, position) for position_id, position in self.position_manager.get_positions().items()
-                    if position.get('scalping') == 1
+                    if position.get('scalping') == scalping_flag
                 ]
 
                 # Scalping Trade Execution
@@ -1232,8 +1240,7 @@ class BotManager:
 
                     decision_sell = self.decision_maker.scalping_make_decision(all_features, scalping_positions,
                                                                                entry_gain_loss=gain_loose,
-                                                                               current_price=current_price
-                                                                               )
+                                                                               current_price=current_price)
 
                     if decision_sell == 'Sell_Sc':
                         trade_type = 'Scalping'
@@ -1251,7 +1258,7 @@ class BotManager:
                             logging.info(f"Scalping Position {position_id} sold successfully")
                             self.notifier.send_notification("Scalping Trade Executed",
                                                             f"Sold {amount} {COIN} at ${current_price}\n"
-                                                            f"Gain/Loose: {gain_loose}%\n"
+                                                            f"Gain/Loss: {gain_loose}%\n"
                                                             "Sell Mode: Scalping\n"
                                                             f"Stable Invested: {round(stable_invested)} USDT\n"
                                                             f"Scalping Invested: {round(Scalping_invested)} USDT\n"
@@ -1265,13 +1272,13 @@ class BotManager:
                         print("Scalping Decision: ///Hold///")
                         logging.info("Scalping Decision: ///Hold///")
                         print(
-                            f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
+                            f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loss: {gain_loose}%")
                         logging.info(
-                            f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loose: {gain_loose}%")
+                            f"Holding position: {position_id}, Entry Price: {entry_price}, Current Price: {current_price}, Gain/Loss: {gain_loose}%")
 
             else:
-                print("No Scalping Entry Founds\n")
-                logging.info("\nNo Scalping Entry Founds\n")
+                print("No Scalping Entries Found\n")
+                logging.info("\nNo Scalping Entries Found\n")
 
                 # Get Scalping Decision Maker for Buy
 
@@ -1300,7 +1307,7 @@ class BotManager:
                     if trade_status == "Success":
                         position_id = str(int(time.time()))
                         self.position_manager.add_position(position_id, current_price, trading_cryptocurrency_amount,
-                                                           scalping_flag=1)
+                                                           scalping_flag=scalping_flag)
                         stable_invested, Scalping_invested, total_invested = self.invested_budget()
                         print(
                             f"New position added: {position_id}, Entry Price: {current_price}, Amount: {trading_cryptocurrency_amount}")
@@ -1318,17 +1325,18 @@ class BotManager:
                         logging.error(f"Failed to execute Buy order: {order_details}")
                         self.notifier.send_notification("Trade Error", error_message, sound="intermission")
 
-                elif  decision_buy == "Buy_Sc" and not market_stable:
-                    self.notifier.send_notification(title="Scalper" ,message=f"Entry Opportunity Exist, But Market Not Stable\n"
-                                                                             f"Stable Intervals: {stable_intervals:.2f}\n"
-                                                                             f"Current Price: {current_price}")
+                elif decision_buy == "Buy_Sc" and not market_stable:
+                    self.notifier.send_notification(title="Scalper",
+                                                    message=f"Entry Opportunity Exists, But Market Not Stable\n"
+                                                            f"Stable Intervals: {stable_intervals:.2f}\n"
+                                                            f"Current Price: {current_price}")
 
             self.log_time("Scalping Cycle", start_time)
 
         except Exception as e:
             logging.error(f"An error occurred during position check: {str(e)}")
             self.save_error_to_csv(str(e))
-            self.notifier.send_notification(title='Scalping Cycle Error',message= str(e))
+            self.notifier.send_notification(title='Scalping Cycle Error', message=str(e))
 
     def check_stable_prediction_timeframe(self):
         """

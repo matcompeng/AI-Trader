@@ -536,11 +536,12 @@ class DecisionMaker:
 
     # ------------------------------------------------------------------------------------------------------------------------------------------
 
-    def scalping_make_decision(self, all_features, scalping_positions, entry_gain_loss=None, current_price=None):
+    def scalping_make_decision(self, all_features, scalping_positions, entry_gain_loss=None, current_price=None, scalping_interval=None):
         """
         Make a scalping decision based on technical indicators.
 
-        :param stop_loss_scalping_value:
+        :param scalping_interval:
+        :param current_price:
         :param all_features: Dictionary containing all market data.
         :param scalping_positions: Boolean indicating if there are any active scalping positions.
         :param entry_gain_loss: Current gain or loss percentage of the active scalping position.
@@ -586,13 +587,11 @@ class DecisionMaker:
                     logging.info(log_message)
                     return 'No Signal'
 
-                # Get the EMA status to determine the trigger threshold
-                ema_signal = ema_status()
 
                 # Set the dynamic threshold based on the EMA status
-                if ema_signal == 'ema_positive':
+                if  scalping_interval == self.scalping_intervals[0]:
                     trigger_threshold = 20
-                elif ema_signal == 'ema_negative':
+                elif scalping_interval == self.scalping_intervals[0]:
                     trigger_threshold = 10
                 else:
                     # If EMA status is not positive or negative, no action required
@@ -612,7 +611,7 @@ class DecisionMaker:
 
                     # Check if %K has reversed significantly from the lowest value
                     if self.lowest_k_reached is not None and current_k > self.lowest_k_reached:
-                        reversal_threshold = self.lowest_k_reached * 1.50  # Set a 50% increase as a significant reversal
+                        reversal_threshold = self.lowest_k_reached * 2  # Set a 100% increase as a significant reversal
                         if current_k > reversal_threshold:
                             log_message = f"StochRSI Signal: ||Oversold Reversal Detected|| (Lowest K: {self.lowest_k_reached}, Current K: {current_k})"
                             print(log_message)
@@ -714,12 +713,10 @@ class DecisionMaker:
             ema_signal = ema_status()
 
             # Set the dynamic trailing start gain based on EMA status
-            if ema_signal == 'ema_positive':
-                trailing_start_gain = 0.20  # 0.30%
-            elif ema_signal == 'ema_negative':
-                trailing_start_gain = 0.10  # 0.25%
-            else:
-                trailing_start_gain = 0.30  # Default to 0.30%
+            if  scalping_interval == self.scalping_intervals[0]:
+                trailing_start_gain = 0.30  # 0.30%
+            elif scalping_interval == self.scalping_intervals[1]:
+                trailing_start_gain = 0.15  # 0.25%
 
             # Check if we need to initialize or update the maximum gain reached
             if not hasattr(self,
@@ -755,7 +752,7 @@ class DecisionMaker:
         stoch_signal = stoch_rsi_signal()
         ema_signal = ema_status()
         rsi_signal_value = rsi_signal()
-        rsi_fast_signal_value = rsi_fast_signal()
+        # rsi_fast_signal_value = rsi_fast_signal()
         trailing_signal = gain_trailing_lock()
 
         # Decision logic based on StochRSI, EMA, RSI, and gain trailing signals
@@ -777,19 +774,19 @@ class DecisionMaker:
                     self.max_gain_reached = None  # Reset the flag after sell
                     return 'Sell_Sc'
 
-            elif ema_signal == 'ema_negative' and (stoch_signal == 'overbought' or self.overbought_reached == True):
-                self.overbought_reached = True
-                log_message = "Scalping Decision: ||Overbought Reached with EMA Negative|| (StochRSI: overbought)"
-                print(log_message)
-                logging.info(log_message)
-                # Wait for RSI Fast Signal to give RSI_Fast_Down
-                if rsi_fast_signal_value != 'RSI_Fast_Up':
-                    log_message = "Scalping Decision: ||Sell_Sc|| (RSI Fast: RSI_Fast_Down after overbought)"
-                    print(log_message)
-                    logging.info(log_message)
-                    self.overbought_reached = False  # Reset the flag after sell
-                    self.max_gain_reached = None  # Reset the flag after sell
-                    return 'Sell_Sc'
+            # elif ema_signal == 'ema_negative' and (stoch_signal == 'overbought' or self.overbought_reached == True):
+            #     self.overbought_reached = True
+            #     log_message = "Scalping Decision: ||Overbought Reached with EMA Negative|| (StochRSI: overbought)"
+            #     print(log_message)
+            #     logging.info(log_message)
+            #     # Wait for RSI Fast Signal to give RSI_Fast_Down
+            #     if rsi_fast_signal_value != 'RSI_Fast_Up':
+            #         log_message = "Scalping Decision: ||Sell_Sc|| (RSI Fast: RSI_Fast_Down after overbought)"
+            #         print(log_message)
+            #         logging.info(log_message)
+            #         self.overbought_reached = False  # Reset the flag after sell
+            #         self.max_gain_reached = None  # Reset the flag after sell
+            #         return 'Sell_Sc'
 
             elif current_price < stop_loss_scalping_value:
                 log_message = f"Scalping Decision: ||Sell_Sc|| For Stop Loss (Entry Gain/Loss: {entry_gain_loss})"
@@ -809,7 +806,7 @@ class DecisionMaker:
 
         else:
 
-            if stoch_signal == 'oversold' and rsi_signal_value == 'RSI_Down':
+            if ema_signal == 'ema_positive' and stoch_signal == 'oversold' and rsi_signal_value == 'RSI_Down':
                 log_message = "Scalping Decision: ||Buy_Sc|| (StochRSI: oversold, RSI: RSI_Down)"
                 print(log_message)
                 logging.info(log_message)
