@@ -549,7 +549,7 @@ class DecisionMaker:
         """
 
         def ema_status():
-            interval_data = all_features['latest'].get(self.scalping_intervals[0], pd.DataFrame())
+            interval_data = all_features['latest'].get(scalping_interval, pd.DataFrame())
 
             ema_7 = interval_data.get('EMA_7', None)
             ema_25 = interval_data.get('EMA_25', None)
@@ -574,7 +574,7 @@ class DecisionMaker:
             return 'No Signal'
 
         def stoch_rsi_signal():
-            interval_data = all_features['latest'].get(self.scalping_intervals[0], pd.DataFrame())
+            interval_data = all_features['latest'].get(scalping_interval, pd.DataFrame())
 
             if len(interval_data) > 0:
                 current_k = interval_data.get('stoch_rsi_k', None)
@@ -642,7 +642,7 @@ class DecisionMaker:
             Generate a signal based on RSI values (6, 14, 24).
             :return: Signal 'RSI_Down', 'RSI_Up', or 'No Signal'.
             """
-            interval_data = all_features['latest'].get(self.scalping_intervals[0], pd.DataFrame())
+            interval_data = all_features['latest'].get(scalping_interval, pd.DataFrame())
 
             # Get RSI values for the specified interval
             rsi_6 = interval_data.get('RSI_6', None)
@@ -678,7 +678,7 @@ class DecisionMaker:
             Generate a signal based on RSI values (6, 14).
             :return: Signal 'RSI_Fast_Up' or 'RSI_Fast_Down'.
             """
-            interval_data = all_features['latest'].get(self.scalping_intervals[0], pd.DataFrame())
+            interval_data = all_features['latest'].get(scalping_interval, pd.DataFrame())
 
             rsi_6 = interval_data.get('RSI_6', None)
             rsi_14 = interval_data.get('RSI_14', None)

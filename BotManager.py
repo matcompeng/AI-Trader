@@ -1240,7 +1240,8 @@ class BotManager:
 
                     decision_sell = self.decision_maker.scalping_make_decision(all_features, scalping_positions,
                                                                                entry_gain_loss=gain_loose,
-                                                                               current_price=current_price)
+                                                                               current_price=current_price,
+                                                                               scalping_interval=scalping_interval)
 
                     if decision_sell == 'Sell_Sc':
                         trade_type = 'Scalping'
@@ -1286,7 +1287,9 @@ class BotManager:
                 print(f"|||Market Stable: {market_stable}, Stable Intervals: {stable_intervals:.2f}|||")
                 logging.info(f"|||Market Stable: {market_stable}, Stable Intervals: {stable_intervals:.2f}|||")
 
-                decision_buy = self.decision_maker.scalping_make_decision(all_features, scalping_positions)
+                decision_buy = self.decision_maker.scalping_make_decision(all_features,
+                                                                          scalping_positions,
+                                                                          scalping_interval=scalping_interval)
                 print(f"Scalping Decision Maker Suggesting ///{decision_buy}///")
                 logging.info(f"Scalping Decision Maker Suggesting ///{decision_buy}///")
 
