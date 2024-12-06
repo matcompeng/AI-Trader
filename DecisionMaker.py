@@ -548,30 +548,70 @@ class DecisionMaker:
         :return: Decision to 'Buy_Sc', 'Sell_Sc', or 'Hold'.
         """
 
-        def ema_status():
-            interval_data = all_features['latest'].get(scalping_interval, pd.DataFrame())
+        def uptrend_momentum():
+            """
+            Validate uptrend momentum for a given historical context.
 
-            ema_7 = interval_data.get('EMA_7', None)
-            ema_25 = interval_data.get('EMA_25', None)
+            **Uptrend Momentum Rule**:
+               1. Validate the **EMA (7)/EMA (25)** condition first:
+                   - Ensure **EMA (7)** is consistently above **EMA (25)** for **the last 4 records** in **'specified interval' historical context**.
+               2. Then validate EMA (25) raising condition:
+                   - Ensure **EMA (25)** shows a pattern of rising consecutive timeframes for **the last 4 records** in **'specified interval' historical context**.
+               - If either fails, immediately flag the rule as false without proceeding further.
 
-            if ema_7 is None or ema_25 is None:
-                log_message = "EMA Status: ||Error|| ,Missing EMA values (EMA_7 or EMA_25 is None)"
+            :return: Boolean indicating if the uptrend momentum is valid.
+            """
+
+            try:
+                interval = None
+
+                if scalping_interval == self.scalping_intervals[0]:
+                    interval = '15m'
+                elif scalping_interval == self.scalping_intervals[1]:
+                    interval = '30m'
+
+                # Extract data for the specified interval from the historical context
+                interval_data = all_features['history'].get(interval, None)
+
+                if interval_data is None or interval_data.empty:
+                    log_message = f"Uptrend Momentum: ||Error|| Historical data for interval '{interval}' is not available or empty."
+                    print(log_message)
+                    logging.info(log_message)
+                    return False
+
+                # Use only the last 4 records from the historical context
+                interval_data = interval_data.tail(4)
+
+                # Validate EMA (7) consistently above EMA (25) for the last 4 records
+                ema_7 = interval_data['EMA_7']
+                ema_25 = interval_data['EMA_25']
+
+                if not all(ema_7 > ema_25):
+                    log_message = "Uptrend Momentum: ||False|| EMA (7) is not consistently above EMA (25) for the last 4 records."
+                    print(log_message)
+                    logging.info(log_message)
+                    return False
+
+                # Validate EMA (25) is rising consecutively for the last 4 records
+                ema_25_diff = ema_25.diff()
+                if not all(ema_25_diff[1:] > 0):  # Skip the first value as it's NaN
+                    log_message = "Uptrend Momentum: ||False|| EMA (25) is not rising consecutively across the last 4 records."
+                    print(log_message)
+                    logging.info(log_message)
+                    return False
+
+                # If both conditions are met, return True
+                log_message = "Uptrend Momentum: ||True|| All Uptrend Conditions are Met"
                 print(log_message)
                 logging.info(log_message)
-                return 'No Signal'
+                return True
 
-            if ema_7 > ema_25:
-                log_message = "EMA Status: ||ema_positive||"
+            except Exception as e:
+                log_message = f"Uptrend Momentum: ||Error|| An error occurred while validating uptrend momentum: {e}"
                 print(log_message)
                 logging.info(log_message)
-                return 'ema_positive'
-            elif ema_7 < ema_25:
-                log_message = "EMA Status: ||ema_negative||"
-                print(log_message)
-                logging.info(log_message)
-                return 'ema_negative'
+                return False
 
-            return 'No Signal'
 
         def stoch_rsi_signal():
             interval_data = all_features['latest'].get(scalping_interval, pd.DataFrame())
@@ -621,7 +661,7 @@ class DecisionMaker:
                             return 'oversold'
 
                 # Check if %K is at an overbought level
-                elif current_k > 90:
+                elif current_k > 80:
                     log_message = f"StochRSI Signal: ||overbought||"
                     print(log_message)
                     logging.info(log_message)
@@ -709,8 +749,7 @@ class DecisionMaker:
             if entry_gain_loss is None:
                 return 'No Signal'
 
-            # Get the EMA status to determine the dynamic trailing start gain
-            ema_signal = ema_status()
+            trailing_start_gain = None
 
             # Set the dynamic trailing start gain based on EMA status
             if  scalping_interval == self.scalping_intervals[0]:
@@ -749,8 +788,8 @@ class DecisionMaker:
 
 
         # Get signals from the defined functions
+        uptrend_momentum = uptrend_momentum()
         stoch_signal = stoch_rsi_signal()
-        ema_signal = ema_status()
         rsi_signal_value = rsi_signal()
         # rsi_fast_signal_value = rsi_fast_signal()
         trailing_signal = gain_trailing_lock()
@@ -760,7 +799,7 @@ class DecisionMaker:
 
             stop_loss_scalping_value = self.loading_stop_loss_scalping()
 
-            if ema_signal == 'ema_positive' and (stoch_signal == 'overbought' or self.overbought_reached == True):
+            if uptrend_momentum and (stoch_signal == 'overbought' or self.overbought_reached == True):
                 self.overbought_reached = True
                 log_message = "Scalping Decision: ||Overbought Reached with EMA Positive|| (StochRSI: overbought)"
                 print(log_message)
@@ -788,13 +827,13 @@ class DecisionMaker:
             #         self.max_gain_reached = None  # Reset the flag after sell
             #         return 'Sell_Sc'
 
-            elif current_price < stop_loss_scalping_value:
-                log_message = f"Scalping Decision: ||Sell_Sc|| For Stop Loss (Entry Gain/Loss: {entry_gain_loss})"
-                print(log_message)
-                logging.info(log_message)
-                self.overbought_reached = False  # Reset the flag after sell
-                self.max_gain_reached = None  # Reset the flag after sell
-                return 'Sell_Sc'
+            # elif current_price < stop_loss_scalping_value:
+            #     log_message = f"Scalping Decision: ||Sell_Sc|| For Stop Loss (Entry Gain/Loss: {entry_gain_loss})"
+            #     print(log_message)
+            #     logging.info(log_message)
+            #     self.overbought_reached = False  # Reset the flag after sell
+            #     self.max_gain_reached = None  # Reset the flag after sell
+            #     return 'Sell_Sc'
 
             elif trailing_signal == 'trailing_sell':
                 log_message = "Scalping Decision: ||Sell_Sc|| (Trailing Stop Loss Activated)"
@@ -806,7 +845,7 @@ class DecisionMaker:
 
         else:
 
-            if ema_signal == 'ema_positive' and stoch_signal == 'oversold' and rsi_signal_value == 'RSI_Down':
+            if uptrend_momentum and stoch_signal == 'oversold' and rsi_signal_value == 'RSI_Down':
                 log_message = "Scalping Decision: ||Buy_Sc|| (StochRSI: oversold, RSI: RSI_Down)"
                 print(log_message)
                 logging.info(log_message)
