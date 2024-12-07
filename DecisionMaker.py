@@ -536,10 +536,11 @@ class DecisionMaker:
 
     # ------------------------------------------------------------------------------------------------------------------------------------------
 
-    def scalping_make_decision(self, all_features, scalping_positions, entry_gain_loss=None, current_price=None, scalping_interval=None):
+    def scalping_make_decision(self, all_features, scalping_positions, entry_gain_loss=None, current_price=None, scalping_interval=None, market_stable=None):
         """
         Make a scalping decision based on technical indicators.
 
+        :param market_stable:
         :param scalping_interval:
         :param current_price:
         :param all_features: Dictionary containing all market data.
@@ -574,7 +575,7 @@ class DecisionMaker:
                 interval_data = all_features['history'].get(interval, None)
 
                 if interval_data is None or interval_data.empty:
-                    log_message = f"Uptrend Momentum: ||Error|| Historical data for interval '{interval}' is not available or empty."
+                    log_message = f"Uptrend Momentum: ||Error|| - (Historical data for interval '{interval}' is not available or empty)"
                     print(log_message)
                     logging.info(log_message)
                     return False
@@ -587,7 +588,7 @@ class DecisionMaker:
                 ema_25 = interval_data['EMA_25']
 
                 if not all(ema_7 > ema_25):
-                    log_message = "Uptrend Momentum: ||False|| EMA (7) is not consistently above EMA (25) for the last 4 records."
+                    log_message = "Uptrend Momentum: ||False|| - (EMA (7) is not consistently above EMA (25) for the last 4 records)"
                     print(log_message)
                     logging.info(log_message)
                     return False
@@ -595,19 +596,19 @@ class DecisionMaker:
                 # Validate EMA (25) is rising consecutively for the last 4 records
                 ema_25_diff = ema_25.diff()
                 if not all(ema_25_diff[1:] > 0):  # Skip the first value as it's NaN
-                    log_message = "Uptrend Momentum: ||False|| EMA (25) is not rising consecutively across the last 4 records."
+                    log_message = "Uptrend Momentum: ||False|| - (EMA (25) is not rising consecutively across the last 4 records)"
                     print(log_message)
                     logging.info(log_message)
                     return False
 
                 # If both conditions are met, return True
-                log_message = "Uptrend Momentum: ||True|| All Uptrend Conditions are Met"
+                log_message = "Uptrend Momentum: ||True|| - (All Uptrend Conditions are Met)"
                 print(log_message)
                 logging.info(log_message)
                 return True
 
             except Exception as e:
-                log_message = f"Uptrend Momentum: ||Error|| An error occurred while validating uptrend momentum: {e}"
+                log_message = f"Uptrend Momentum: ||Error|| - (An error occurred while validating uptrend momentum: {e})"
                 print(log_message)
                 logging.info(log_message)
                 return False
@@ -622,7 +623,7 @@ class DecisionMaker:
 
                 # Ensure that current_k and current_d are not None
                 if current_k is None or current_d is None:
-                    log_message = "StochRSI Cross Signal: ||Error|| ,Missing StochRSI values (current_k or current_d is None)"
+                    log_message = "StochRSI Cross Signal: ||Error|| - (Missing StochRSI values (current_k or current_d is None)"
                     print(log_message)
                     logging.info(log_message)
                     return 'No Signal'
@@ -635,7 +636,7 @@ class DecisionMaker:
                     trigger_threshold = 10
                 else:
                     # If EMA status is not positive or negative, no action required
-                    log_message = "StochRSI Signal: ||No Action|| - EMA status not clear"
+                    log_message = "StochRSI Signal: ||No Action|| - (Trigger Threshold Unreached)"
                     print(log_message)
                     logging.info(log_message)
                     return 'No Signal'
@@ -653,7 +654,7 @@ class DecisionMaker:
                     if self.lowest_k_reached is not None and current_k > self.lowest_k_reached:
                         reversal_threshold = self.lowest_k_reached * 2  # Set a 100% increase as a significant reversal
                         if current_k > reversal_threshold:
-                            log_message = f"StochRSI Signal: ||Oversold Reversal Detected|| (Lowest K: {self.lowest_k_reached}, Current K: {current_k})"
+                            log_message = f"StochRSI Signal: ||Oversold Reversal Detected|| - (Lowest K: {self.lowest_k_reached}, Current K: {current_k})"
                             print(log_message)
                             logging.info(log_message)
                             # Reset the lowest value after detecting a reversal
@@ -668,7 +669,7 @@ class DecisionMaker:
                     return 'overbought'
 
             else:
-                log_message = "StochRSI Cross Signal: ||Error|| ,Insufficient data points)"
+                log_message = "StochRSI Cross Signal: ||Error|| - (Insufficient data points)"
                 print(log_message)
                 logging.info(log_message)
 
@@ -691,19 +692,19 @@ class DecisionMaker:
 
             # Check if all RSI values are available
             if rsi_6 is None or rsi_14 is None or rsi_24 is None:
-                log_message = f"RSI Signal: ||Error|| ,Missing RSI values for interval: {self.scalping_intervals[0]})"
+                log_message = f"RSI Signal: ||Error|| - (Missing RSI values for interval: {self.scalping_intervals[0]})"
                 print(log_message)
                 logging.info(log_message)
                 return 'No Signal'
 
             # Determine the signal based on RSI conditions with dynamic thresholds
             if rsi_6 < rsi_14 < rsi_24:
-                log_message = f"RSI Signal: ||RSI_Down|| (RSI_6: {rsi_6}, RSI_14: {rsi_14}, RSI_24: {rsi_24})"
+                log_message = f"RSI Signal: ||RSI_Down|| - (RSI_6: {rsi_6}, RSI_14: {rsi_14}, RSI_24: {rsi_24})"
                 print(log_message)
                 logging.info(log_message)
                 return 'RSI_Down'
             elif rsi_6 > rsi_14 > rsi_24:
-                log_message = f"RSI Signal: ||RSI_Up|| (RSI_6: {rsi_6}, RSI_14: {rsi_14}, RSI_24: {rsi_24})"
+                log_message = f"RSI Signal: ||RSI_Up|| - (RSI_6: {rsi_6}, RSI_14: {rsi_14}, RSI_24: {rsi_24})"
                 print(log_message)
                 logging.info(log_message)
                 return 'RSI_Up'
@@ -724,7 +725,7 @@ class DecisionMaker:
             rsi_14 = interval_data.get('RSI_14', None)
 
             if rsi_6 is None or rsi_14 is None:
-                log_message = f"RSI Fast Signal: ||Error|| ,Missing RSI values for interval: {self.scalping_intervals[0]})"
+                log_message = f"RSI Fast Signal: ||Error|| - (Missing RSI values for interval: {self.scalping_intervals[0]})"
                 print(log_message)
                 logging.info(log_message)
                 return 'No Signal'
@@ -753,15 +754,15 @@ class DecisionMaker:
 
             # Set the dynamic trailing start gain based on EMA status
             if  scalping_interval == self.scalping_intervals[0]:
-                trailing_start_gain = 0.30  # 0.30%
+                trailing_start_gain = 0.20
             elif scalping_interval == self.scalping_intervals[1]:
-                trailing_start_gain = 0.15  # 0.25%
+                trailing_start_gain = 0.30
 
             # Check if we need to initialize or update the maximum gain reached
             if not hasattr(self,
                            'max_gain_reached') or self.max_gain_reached is None or entry_gain_loss > self.max_gain_reached:
                 self.max_gain_reached = entry_gain_loss
-                log_message = f"Gain Trailing Lock: ||Updated Max Gain Reached|| (New Max Gain: {self.max_gain_reached}%)"
+                log_message = f"Gain Trailing Lock: ||Updated Max Gain Reached|| - (New Max Gain: {self.max_gain_reached}%)"
                 print(log_message)
                 logging.info(log_message)
 
@@ -771,17 +772,17 @@ class DecisionMaker:
                 trailing_stop_loss = self.max_gain_reached / 2
 
                 if entry_gain_loss <= trailing_stop_loss:
-                    log_message = f"Gain Trailing Lock: ||Trailing Sell Signal Activated|| (Entry Gain: {entry_gain_loss}%, Stop Loss Threshold: {trailing_stop_loss}%)"
+                    log_message = f"Gain Trailing Lock: ||Trailing Sell Signal Activated|| - (Entry Gain: {entry_gain_loss}%, Stop Loss Threshold: {trailing_stop_loss}%)"
                     print(log_message)
                     logging.info(log_message)
                     return 'trailing_sell'
                 else:
-                    log_message = f"Gain Trailing Lock: ||Trailing Sell Locked|| (Entry Gain: {entry_gain_loss}%, Stop Loss Threshold: {trailing_stop_loss}%)"
+                    log_message = f"Gain Trailing Lock: ||Trailing Sell Locked|| - (Entry Gain: {entry_gain_loss}%, Stop Loss Threshold: {trailing_stop_loss}%)"
                     print(log_message)
                     logging.info(log_message)
                     return 'No Signal'
             else:
-                log_message = f"Gain Trailing Lock: ||Trailing Sell Testing|| (Entry Gain: {entry_gain_loss}%, trailing_start_gain: {trailing_start_gain}%)"
+                log_message = f"Gain Trailing Lock: ||Trailing Sell Testing|| - (Entry Gain: {entry_gain_loss}%, trailing_start_gain: {trailing_start_gain}%)"
                 print(log_message)
                 logging.info(log_message)
                 return 'No Signal'
@@ -801,12 +802,12 @@ class DecisionMaker:
 
             if uptrend_momentum and (stoch_signal == 'overbought' or self.overbought_reached == True):
                 self.overbought_reached = True
-                log_message = "Scalping Decision: ||Overbought Reached with EMA Positive|| (StochRSI: overbought)"
+                log_message = "Scalping Decision: ||Overbought Reached with EMA Positive|| - (StochRSI: overbought)"
                 print(log_message)
                 logging.info(log_message)
                 # Wait for RSI to give RSI_Down signal
                 if rsi_signal_value != 'RSI_Up':
-                    log_message = "Scalping Decision: ||Sell_Sc|| (RSI: RSI_Down after overbought)"
+                    log_message = "Scalping Decision: ||Sell_Sc|| - (RSI: RSI_Down after overbought)"
                     print(log_message)
                     logging.info(log_message)
                     self.overbought_reached = False  # Reset the flag after sell
@@ -836,7 +837,15 @@ class DecisionMaker:
             #     return 'Sell_Sc'
 
             elif trailing_signal == 'trailing_sell':
-                log_message = "Scalping Decision: ||Sell_Sc|| (Trailing Stop Loss Activated)"
+                log_message = "Scalping Decision: ||Sell_Sc|| - (Trailing Stop Loss Activated)"
+                print(log_message)
+                logging.info(log_message)
+                self.overbought_reached = False  # Reset the flag after sell
+                self.max_gain_reached = None  # Reset the flag after sell
+                return 'Sell_Sc'
+
+            elif not market_stable:
+                log_message = "Scalping Decision: ||Sell_Sc|| - (Market Not Stable)"
                 print(log_message)
                 logging.info(log_message)
                 self.overbought_reached = False  # Reset the flag after sell
@@ -846,13 +855,13 @@ class DecisionMaker:
         else:
 
             if uptrend_momentum and stoch_signal == 'oversold' and rsi_signal_value == 'RSI_Down':
-                log_message = "Scalping Decision: ||Buy_Sc|| (StochRSI: oversold, RSI: RSI_Down)"
+                log_message = "Scalping Decision: ||Buy_Sc|| - (StochRSI: oversold, RSI: RSI_Down)"
                 print(log_message)
                 logging.info(log_message)
                 return 'Buy_Sc'
 
         # If no conditions are met, return 'Hold'
-        log_message = "Scalping Decision: ||Hold|| (No definitive conditions met for Buy or Sell)"
+        log_message = "Scalping Decision: ||Hold|| - (No definitive conditions met for Buy or Sell)"
         print(log_message)
         logging.info(log_message)
         return 'Hold'

@@ -1220,6 +1220,10 @@ class BotManager:
 
             scalping_positions = self.scalping_positions(scalping_interval)
 
+            market_stable, stable_intervals = self.decision_maker.market_stable(all_features)
+            print(f"|||Market Stable: {market_stable}, Stable Intervals: {stable_intervals:.2f}|||")
+            logging.info(f"|||Market Stable: {market_stable}, Stable Intervals: {stable_intervals:.2f}|||")
+
             # Determine the scalping flag based on the scalping_interval
             scalping_flag = 1 if scalping_interval == SCALPING_INTERVALS[0] else 2
 
@@ -1241,7 +1245,8 @@ class BotManager:
                     decision_sell = self.decision_maker.scalping_make_decision(all_features, scalping_positions,
                                                                                entry_gain_loss=gain_loose,
                                                                                current_price=current_price,
-                                                                               scalping_interval=scalping_interval)
+                                                                               scalping_interval=scalping_interval,
+                                                                               market_stable=market_stable)
 
                     if decision_sell == 'Sell_Sc':
                         trade_type = 'Scalping'
@@ -1257,7 +1262,7 @@ class BotManager:
                                                    gain_loose)
                             print(f"Scalping Position {position_id} sold successfully")
                             logging.info(f"Scalping Position {position_id} sold successfully")
-                            self.notifier.send_notification("Scalping Trade Executed",
+                            self.notifier.send_notification(f"Scalper {scalping_interval} Trade Executed",
                                                             f"Sold {amount} {COIN} at ${current_price}\n"
                                                             f"Gain/Loss: {gain_loose}%\n"
                                                             "Sell Mode: Scalping\n"
@@ -1267,7 +1272,7 @@ class BotManager:
                         else:
                             error_message = f"Failed to execute scalping Sell order: {order_details}"
                             self.save_error_to_csv(error_message)
-                            self.notifier.send_notification("Scalping Trade Error", error_message, sound="intermission")
+                            self.notifier.send_notification(f"Scalper {scalping_interval} Trade Error", error_message, sound="intermission")
 
                     else:
                         print("Scalping Decision: ///Hold///")
@@ -1282,11 +1287,6 @@ class BotManager:
                 logging.info("\nNo Scalping Entries Found\n")
 
                 # Get Scalping Decision Maker for Buy
-
-                market_stable, stable_intervals = self.decision_maker.market_stable(all_features)
-                print(f"|||Market Stable: {market_stable}, Stable Intervals: {stable_intervals:.2f}|||")
-                logging.info(f"|||Market Stable: {market_stable}, Stable Intervals: {stable_intervals:.2f}|||")
-
                 decision_buy = self.decision_maker.scalping_make_decision(all_features,
                                                                           scalping_positions,
                                                                           scalping_interval=scalping_interval)
@@ -1316,7 +1316,7 @@ class BotManager:
                             f"New position added: {position_id}, Entry Price: {current_price}, Amount: {trading_cryptocurrency_amount}")
                         logging.info(
                             f"New position added: {position_id}, Entry Price: {current_price}, Amount: {trading_cryptocurrency_amount}")
-                        self.notifier.send_notification("Scalping Trade Executed",
+                        self.notifier.send_notification(f"Scalper {scalping_interval} Trade Executed",
                                                         f"Bought {trading_cryptocurrency_amount} {COIN} at ${current_price}\n"
                                                         f"Stable Intervals: {stable_intervals:.2f}\n"
                                                         f"Stable Invested: {round(stable_invested)} USDT\n"
@@ -1326,10 +1326,10 @@ class BotManager:
                         error_message = f"Failed to execute Buy order: {order_details}"
                         self.save_error_to_csv(error_message)
                         logging.error(f"Failed to execute Buy order: {order_details}")
-                        self.notifier.send_notification("Trade Error", error_message, sound="intermission")
+                        self.notifier.send_notification(f"Scalper {scalping_interval} Trade Error", error_message, sound="intermission")
 
                 elif decision_buy == "Buy_Sc" and not market_stable:
-                    self.notifier.send_notification(title="Scalper",
+                    self.notifier.send_notification(title=f"Scalper {scalping_interval}",
                                                     message=f"Entry Opportunity Exists, But Market Not Stable\n"
                                                             f"Stable Intervals: {stable_intervals:.2f}\n"
                                                             f"Current Price: {current_price}")
@@ -1339,7 +1339,7 @@ class BotManager:
         except Exception as e:
             logging.error(f"An error occurred during position check: {str(e)}")
             self.save_error_to_csv(str(e))
-            self.notifier.send_notification(title='Scalping Cycle Error', message=str(e))
+            self.notifier.send_notification(title=f'Scalper {scalping_interval} Cycle Error', message=str(e))
 
     def check_stable_prediction_timeframe(self):
         """
