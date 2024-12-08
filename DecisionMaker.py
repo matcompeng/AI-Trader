@@ -210,13 +210,14 @@ class DecisionMaker:
 
         return self.base_take_profit
 
-    def calculate_adjusted_stop_middle(self, entry_price, upper_band_loss, middle_band_loss):
+    def calculate_adjusted_stop_middle(self, entry_price, upper_band_loss, middle_band_loss, trading_type=None):
         """
-        Calculate adjusted take profit based on the price change within the Bollinger Bands.
+        Calculate adjusted stop loss based on the price change within the Bollinger Bands.
         :param entry_price: The entry price of the position.
-        :param upper_band_loss: The upper Bollinger Band for the 15m interval.
-        :param middle_band_loss: The lower Bollinger Band for the 15m interval.
-        :return: Adjusted take profit.
+        :param upper_band_loss: The upper Bollinger Band for the interval.
+        :param middle_band_loss: The middle Bollinger Band for the interval.
+        :param trading_type: The type of trading ('scalping' or other).
+        :return: Adjusted stop loss or price change ratio based on trading type.
         """
         if entry_price and upper_band_loss and middle_band_loss:
             if middle_band_loss < entry_price < upper_band_loss:
@@ -224,28 +225,33 @@ class DecisionMaker:
                 band_width = upper_band_loss - middle_band_loss
 
                 if band_width == 0:
-                    return -self.base_stop_loss  # Avoid division by zero
+                    return 0  # Avoid division by zero
 
                 # Calculate the price change ratio using entry price
                 price_change_ratio = ((entry_price - middle_band_loss) / band_width)
 
-                # Calculate the adjusted take profit
+                # Return the price change ratio for scalping
+                if trading_type == 'scalping':
+                    return -price_change_ratio
+
+                # Calculate the adjusted stop loss for other trading types
                 adjusted_stop_loss_middle = self.base_stop_loss * (1 + price_change_ratio)
                 if adjusted_stop_loss_middle < self.base_stop_loss:
                     return -self.base_stop_loss
 
                 return -adjusted_stop_loss_middle
 
-            return -self.base_stop_loss
+            return -self.base_stop_loss if trading_type != 'scalping' else 0
         return 0
 
-    def calculate_adjusted_stop_lower(self, entry_price, lower_band_loss, middle_band_loss):
+    def calculate_adjusted_stop_lower(self, entry_price, lower_band_loss, middle_band_loss, trading_type=None):
         """
-        Calculate adjusted take profit based on the price change within the Bollinger Bands.
+        Calculate adjusted stop loss based on the price change within the Bollinger Bands.
         :param entry_price: The entry price of the position.
-        :param lower_band_loss: The upper Bollinger Band for the 15m interval.
-        :param middle_band_loss: The lower Bollinger Band for the 15m interval.
-        :return: Adjusted take profit.
+        :param lower_band_loss: The lower Bollinger Band for the interval.
+        :param middle_band_loss: The middle Bollinger Band for the interval.
+        :param trading_type: The type of trading ('scalping' or other).
+        :return: Adjusted stop loss or price change ratio based on trading type.
         """
         if lower_band_loss and entry_price and middle_band_loss:
             if lower_band_loss < entry_price < middle_band_loss:
@@ -253,19 +259,23 @@ class DecisionMaker:
                 band_width = middle_band_loss - lower_band_loss
 
                 if band_width == 0:
-                    return -self.base_stop_loss  # Avoid division by zero
+                    return 0  # Avoid division by zero
 
                 # Calculate the price change ratio using entry price
                 price_change_ratio = ((entry_price - lower_band_loss) / band_width)
 
-                # Calculate the adjusted take profit
+                # Return the price change ratio for scalping
+                if trading_type == 'scalping':
+                    return -price_change_ratio
+
+                # Calculate the adjusted stop loss for other trading types
                 adjusted_stop_loss_lower = self.base_stop_loss * (1 + price_change_ratio)
                 if adjusted_stop_loss_lower < self.base_stop_loss:
                     return -self.base_stop_loss
 
                 return -adjusted_stop_loss_lower
 
-            return -self.base_stop_loss
+            return -self.base_stop_loss if trading_type != 'scalping' else 0
         return 0
 
     def market_stable(self, all_features):
@@ -536,10 +546,11 @@ class DecisionMaker:
 
     # ------------------------------------------------------------------------------------------------------------------------------------------
 
-    def scalping_make_decision(self, all_features, scalping_positions, entry_gain_loss=None, current_price=None, scalping_interval=None, market_stable=None):
+    def scalping_make_decision(self, all_features, scalping_positions, entry_gain_loss=None, current_price=None, scalping_interval=None, market_stable=None, entry_price=None):
         """
         Make a scalping decision based on technical indicators.
 
+        :param entry_price:
         :param market_stable:
         :param scalping_interval:
         :param current_price:
@@ -554,15 +565,14 @@ class DecisionMaker:
             Validate uptrend momentum for a given historical context.
 
             **Uptrend Momentum Rule**:
-               1. Validate the **EMA (7)/EMA (25)** condition first:
-                   - Ensure **EMA (7)** is consistently above **EMA (25)** for **the last 4 records** in **'specified interval' historical context**.
-               2. Then validate EMA (25) raising condition:
-                   - Ensure **EMA (25)** shows a pattern of rising consecutive timeframes for **the last 4 records** in **'specified interval' historical context**.
+               1. Validate the **MACD above MACD Signal** condition first:
+                   - Ensure **MACD** is consistently above **MACD Signal** for **the last 4 records** in **'specified interval' historical context**.
+               2. Then validate MACD Signal angle condition:
+                   - Ensure the **MACD Signal** shows a positive angle above a specific threshold for **the last 4 records**.
                - If either fails, immediately flag the rule as false without proceeding further.
 
             :return: Boolean indicating if the uptrend momentum is valid.
             """
-
             try:
                 interval = None
 
@@ -581,28 +591,39 @@ class DecisionMaker:
                     return False
 
                 # Use only the last 4 records from the historical context
-                interval_data = interval_data.tail(4)
+                interval_data = interval_data.tail(3)
 
-                # Validate EMA (7) consistently above EMA (25) for the last 4 records
-                ema_7 = interval_data['EMA_7']
-                ema_25 = interval_data['EMA_25']
+                # Validate MACD consistently above MACD Signal for the last 4 records
+                macd = interval_data['MACD']
+                macd_signal = interval_data['MACD_signal']
+                macd_hist = interval_data['MACD_hist']
+                # print(f"MACD: {macd}, MACD-Signal: {macd_signal}")
 
-                if not all(ema_7 > ema_25):
-                    log_message = "Uptrend Momentum: ||False|| - (EMA (7) is not consistently above EMA (25) for the last 4 records)"
+                if not all(macd > macd_signal):
+                    log_message = "Uptrend Momentum: ||False|| - (MACD is not consistently above MACD Signal for the last 4 records)"
                     print(log_message)
                     logging.info(log_message)
                     return False
 
-                # Validate EMA (25) is rising consecutively for the last 4 records
-                ema_25_diff = ema_25.diff()
-                if not all(ema_25_diff[1:] > 0):  # Skip the first value as it's NaN
-                    log_message = "Uptrend Momentum: ||False|| - (EMA (25) is not rising consecutively across the last 4 records)"
+                # Calculate the angle of the MACD Signal line for the last 4 records
+                macd_hist_values = macd_hist.values
+                normalized_macd_signal = macd_hist_values / np.max(np.abs(macd_hist_values))  # Scale to [0, 1]
+                x = np.arange(len(normalized_macd_signal))
+                slope, intercept = np.polyfit(x, normalized_macd_signal, 1)
+
+                # Convert slope to angle in degrees
+                angle = np.degrees(np.arctan(slope))
+
+                # Check if the angle exceeds the specified threshold
+                angle_threshold = 7  # Example threshold in degrees
+                if angle < angle_threshold:
+                    log_message = f"Uptrend Momentum: ||False|| - (MACD Signal angle {angle:.2f}° is below the threshold {angle_threshold}°)"
                     print(log_message)
                     logging.info(log_message)
                     return False
 
                 # If both conditions are met, return True
-                log_message = "Uptrend Momentum: ||True|| - (All Uptrend Conditions are Met)"
+                log_message = f"Uptrend Momentum: ||True|| - (All Uptrend Conditions are Met: MACD above Signal, Angle {angle:.2f}° > {angle_threshold}°)"
                 print(log_message)
                 logging.info(log_message)
                 return True
@@ -612,7 +633,6 @@ class DecisionMaker:
                 print(log_message)
                 logging.info(log_message)
                 return False
-
 
         def stoch_rsi_signal():
             interval_data = all_features['latest'].get(scalping_interval, pd.DataFrame())
@@ -631,9 +651,9 @@ class DecisionMaker:
 
                 # Set the dynamic threshold based on the EMA status
                 if  scalping_interval == self.scalping_intervals[0]:
-                    trigger_threshold = 20
-                elif scalping_interval == self.scalping_intervals[0]:
                     trigger_threshold = 10
+                elif scalping_interval == self.scalping_intervals[1]:
+                    trigger_threshold = 20
                 else:
                     # If EMA status is not positive or negative, no action required
                     log_message = "StochRSI Signal: ||No Action|| - (Trigger Threshold Unreached)"
@@ -650,16 +670,16 @@ class DecisionMaker:
                         print(log_message)
                         logging.info(log_message)
 
-                    # Check if %K has reversed significantly from the lowest value
-                    if self.lowest_k_reached is not None and current_k > self.lowest_k_reached:
-                        reversal_threshold = self.lowest_k_reached * 2  # Set a 100% increase as a significant reversal
-                        if current_k > reversal_threshold:
-                            log_message = f"StochRSI Signal: ||Oversold Reversal Detected|| - (Lowest K: {self.lowest_k_reached}, Current K: {current_k})"
-                            print(log_message)
-                            logging.info(log_message)
-                            # Reset the lowest value after detecting a reversal
-                            self.lowest_k_reached = None
-                            return 'oversold'
+                # Check if %K has reversed significantly from the lowest value
+                if self.lowest_k_reached is not None and current_k > self.lowest_k_reached:
+                    reversal_threshold = self.lowest_k_reached * 2  # Set a 100% increase as a significant reversal
+                    if current_k > reversal_threshold:
+                        log_message = f"StochRSI Signal: ||Oversold Reversal Detected|| - (Lowest K: {self.lowest_k_reached}, Current K: {current_k})"
+                        print(log_message)
+                        logging.info(log_message)
+                        # Reset the lowest value after detecting a reversal
+                        self.lowest_k_reached = None
+                        return 'oversold'
 
                 # Check if %K is at an overbought level
                 elif current_k > 80:
@@ -683,27 +703,32 @@ class DecisionMaker:
             Generate a signal based on RSI values (6, 14, 24).
             :return: Signal 'RSI_Down', 'RSI_Up', or 'No Signal'.
             """
-            interval_data = all_features['latest'].get(scalping_interval, pd.DataFrame())
+            interval = None
+
+            if scalping_interval == self.scalping_intervals[0]:
+                interval = all_features['latest'].get('15m', pd.DataFrame())
+            elif scalping_interval == self.scalping_intervals[1]:
+                interval = all_features['latest'].get('30m', pd.DataFrame())
 
             # Get RSI values for the specified interval
-            rsi_6 = interval_data.get('RSI_6', None)
-            rsi_14 = interval_data.get('RSI_14', None)
-            rsi_24 = interval_data.get('RSI_24', None)
+            rsi_6 = interval.get('RSI_6', None)
+            rsi_14 = interval.get('RSI_14', None)
+            rsi_24 = interval.get('RSI_24', None)
 
             # Check if all RSI values are available
             if rsi_6 is None or rsi_14 is None or rsi_24 is None:
-                log_message = f"RSI Signal: ||Error|| - (Missing RSI values for interval: {self.scalping_intervals[0]})"
+                log_message = f"RSI Signal: ||Error|| - (Missing RSI values for interval: {interval})"
                 print(log_message)
                 logging.info(log_message)
                 return 'No Signal'
 
             # Determine the signal based on RSI conditions with dynamic thresholds
-            if rsi_6 < rsi_14 < rsi_24:
+            if rsi_6 < rsi_14:
                 log_message = f"RSI Signal: ||RSI_Down|| - (RSI_6: {rsi_6}, RSI_14: {rsi_14}, RSI_24: {rsi_24})"
                 print(log_message)
                 logging.info(log_message)
                 return 'RSI_Down'
-            elif rsi_6 > rsi_14 > rsi_24:
+            elif rsi_6 > rsi_14:
                 log_message = f"RSI Signal: ||RSI_Up|| - (RSI_6: {rsi_6}, RSI_14: {rsi_14}, RSI_24: {rsi_24})"
                 print(log_message)
                 logging.info(log_message)
@@ -714,85 +739,91 @@ class DecisionMaker:
             logging.info(log_message)
             return 'No Signal'
 
-        def rsi_fast_signal():
-            """
-            Generate a signal based on RSI values (6, 14).
-            :return: Signal 'RSI_Fast_Up' or 'RSI_Fast_Down'.
-            """
-            interval_data = all_features['latest'].get(scalping_interval, pd.DataFrame())
-
-            rsi_6 = interval_data.get('RSI_6', None)
-            rsi_14 = interval_data.get('RSI_14', None)
-
-            if rsi_6 is None or rsi_14 is None:
-                log_message = f"RSI Fast Signal: ||Error|| - (Missing RSI values for interval: {self.scalping_intervals[0]})"
-                print(log_message)
-                logging.info(log_message)
-                return 'No Signal'
-
-            if rsi_6 > rsi_14:
-                log_message = "RSI Fast Signal: ||RSI_Fast_Up||"
-                print(log_message)
-                logging.info(log_message)
-                return 'RSI_Fast_Up'
-            elif rsi_6 < rsi_14:
-                log_message = "RSI Fast Signal: ||RSI_Fast_Down||"
-                print(log_message)
-                logging.info(log_message)
-                return 'RSI_Fast_Down'
-
-            return 'No Signal'
-
         def gain_trailing_lock():
             """
-            Lock gain and provide a trailing sell signal based on entry_gain_loss.
+            Lock gain and provide a trailing sell signal based on entry_gain_loss,
+            using adjusted stop loss thresholds after locking profit upon upper band crossing.
             """
-            if entry_gain_loss is None:
+            if entry_gain_loss is None or current_price is None or entry_price is None:
                 return 'No Signal'
 
-            trailing_start_gain = None
+            # Retrieve band levels from all_features
+            middle_band = all_features['latest'][scalping_interval].get('middle_band', None)
+            upper_band = all_features['latest'][scalping_interval].get('upper_band', None)
+            lower_band = all_features['latest'][scalping_interval].get('lower_band', None)
 
-            # Set the dynamic trailing start gain based on EMA status
-            if  scalping_interval == self.scalping_intervals[0]:
-                trailing_start_gain = 0.20
-            elif scalping_interval == self.scalping_intervals[1]:
-                trailing_start_gain = 0.30
-
-            # Check if we need to initialize or update the maximum gain reached
-            if not hasattr(self,
-                           'max_gain_reached') or self.max_gain_reached is None or entry_gain_loss > self.max_gain_reached:
-                self.max_gain_reached = entry_gain_loss
-                log_message = f"Gain Trailing Lock: ||Updated Max Gain Reached|| - (New Max Gain: {self.max_gain_reached}%)"
+            # Ensure required data is available
+            if middle_band is None or upper_band is None or lower_band is None:
+                log_message = "Gain Trailing Lock: ||Error|| - (Missing band data for trailing lock calculation)"
                 print(log_message)
                 logging.info(log_message)
+                return 'No Signal'
 
-            # Only activate trailing stop if we are above the starting gain threshold
-            if self.max_gain_reached >= trailing_start_gain:
-                # Set trailing stop loss at half of the highest gain reached
-                trailing_stop_loss = self.max_gain_reached / 2
-
-                if entry_gain_loss <= trailing_stop_loss:
-                    log_message = f"Gain Trailing Lock: ||Trailing Sell Signal Activated|| - (Entry Gain: {entry_gain_loss}%, Stop Loss Threshold: {trailing_stop_loss}%)"
+            # Lock the maximum gain if the price crosses the upper band
+            fake_upper_band = upper_band - (upper_band * 0.05/100)
+            if current_price > fake_upper_band:
+                if not hasattr(self,
+                               'max_gain_reached') or self.max_gain_reached is None or entry_gain_loss > self.max_gain_reached:
+                    self.max_gain_reached = entry_gain_loss
+                    log_message = f"Gain Trailing Lock: ||Max Gain Locked|| - (Current Price: {current_price}, Max Gain: {self.max_gain_reached:.2f}%)"
                     print(log_message)
                     logging.info(log_message)
-                    return 'trailing_sell'
-                else:
-                    log_message = f"Gain Trailing Lock: ||Trailing Sell Locked|| - (Entry Gain: {entry_gain_loss}%, Stop Loss Threshold: {trailing_stop_loss}%)"
-                    print(log_message)
-                    logging.info(log_message)
-                    return 'No Signal'
+
+            # Calculate adjusted stop loss thresholds
+            adjusted_stop_loss_middle = self.calculate_adjusted_stop_middle(
+                entry_price=entry_price,
+                upper_band_loss=upper_band,
+                middle_band_loss=middle_band,
+                trading_type='scalping'
+            )
+
+            adjusted_stop_loss_lower = self.calculate_adjusted_stop_lower(
+                entry_price=entry_price,
+                lower_band_loss=lower_band,
+                middle_band_loss=middle_band,
+                trading_type='scalping'
+            )
+
+            # Determine which threshold to use based on entry_price position
+            if lower_band <= entry_price < middle_band:
+                active_threshold = adjusted_stop_loss_lower
+                threshold_type = "Lower Band"
+            elif middle_band <= entry_price < upper_band:
+                active_threshold = adjusted_stop_loss_middle
+                threshold_type = "Middle Band"
             else:
-                log_message = f"Gain Trailing Lock: ||Trailing Sell Testing|| - (Entry Gain: {entry_gain_loss}%, trailing_start_gain: {trailing_start_gain}%)"
+                active_threshold = 0
+                threshold_type = "Out of Range"
+
+            # Log the determined threshold
+            log_message = f"Gain Trailing Lock: ||Threshold Determined|| - (Entry Price: {entry_price}, Threshold Type: {threshold_type}, Active Threshold: {active_threshold:.2f})"
+            print(log_message)
+            logging.info(log_message)
+
+            # Trigger a trailing sell signal if the price reverses below the active threshold
+            if self.max_gain_reached is not None and active_threshold is not None:
+                reverse_percentage = (entry_gain_loss - self.max_gain_reached) / self.max_gain_reached
+                log_message = f"Gain Trailing Lock: ||Reversal Checking|| - (Reverse-%: {reverse_percentage:.2f}, Active Threshold: {active_threshold:.2f})"
                 print(log_message)
                 logging.info(log_message)
-                return 'No Signal'
+                if reverse_percentage <= active_threshold:
+                    log_message = f"Gain Trailing Lock: ||Trailing Sell Signal Activated|| - (Reversal to Active Threshold: {active_threshold:.2f}%)"
+                    print(log_message)
+                    logging.info(log_message)
+                    self.max_gain_reached = None  # Reset the lock after sell
+                    return 'trailing_sell'
+
+            # If no conditions are met, return 'No Signal'
+            log_message = f"Gain Trailing Lock: ||Trailing Sell Testing|| - (Entry Gain: {entry_gain_loss:.2f}%, Active Threshold: {active_threshold:.2f}%)"
+            print(log_message)
+            logging.info(log_message)
+            return 'No Signal'
 
 
-        # Get signals from the defined functions
+        # Get signals from the defined functions ----------------------------------------------------------------------
         uptrend_momentum = uptrend_momentum()
         stoch_signal = stoch_rsi_signal()
         rsi_signal_value = rsi_signal()
-        # rsi_fast_signal_value = rsi_fast_signal()
         trailing_signal = gain_trailing_lock()
 
         # Decision logic based on StochRSI, EMA, RSI, and gain trailing signals
@@ -800,7 +831,7 @@ class DecisionMaker:
 
             stop_loss_scalping_value = self.loading_stop_loss_scalping()
 
-            if uptrend_momentum and (stoch_signal == 'overbought' or self.overbought_reached == True):
+            if stoch_signal == 'overbought' or self.overbought_reached == True:
                 self.overbought_reached = True
                 log_message = "Scalping Decision: ||Overbought Reached with EMA Positive|| - (StochRSI: overbought)"
                 print(log_message)
@@ -812,29 +843,9 @@ class DecisionMaker:
                     logging.info(log_message)
                     self.overbought_reached = False  # Reset the flag after sell
                     self.max_gain_reached = None  # Reset the flag after sell
+                    self.lowest_k_reached = None  # Reset the flag after sell
                     return 'Sell_Sc'
 
-            # elif ema_signal == 'ema_negative' and (stoch_signal == 'overbought' or self.overbought_reached == True):
-            #     self.overbought_reached = True
-            #     log_message = "Scalping Decision: ||Overbought Reached with EMA Negative|| (StochRSI: overbought)"
-            #     print(log_message)
-            #     logging.info(log_message)
-            #     # Wait for RSI Fast Signal to give RSI_Fast_Down
-            #     if rsi_fast_signal_value != 'RSI_Fast_Up':
-            #         log_message = "Scalping Decision: ||Sell_Sc|| (RSI Fast: RSI_Fast_Down after overbought)"
-            #         print(log_message)
-            #         logging.info(log_message)
-            #         self.overbought_reached = False  # Reset the flag after sell
-            #         self.max_gain_reached = None  # Reset the flag after sell
-            #         return 'Sell_Sc'
-
-            # elif current_price < stop_loss_scalping_value:
-            #     log_message = f"Scalping Decision: ||Sell_Sc|| For Stop Loss (Entry Gain/Loss: {entry_gain_loss})"
-            #     print(log_message)
-            #     logging.info(log_message)
-            #     self.overbought_reached = False  # Reset the flag after sell
-            #     self.max_gain_reached = None  # Reset the flag after sell
-            #     return 'Sell_Sc'
 
             elif trailing_signal == 'trailing_sell':
                 log_message = "Scalping Decision: ||Sell_Sc|| - (Trailing Stop Loss Activated)"
@@ -842,7 +853,17 @@ class DecisionMaker:
                 logging.info(log_message)
                 self.overbought_reached = False  # Reset the flag after sell
                 self.max_gain_reached = None  # Reset the flag after sell
+                self.lowest_k_reached = None  # Reset the flag after sell
                 return 'Sell_Sc'
+
+            # elif not uptrend_momentum:
+            #     log_message = "Scalping Decision: ||Sell_Sc|| - (Uptrend Momentum Ended)"
+            #     print(log_message)
+            #     logging.info(log_message)
+            #     self.overbought_reached = False  # Reset the flag after sell
+            #     self.max_gain_reached = None  # Reset the flag after sell
+            #     self.lowest_k_reached = None  # Reset the flag after sell
+            #     return 'Sell_Sc'
 
             elif not market_stable:
                 log_message = "Scalping Decision: ||Sell_Sc|| - (Market Not Stable)"
@@ -850,12 +871,14 @@ class DecisionMaker:
                 logging.info(log_message)
                 self.overbought_reached = False  # Reset the flag after sell
                 self.max_gain_reached = None  # Reset the flag after sell
+                self.lowest_k_reached = None  # Reset the flag after sell
                 return 'Sell_Sc'
 
         else:
 
-            if uptrend_momentum and stoch_signal == 'oversold' and rsi_signal_value == 'RSI_Down':
+            if uptrend_momentum and stoch_signal == 'oversold' and rsi_signal_value == 'RSI_Up':
                 log_message = "Scalping Decision: ||Buy_Sc|| - (StochRSI: oversold, RSI: RSI_Down)"
+                self.lowest_k_reached = None
                 print(log_message)
                 logging.info(log_message)
                 return 'Buy_Sc'

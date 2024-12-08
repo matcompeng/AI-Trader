@@ -38,7 +38,7 @@ BASE_STOP_LOSS = 0.10                # Define Base Stop Loose  Percentage %.
 PROFIT_INTERVAL = '1h'               # Select The Interval For Take Profit Calculations.
 LOSS_INTERVAL = '1h'                 # Select The Interval For Stop Loose Calculations.
 ROC_SPEED = (-1, 1)                  # Set The Min Acceptable Downtrend ROC Speed as Market Stable Condition.
-MIN_STABLE_INTERVALS = 4             # Set The Minimum Stable Intervals For Market Stable Condition.
+MIN_STABLE_INTERVALS = 3.5           # Set The Minimum Stable Intervals For Market Stable Condition.
 ORDERBOOK_THRESHOLD = 100            # Set Threshold of Orderbook Bid/Ask volume for support/resistance calculations.
 TRAILING_POSITIONS_COUNT = 1         # Define The Minimum Count For Stable Positions To start Trailing Check.
 
@@ -50,6 +50,7 @@ PREDICT_BANDWIDTH = 0.45             # Define Minimum Bandwidth % to Activate Tr
 X_INDEX = ['pending']                # Stop The Predictor In these Indexes.
 
 # Stable Trading:
+STABLE_CYCLE = 'OFF'                 # Turn 'ON' Or 'OFF' The Stable Cycle Here.
 TRADING_INTERVAL = '15m'             # Select The Interval For Stable 'Buy' Trading And Gathering Historical Context.
 POSITION_CYCLE = (2, 2)              # Time periods in Seconds To Check Positions [Short,Long].
 HISTORICAL_STABLE_CYCLE = 15         # Time in Minutes to process Stable Historical Context.
@@ -60,7 +61,7 @@ DIP_INTERVAL = '1h'                  # Select The Interval For Buying a Dip.
 DIP_CYCLE = 60                       # Time in Minutes to Run the Dip Historical Context Process.
 
 # Amounts
-CAPITAL_AMOUNT = 100               # Your Capital Investment.
+CAPITAL_AMOUNT = 1000               # Your Capital Investment.
 RISK_TOLERANCE = 0.03                # The Portion Amount you want to take risk of capital for each Buying position.
 MAX_TRADING_INV = 1.00               # Maximum Stable Trading Investment Budget Percent Of Capital.
 USDT_DIP_AMOUNT = 500                # Amount of Currency For Buying a Dip.
@@ -810,7 +811,7 @@ class BotManager:
 
             if bandwidth_price_change > PREDICT_BANDWIDTH and SCALPING_CYCLE == 'ON':
                 for interval in SCALPING_INTERVALS:
-                    self.check_scalping_cycle(all_features, current_price, trading_cryptocurrency_amount, scalping_interval=interval)
+                    self.check_scalping_cycle(all_features, current_price, scalping_interval=interval)
             else:
                 if bandwidth_price_change < PREDICT_BANDWIDTH:
                     print(f"^^^^^^^^^^^^^^^^^^^Current BandWidth Price: {bandwidth_price_change} ,Scalping Suspended^^^^^^^^^^^^^^^^^^^")
@@ -1067,7 +1068,14 @@ class BotManager:
                 logging.info(f"Price Difference: {price_difference}")
 
                 # Predicting Generation Process
-                if bandwidth_price_change > PREDICT_BANDWIDTH and price_above_sar and within_budget and classification not in X_INDEX and not buy_price_too_close and ema_positive:
+                if (bandwidth_price_change > PREDICT_BANDWIDTH and
+                        price_above_sar and
+                        within_budget and
+                        classification not in X_INDEX and
+                        not buy_price_too_close and
+                        ema_positive and
+                        STABLE_CYCLE == 'ON'):
+
                     prediction_start = time.time()
                     print("Generating prediction...")
                     logging.info("Generating prediction...")
@@ -1210,7 +1218,7 @@ class BotManager:
         return avg_entry_price
 
 
-    def check_scalping_cycle(self, all_features, current_price, trading_cryptocurrency_amount, scalping_interval):
+    def check_scalping_cycle(self, all_features, current_price, scalping_interval):
         try:
             start_time = time.time()
             cycle_start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -1246,7 +1254,8 @@ class BotManager:
                                                                                entry_gain_loss=gain_loose,
                                                                                current_price=current_price,
                                                                                scalping_interval=scalping_interval,
-                                                                               market_stable=market_stable)
+                                                                               market_stable=market_stable,
+                                                                               entry_price=entry_price)
 
                     if decision_sell == 'Sell_Sc':
                         trade_type = 'Scalping'
@@ -1286,10 +1295,20 @@ class BotManager:
                 print("No Scalping Entries Found\n")
                 logging.info("\nNo Scalping Entries Found\n")
 
+                trading_cryptocurrency_amount = self.convert_usdt_to_crypto(current_price,
+                                                                            self.decision_maker.calculate_buy_amount
+                                                                            (all_features=all_features,
+                                                                             amount_atr_interval=AMOUNT_ATR_INTERVAL,
+                                                                             amount_rsi_interval=scalping_interval,
+                                                                             capital=CAPITAL_AMOUNT,
+                                                                             current_price=current_price
+                                                                             ))
+
                 # Get Scalping Decision Maker for Buy
                 decision_buy = self.decision_maker.scalping_make_decision(all_features,
                                                                           scalping_positions,
                                                                           scalping_interval=scalping_interval)
+
                 print(f"Scalping Decision Maker Suggesting ///{decision_buy}///")
                 logging.info(f"Scalping Decision Maker Suggesting ///{decision_buy}///")
 
