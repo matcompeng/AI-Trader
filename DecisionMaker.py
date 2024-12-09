@@ -25,10 +25,6 @@ class DecisionMaker:
         self.roc_speed = roc_speed
         self.trading_interval= trading_interval
         self.scalping_intervals = scalping_intervals
-        self.oversold_reached = False  # Track if `current_k` has ever reached zero
-        self.overbought_reached = False
-        self.lowest_k_reached = None
-        self.max_gain_reached = None
 
         # Configure logging to save in the data directory
         log_file_path = os.path.join(self.data_directory, 'bot_manager.log')
@@ -559,6 +555,54 @@ class DecisionMaker:
         :param entry_gain_loss: Current gain or loss percentage of the active scalping position.
         :return: Decision to 'Buy_Sc', 'Sell_Sc', or 'Hold'.
         """
+
+        def save_flag_to_file(interval, flag_name, value):
+            """
+            Save a flag value to a file specific to the interval and flag.
+
+            :param interval: The interval the flag belongs to (e.g., '1m', '5m').
+            :param flag_name: The name of the flag (e.g., 'oversold_reached').
+            :param value: The value of the flag to save.
+            """
+            try:
+                # Construct the file path
+                flag_file = os.path.join(self.data_directory, f"{interval}_{flag_name}.json")
+
+                # Save the flag value to the file
+                with open(flag_file, 'w') as file:
+                    json.dump({'value': value}, file, indent=4)
+
+                print(f"Flag '{flag_name}' for interval '{interval}' saved with value: {value}")
+            except Exception as e:
+                print(f"Error saving flag '{flag_name}' for interval '{interval}': {e}")
+
+        def load_flag_from_file(interval, flag_name):
+            """
+            Load a flag value from a file specific to the interval and flag.
+
+            :param interval: The interval the flag belongs to (e.g., '1m', '5m').
+            :param flag_name: The name of the flag (e.g., 'oversold_reached').
+            :return: The value of the flag if the file exists, otherwise None.
+            """
+            try:
+                # Construct the file path
+                flag_file = os.path.join(self.data_directory, f"{interval}_{flag_name}.json")
+
+                # Check if the file exists
+                if os.path.exists(flag_file):
+                    with open(flag_file, 'r') as file:
+                        data = json.load(file)
+                        return data.get('value', None)
+                return None
+            except Exception as e:
+                print(f"Error loading flag '{flag_name}' for interval '{interval}': {e}")
+                return None
+
+        # Load the flags from the file system for the specific interval
+        oversold_reached = load_flag_from_file(scalping_interval, 'oversold_reached') or False
+        overbought_reached = load_flag_from_file(scalping_interval, 'overbought_reached') or False
+        lowest_k_reached = load_flag_from_file(scalping_interval, 'lowest_k_reached')
+        max_gain_reached = load_flag_from_file(scalping_interval, 'max_gain_reached')
 
         def uptrend_momentum():
             """
