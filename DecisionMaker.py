@@ -598,6 +598,9 @@ class DecisionMaker:
                 print(f"Error loading flag '{flag_name}' for interval '{interval}': {e}")
                 return None
 
+        def reset_flag(interval, flag_name):
+            save_flag_to_file(interval, flag_name, None)
+
         # Load the flags from the file system for the specific interval
         oversold_reached = load_flag_from_file(scalping_interval, 'oversold_reached') or False
         overbought_reached = load_flag_from_file(scalping_interval, 'overbought_reached') or False
@@ -644,7 +647,7 @@ class DecisionMaker:
                 # print(f"MACD: {macd}, MACD-Signal: {macd_signal}")
 
                 if not all(macd > macd_signal):
-                    log_message = "Uptrend Momentum: ||False|| - (MACD is not consistently above MACD Signal for the last 4 records)"
+                    log_message = "Uptrend Momentum: ||False|| - (MACD is not consistently above MACD Signal for the last 3 records)"
                     print(log_message)
                     logging.info(log_message)
                     return False
@@ -678,7 +681,7 @@ class DecisionMaker:
                 logging.info(log_message)
                 return False
 
-        def stoch_rsi_signal():
+        def stoch_rsi_signal(lowest_k_reached):
             interval_data = all_features['latest'].get(scalping_interval, pd.DataFrame())
 
             if len(interval_data) > 0:
@@ -706,23 +709,22 @@ class DecisionMaker:
                     return 'No Signal'
 
                 # Only trigger the mechanism when current_k <= trigger_threshold
-                if current_k <= trigger_threshold or self.lowest_k_reached is not None:
-                    # Initialize or update the lowest value of %K
-                    if self.lowest_k_reached is None or current_k < self.lowest_k_reached:
-                        self.lowest_k_reached = current_k
-                        log_message = f"Updated Lowest StochRSI K Value: ||{self.lowest_k_reached}||"
+                if current_k <= trigger_threshold or lowest_k_reached is not None:
+                    if lowest_k_reached is None or current_k < lowest_k_reached:
+                        lowest_k_reached = current_k
+                        save_flag_to_file(scalping_interval, 'lowest_k_reached', lowest_k_reached)
+                        log_message = f"Updated Lowest StochRSI K Value: ||{lowest_k_reached}||"
                         print(log_message)
                         logging.info(log_message)
 
                 # Check if %K has reversed significantly from the lowest value
-                if self.lowest_k_reached is not None and current_k > self.lowest_k_reached:
-                    reversal_threshold = self.lowest_k_reached * 2  # Set a 100% increase as a significant reversal
+                if lowest_k_reached is not None and current_k > lowest_k_reached:
+                    reversal_threshold = lowest_k_reached * 2
                     if current_k > reversal_threshold:
-                        log_message = f"StochRSI Signal: ||Oversold Reversal Detected|| - (Lowest K: {self.lowest_k_reached}, Current K: {current_k})"
+                        reset_flag(scalping_interval, 'lowest_k_reached')
+                        log_message = f"StochRSI Signal: ||Oversold Reversal Detected|| - (Lowest K: {lowest_k_reached}, Current K: {current_k})"
                         print(log_message)
                         logging.info(log_message)
-                        # Reset the lowest value after detecting a reversal
-                        self.lowest_k_reached = None
                         return 'oversold'
 
                 # Check if %K is at an overbought level
@@ -783,7 +785,7 @@ class DecisionMaker:
             logging.info(log_message)
             return 'No Signal'
 
-        def gain_trailing_lock():
+        def gain_trailing_lock(max_gain_reached):
             """
             Lock gain and provide a trailing sell signal based on entry_gain_loss,
             using adjusted stop loss thresholds after locking profit upon upper band crossing.
@@ -804,12 +806,12 @@ class DecisionMaker:
                 return 'No Signal'
 
             # Lock the maximum gain if the price crosses the upper band
-            fake_upper_band = upper_band - (upper_band * 0.05/100)
+            fake_upper_band = upper_band - (upper_band * 0.05 / 100)
             if current_price > fake_upper_band:
-                if not hasattr(self,
-                               'max_gain_reached') or self.max_gain_reached is None or entry_gain_loss > self.max_gain_reached:
-                    self.max_gain_reached = entry_gain_loss
-                    log_message = f"Gain Trailing Lock: ||Max Gain Locked|| - (Current Price: {current_price}, Max Gain: {self.max_gain_reached:.2f}%)"
+                if max_gain_reached is None or entry_gain_loss > max_gain_reached:
+                    max_gain_reached = entry_gain_loss
+                    save_flag_to_file(scalping_interval, 'max_gain_reached', max_gain_reached)
+                    log_message = f"Gain Trailing Lock: ||Max Gain Locked|| - (Current Price: {current_price}, Max Gain: {max_gain_reached:.2f}%)"
                     print(log_message)
                     logging.info(log_message)
 
@@ -845,16 +847,16 @@ class DecisionMaker:
             logging.info(log_message)
 
             # Trigger a trailing sell signal if the price reverses below the active threshold
-            if self.max_gain_reached is not None and active_threshold is not None:
-                reverse_percentage = (entry_gain_loss - self.max_gain_reached) / self.max_gain_reached
+            if max_gain_reached is not None and active_threshold is not None:
+                reverse_percentage = (entry_gain_loss - max_gain_reached) / max_gain_reached
                 log_message = f"Gain Trailing Lock: ||Reversal Checking|| - (Reverse-%: {reverse_percentage:.2f}, Active Threshold: {active_threshold:.2f})"
                 print(log_message)
                 logging.info(log_message)
                 if reverse_percentage <= active_threshold:
+                    reset_flag(scalping_interval, 'max_gain_reached')
                     log_message = f"Gain Trailing Lock: ||Trailing Sell Signal Activated|| - (Reversal to Active Threshold: {active_threshold:.2f}%)"
                     print(log_message)
                     logging.info(log_message)
-                    self.max_gain_reached = None  # Reset the lock after sell
                     return 'trailing_sell'
 
             # If no conditions are met, return 'No Signal'
@@ -866,18 +868,19 @@ class DecisionMaker:
 
         # Get signals from the defined functions ----------------------------------------------------------------------
         uptrend_momentum = uptrend_momentum()
-        stoch_signal = stoch_rsi_signal()
+        stoch_signal = stoch_rsi_signal(lowest_k_reached)
         rsi_signal_value = rsi_signal()
-        trailing_signal = gain_trailing_lock()
+        trailing_signal = gain_trailing_lock(max_gain_reached)
 
         # Decision logic based on StochRSI, EMA, RSI, and gain trailing signals
         if scalping_positions:
 
             stop_loss_scalping_value = self.loading_stop_loss_scalping()
 
-            if stoch_signal == 'overbought' or self.overbought_reached == True:
-                self.overbought_reached = True
-                log_message = "Scalping Decision: ||Overbought Reached with EMA Positive|| - (StochRSI: overbought)"
+            if stoch_signal == 'overbought' or overbought_reached == True:
+                overbought_reached = True
+                save_flag_to_file(scalping_interval, 'overbought_reached', overbought_reached)
+                log_message = "Scalping Decision: ||Overbought Reached|| - (StochRSI: overbought)"
                 print(log_message)
                 logging.info(log_message)
                 # Wait for RSI to give RSI_Down signal
@@ -885,44 +888,44 @@ class DecisionMaker:
                     log_message = "Scalping Decision: ||Sell_Sc|| - (RSI: RSI_Down after overbought)"
                     print(log_message)
                     logging.info(log_message)
-                    self.overbought_reached = False  # Reset the flag after sell
-                    self.max_gain_reached = None  # Reset the flag after sell
-                    self.lowest_k_reached = None  # Reset the flag after sell
+                    reset_flag(scalping_interval, 'overbought_reached')
+                    reset_flag(scalping_interval, 'max_gain_reached')
+                    reset_flag(scalping_interval, 'lowest_k_reached')
                     return 'Sell_Sc'
 
 
-            elif trailing_signal == 'trailing_sell':
+            if trailing_signal == 'trailing_sell':
                 log_message = "Scalping Decision: ||Sell_Sc|| - (Trailing Stop Loss Activated)"
                 print(log_message)
                 logging.info(log_message)
-                self.overbought_reached = False  # Reset the flag after sell
-                self.max_gain_reached = None  # Reset the flag after sell
-                self.lowest_k_reached = None  # Reset the flag after sell
+                reset_flag(scalping_interval, 'overbought_reached')
+                reset_flag(scalping_interval, 'max_gain_reached')
+                reset_flag(scalping_interval, 'lowest_k_reached')
                 return 'Sell_Sc'
 
-            elif not uptrend_momentum:
-                log_message = "Scalping Decision: ||Sell_Sc|| - (Uptrend Momentum Ended)"
-                print(log_message)
-                logging.info(log_message)
-                self.overbought_reached = False  # Reset the flag after sell
-                self.max_gain_reached = None  # Reset the flag after sell
-                self.lowest_k_reached = None  # Reset the flag after sell
-                return 'Sell_Sc'
+            # elif not uptrend_momentum:
+            #     log_message = "Scalping Decision: ||Sell_Sc|| - (Uptrend Momentum Ended)"
+            #     print(log_message)
+            #     logging.info(log_message)
+            #     reset_flag(scalping_interval, 'overbought_reached')
+            #     reset_flag(scalping_interval, 'max_gain_reached')
+            #     reset_flag(scalping_interval, 'lowest_k_reached')
+            #     return 'Sell_Sc'
 
             elif not market_stable:
                 log_message = "Scalping Decision: ||Sell_Sc|| - (Market Not Stable)"
                 print(log_message)
                 logging.info(log_message)
-                self.overbought_reached = False  # Reset the flag after sell
-                self.max_gain_reached = None  # Reset the flag after sell
-                self.lowest_k_reached = None  # Reset the flag after sell
+                reset_flag(scalping_interval, 'overbought_reached')
+                reset_flag(scalping_interval, 'max_gain_reached')
+                reset_flag(scalping_interval, 'lowest_k_reached')
                 return 'Sell_Sc'
 
         else:
 
-            if uptrend_momentum and stoch_signal == 'oversold' and rsi_signal_value == 'RSI_Up':
+            if uptrend_momentum and stoch_signal == 'oversold' and rsi_signal_value == 'RSI_Up' and market_stable:
                 log_message = "Scalping Decision: ||Buy_Sc|| - (StochRSI: oversold, RSI: RSI_Down)"
-                self.lowest_k_reached = None
+                reset_flag(scalping_interval, 'lowest_k_reached')
                 print(log_message)
                 logging.info(log_message)
                 return 'Buy_Sc'
