@@ -900,14 +900,14 @@ class DecisionMaker:
                 self.lowest_k_reached = None  # Reset the flag after sell
                 return 'Sell_Sc'
 
-            # elif not uptrend_momentum:
-            #     log_message = "Scalping Decision: ||Sell_Sc|| - (Uptrend Momentum Ended)"
-            #     print(log_message)
-            #     logging.info(log_message)
-            #     self.overbought_reached = False  # Reset the flag after sell
-            #     self.max_gain_reached = None  # Reset the flag after sell
-            #     self.lowest_k_reached = None  # Reset the flag after sell
-            #     return 'Sell_Sc'
+            elif not uptrend_momentum:
+                log_message = "Scalping Decision: ||Sell_Sc|| - (Uptrend Momentum Ended)"
+                print(log_message)
+                logging.info(log_message)
+                self.overbought_reached = False  # Reset the flag after sell
+                self.max_gain_reached = None  # Reset the flag after sell
+                self.lowest_k_reached = None  # Reset the flag after sell
+                return 'Sell_Sc'
 
             elif not market_stable:
                 log_message = "Scalping Decision: ||Sell_Sc|| - (Market Not Stable)"
