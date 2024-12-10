@@ -671,7 +671,7 @@ class DecisionMaker:
 
                     # Check current and previous MACD values against their signals
                     if macd[-1] > macd_signal[-1] and macd[-2] > macd_signal[-2]:
-                        log_message = f"Uptrend Momentum: ||MACD Condition Met|| - (MACD Histogram angle '{angle:.2f}°' >= threshold '{angle_threshold}°', With 'Positive' MACD/Signal)"
+                        log_message = f"Uptrend Momentum: ||Angel & MACD Conditions Met|| - (MACD Histogram angle '{angle:.2f}°' >= threshold '{angle_threshold}°', With 'Positive' MACD/Signal)"
                         print(log_message)
                         logging.info(log_message)
                         return True
