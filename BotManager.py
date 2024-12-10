@@ -1307,7 +1307,8 @@ class BotManager:
                 # Get Scalping Decision Maker for Buy
                 decision_buy = self.decision_maker.scalping_make_decision(all_features,
                                                                           scalping_positions,
-                                                                          scalping_interval=scalping_interval)
+                                                                          scalping_interval=scalping_interval,
+                                                                          market_stable=market_stable)
 
                 print(f"Scalping Decision Maker Suggesting ///{decision_buy}///")
                 logging.info(f"Scalping Decision Maker Suggesting ///{decision_buy}///")
