@@ -884,7 +884,8 @@ class DecisionMaker:
         rsi_signal_value = rsi_signal()
         trailing_signal = gain_trailing_lock(max_gain_reached)
 
-        # Decision logic based on StochRSI, EMA, RSI, and gain trailing signals
+        # Decision logic based on Uptrend ,StochRSI, RSI, and gain trailing signals
+        # Sell
         if scalping_positions:
 
             stop_loss_scalping_value = self.loading_stop_loss_scalping()
@@ -932,7 +933,7 @@ class DecisionMaker:
                 reset_flag(scalping_interval, 'max_gain_reached')
                 reset_flag(scalping_interval, 'lowest_k_reached')
                 return 'Sell_Sc'
-
+        # Buy
         else:
 
             if uptrend_momentum and stoch_signal == 'oversold' and rsi_signal_value == 'RSI_Up' and market_stable:
