@@ -612,17 +612,16 @@ class DecisionMaker:
             Validate uptrend momentum for a given historical context.
 
             **Uptrend Momentum Rule**:
-               1. Validate the **MACD above MACD Signal** condition first:
-                   - Ensure **MACD** is consistently above **MACD Signal** for **the last 4 records** in **'specified interval' historical context**.
-               2. Then validate MACD Signal angle condition:
-                   - Ensure the **MACD Signal** shows a positive angle above a specific threshold for **the last 4 records**.
-               - If either fails, immediately flag the rule as false without proceeding further.
+               1. Validate if the angle of the MACD Histogram (MACD_hist) is positively above a threshold of 7 degrees.
+               2. During this check, ensure that the current and previous MACD values are above their respective MACD Signal values.
+               3. If both conditions are met, return True; otherwise, return False.
 
             :return: Boolean indicating if the uptrend momentum is valid.
             """
             try:
                 interval = None
 
+                # Determine the interval based on the scalping_interval
                 if scalping_interval == self.scalping_intervals[0]:
                     interval = '15m'
                 elif scalping_interval == self.scalping_intervals[1]:
@@ -637,43 +636,56 @@ class DecisionMaker:
                     logging.info(log_message)
                     return False
 
-                # Use only the last 4 records from the historical context
+                # Use only the last 3 records from the historical context
                 interval_data = interval_data.tail(3)
 
-                # Validate MACD consistently above MACD Signal for the last 4 records
-                macd = interval_data['MACD']
-                macd_signal = interval_data['MACD_signal']
-                macd_hist = interval_data['MACD_hist']
-                # print(f"MACD: {macd}, MACD-Signal: {macd_signal}")
+                # Calculate the angle of the MACD Histogram
+                macd_hist = interval_data['MACD_hist'].values
 
-                if not all(macd > macd_signal):
-                    log_message = "Uptrend Momentum: ||False|| - (MACD is not consistently above MACD Signal for the last 3 records)"
+                if len(macd_hist) < 2:
+                    log_message = f"Uptrend Momentum: ||Error|| - (Not enough data for MACD Histogram angle calculation)"
                     print(log_message)
                     logging.info(log_message)
                     return False
 
-                # Calculate the angle of the MACD Signal line for the last 4 records
-                macd_hist_values = macd_hist.values
-                normalized_macd_signal = macd_hist_values / np.max(np.abs(macd_hist_values))  # Scale to [0, 1]
-                x = np.arange(len(normalized_macd_signal))
-                slope, intercept = np.polyfit(x, normalized_macd_signal, 1)
+                normalized_macd_hist = macd_hist / np.max(np.abs(macd_hist))  # Normalize to [0, 1]
+                x = np.arange(len(normalized_macd_hist))
+                slope, _ = np.polyfit(x, normalized_macd_hist, 1)
 
                 # Convert slope to angle in degrees
                 angle = np.degrees(np.arctan(slope))
 
                 # Check if the angle exceeds the specified threshold
-                angle_threshold = 7  # Example threshold in degrees
-                if angle < angle_threshold:
-                    log_message = f"Uptrend Momentum: ||False|| - (MACD Signal angle {angle:.2f}° is below the threshold {angle_threshold}°)"
+                angle_threshold = 10  # Threshold in degrees
+                if angle >= angle_threshold:
+
+                    # Validate MACD for the current and previous records
+                    macd = interval_data['MACD'].values
+                    macd_signal = interval_data['MACD_signal'].values
+
+                    if len(macd) < 2 or len(macd_signal) < 2:
+                        log_message = f"Uptrend Momentum: ||Error|| - (Not enough data for MACD and MACD Signal comparison)"
+                        print(log_message)
+                        logging.info(log_message)
+                        return False
+
+                    # Check current and previous MACD values against their signals
+                    if macd[-1] > macd_signal[-1] and macd[-2] > macd_signal[-2]:
+                        log_message = f"Uptrend Momentum: ||MACD Condition Met|| - (MACD Histogram angle '{angle:.2f}°' >= threshold '{angle_threshold}°', With 'Positive' MACD/Signal)"
+                        print(log_message)
+                        logging.info(log_message)
+                        return True
+                    else:
+                        log_message = "Uptrend Momentum: ||MACD Condition Failed|| - (MACD Histogram angle '{angle:.2f}°' >= threshold '{angle_threshold}°', With 'Negative' MACD/Signal)"
+                        print(log_message)
+                        logging.info(log_message)
+                        return False
+
+                else:
+                    log_message = f"Uptrend Momentum: ||Angle Condition Failed|| - (MACD Histogram angle {angle:.2f}° < threshold {angle_threshold}°)"
                     print(log_message)
                     logging.info(log_message)
                     return False
-
-                # If both conditions are met, return True
-                log_message = f"Uptrend Momentum: ||True|| - (All Uptrend Conditions are Met: MACD above Signal, Angle {angle:.2f}° > {angle_threshold}°)"
-                print(log_message)
-                logging.info(log_message)
-                return True
 
             except Exception as e:
                 log_message = f"Uptrend Momentum: ||Error|| - (An error occurred while validating uptrend momentum: {e})"
