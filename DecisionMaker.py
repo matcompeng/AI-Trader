@@ -178,7 +178,6 @@ class DecisionMaker:
             f"ATR ({amount_atr_interval}): {current_atr:.2f}, Smoothed StochRSI ({amount_rsi_interval}): {smoothed_stoch_rsi:.2f}, Buy Amount: {buy_amount:.2f}")
         return buy_amount
 
-
     def calculate_adjusted_take_profit(self, entry_price, upper_band_profit, lower_band_profit):
         """
         Calculate adjusted take profit based on the price change within the Bollinger Bands.
@@ -423,7 +422,6 @@ class DecisionMaker:
             return True
         return False
 
-
     def should_sell(self, current_price, entry_price, adjusted_stop_loss_lower, adjusted_stop_loss_middle,
                     adjusted_take_profit, middle_band_loss, lower_band_loss, all_features, position_expired, macd_positive):
         # Calculate the percentage change from the entry price
@@ -612,10 +610,10 @@ class DecisionMaker:
             Validate uptrend momentum for a given historical context.
 
             **Uptrend Momentum Rule**:
-               1. Validate if the angle of the MACD Histogram (MACD_hist) is positively above a threshold of 7 degrees.
-               2. During this check, ensure that the current and previous MACD values are above their respective MACD Signal values.
-               3. If both conditions are met, return True; otherwise, return False.
-
+               1. Validate if the angle of the MACD Histogram (MACD_hist) is positively above a threshold of 10 degrees.
+               2. During this check:
+                  - Ensure that the current MACD Histogram value is greater than the previous value.
+                  - Additionally, ensure that the previous MACD Histogram value is 95% of the current value or less.
             :return: Boolean indicating if the uptrend momentum is valid.
             """
             try:
@@ -631,7 +629,7 @@ class DecisionMaker:
                 interval_data = all_features['history'].get(interval, None)
 
                 if interval_data is None or interval_data.empty:
-                    log_message = f"Uptrend Momentum: ||Error|| - (Historical data for interval '{interval}' is not available or empty)"
+                    log_message = f"Uptrend Momentum: ||Error|| - (Historical data for interval {interval} is not available or empty)"
                     print(log_message)
                     logging.info(log_message)
                     return False
@@ -641,6 +639,10 @@ class DecisionMaker:
 
                 # Calculate the angle of the MACD Histogram
                 macd_hist = interval_data['MACD_hist'].values
+
+                # Validate MACD for the current and previous records
+                macd = interval_data['MACD'].values
+                macd_signal = interval_data['MACD_signal'].values
 
                 if len(macd_hist) < 2:
                     log_message = f"Uptrend Momentum: ||Error|| - (Not enough data for MACD Histogram angle calculation)"
@@ -659,30 +661,20 @@ class DecisionMaker:
                 angle_threshold = 10  # Threshold in degrees
                 if angle >= angle_threshold:
 
-                    # Validate MACD for the current and previous records
-                    macd = interval_data['MACD'].values
-                    macd_signal = interval_data['MACD_signal'].values
-
-                    if len(macd) < 2 or len(macd_signal) < 2:
-                        log_message = f"Uptrend Momentum: ||Error|| - (Not enough data for MACD and MACD Signal comparison)"
-                        print(log_message)
-                        logging.info(log_message)
-                        return False
-
-                    # Check current and previous MACD values against their signals
-                    if macd[-1] > macd_signal[-1] and macd[-2] > macd_signal[-2]:
-                        log_message = f"Uptrend Momentum: ||Angel & MACD Conditions Met|| - (MACD Histogram angle '{angle:.2f}°' >= threshold '{angle_threshold}°', With 'Positive' MACD/Signal)"
+                    # Validate MACD Histogram values for the current and previous records
+                    if macd_hist[-1] > macd_hist[-2] and macd_hist[-2] <= 0.98 * macd_hist[-1]:  # and (macd[-1] > macd_signal[-1] and macd[-2] > macd_signal[-2]):
+                        log_message = f"Uptrend Momentum: ||Angle & MACD_hist Conditions Met|| - (MACD Histogram angle |{angle:.2f}°| >= threshold |{angle_threshold}°|, Positive MACD_hist Diff.)"
                         print(log_message)
                         logging.info(log_message)
                         return True
                     else:
-                        log_message = "Uptrend Momentum: ||MACD Condition Failed|| - (MACD Histogram angle '{angle:.2f}°' >= threshold '{angle_threshold}°', With 'Negative' MACD/Signal)"
+                        log_message = f"Uptrend Momentum: ||MACD_hist Condition Failed|| - (MACD Histogram angle |{angle:.2f}°| >= threshold |{angle_threshold}°|, Negative MACD_hist Diff.)"
                         print(log_message)
                         logging.info(log_message)
                         return False
 
                 else:
-                    log_message = f"Uptrend Momentum: ||Angle Condition Failed|| - (MACD Histogram angle {angle:.2f}° < threshold {angle_threshold}°)"
+                    log_message = f"Uptrend Momentum: ||Angle Condition Failed|| - (MACD Histogram angle |{angle:.2f}°| < threshold |{angle_threshold}°|)"
                     print(log_message)
                     logging.info(log_message)
                     return False
@@ -916,23 +908,23 @@ class DecisionMaker:
                 reset_flag(scalping_interval, 'lowest_k_reached')
                 return 'Sell_Sc'
 
-            # elif not uptrend_momentum:
-            #     log_message = "Scalping Decision: ||Sell_Sc|| - (Uptrend Momentum Ended)"
-            #     print(log_message)
-            #     logging.info(log_message)
-            #     reset_flag(scalping_interval, 'overbought_reached')
-            #     reset_flag(scalping_interval, 'max_gain_reached')
-            #     reset_flag(scalping_interval, 'lowest_k_reached')
-            #     return 'Sell_Sc'
-
-            elif not market_stable:
-                log_message = "Scalping Decision: ||Sell_Sc|| - (Market Not Stable)"
+            elif not uptrend_momentum:
+                log_message = "Scalping Decision: ||Sell_Sc|| - (Uptrend Momentum Failed)"
                 print(log_message)
                 logging.info(log_message)
                 reset_flag(scalping_interval, 'overbought_reached')
                 reset_flag(scalping_interval, 'max_gain_reached')
                 reset_flag(scalping_interval, 'lowest_k_reached')
                 return 'Sell_Sc'
+
+            # elif not market_stable:
+            #     log_message = "Scalping Decision: ||Sell_Sc|| - (Market Not Stable)"
+            #     print(log_message)
+            #     logging.info(log_message)
+            #     reset_flag(scalping_interval, 'overbought_reached')
+            #     reset_flag(scalping_interval, 'max_gain_reached')
+            #     reset_flag(scalping_interval, 'lowest_k_reached')
+            #     return 'Sell_Sc'
         # Buy
         else:
 
