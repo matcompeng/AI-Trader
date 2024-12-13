@@ -291,7 +291,7 @@ class DecisionMaker:
                     stable_count += 1
 
             # Additional checks for stability could include:
-            rsi = latest_features.get('RSI_14', None)
+            rsi = latest_features.get('RSI_12', None)
             if rsi and 30 <= rsi <= 70:
                 stable_count += 1
 
@@ -324,7 +324,7 @@ class DecisionMaker:
                 if roc > self.roc_speed[0]:
                     stable_count += 1
 
-            rsi = latest_features.get('RSI_14', None)
+            rsi = latest_features.get('RSI_12', None)
             if rsi >= 30:
                 stable_count += 1
 
@@ -605,7 +605,7 @@ class DecisionMaker:
         lowest_k_reached = load_flag_from_file(scalping_interval, 'lowest_k_reached')
         max_gain_reached = load_flag_from_file(scalping_interval, 'max_gain_reached')
 
-        def uptrend_momentum():
+        def uptrend_momentum(interval):
             """
             Validate uptrend momentum for a given historical context.
 
@@ -617,19 +617,21 @@ class DecisionMaker:
             :return: Boolean indicating if the uptrend momentum is valid.
             """
             try:
-                interval = None
-
-                # Determine the interval based on the scalping_interval
-                if scalping_interval == self.scalping_intervals[0]:
-                    interval = '15m'
-                elif scalping_interval == self.scalping_intervals[1]:
-                    interval = '30m'
+                angle_threshold = None
+                macd_diff_threshold = None
 
                 # Extract data for the specified interval from the historical context
                 interval_data = all_features['history'].get(interval, None)
 
+                if interval == '5m':
+                    angle_threshold = 35
+                    macd_diff_threshold = 0.98
+                elif interval == '15m':
+                    angle_threshold = 35
+                    macd_diff_threshold = 0.90
+
                 if interval_data is None or interval_data.empty:
-                    log_message = f"Uptrend Momentum: ||Error|| - (Historical data for interval {interval} is not available or empty)"
+                    log_message = f"Uptrend Momentum: ||Error|| - (Historical data for interval {scalping_interval} is not available or empty)"
                     print(log_message)
                     logging.info(log_message)
                     return False
@@ -644,12 +646,6 @@ class DecisionMaker:
                 macd = interval_data['MACD'].values
                 macd_signal = interval_data['MACD_signal'].values
 
-                if len(macd_hist) < 2:
-                    log_message = f"Uptrend Momentum: ||Error|| - (Not enough data for MACD Histogram angle calculation)"
-                    print(log_message)
-                    logging.info(log_message)
-                    return False
-
                 normalized_macd_hist = macd_hist / np.max(np.abs(macd_hist))  # Normalize to [0, 1]
                 x = np.arange(len(normalized_macd_hist))
                 slope, _ = np.polyfit(x, normalized_macd_hist, 1)
@@ -658,23 +654,31 @@ class DecisionMaker:
                 angle = np.degrees(np.arctan(slope))
 
                 # Check if the angle exceeds the specified threshold
-                angle_threshold = 10  # Threshold in degrees
                 if angle >= angle_threshold:
+                    angle_flag = True
+                else:
+                    angle_flag = False
 
-                    # Validate MACD Histogram values for the current and previous records
-                    if macd_hist[-1] > macd_hist[-2] and macd_hist[-2] <= 0.98 * macd_hist[-1]:  # and (macd[-1] > macd_signal[-1] and macd[-2] > macd_signal[-2]):
-                        log_message = f"Uptrend Momentum: ||Angle & MACD_hist Conditions Met|| - (MACD Histogram angle |{angle:.2f}°| >= threshold |{angle_threshold}°|, Positive MACD_hist Diff.)"
-                        print(log_message)
-                        logging.info(log_message)
-                        return True
-                    else:
-                        log_message = f"Uptrend Momentum: ||MACD_hist Condition Failed|| - (MACD Histogram angle |{angle:.2f}°| >= threshold |{angle_threshold}°|, Negative MACD_hist Diff.)"
-                        print(log_message)
-                        logging.info(log_message)
-                        return False
+                # Validate MACD and its signal
+                if (macd[-2] > macd_signal[-2]) and (macd[-1] > macd_signal[-1]):
+                    macd_signal_flag = True
+                else:
+                    macd_signal_flag = False
+
+                # # Validate MACD Histogram values for the current and previous records
+                # if macd_hist[-1] > macd_hist[-2] and macd_hist[-2] <= macd_diff_threshold * macd_hist[-1]:  # and (macd[-1] > macd_signal[-1] and macd[-2] > macd_signal[-2]):
+                #     macd_diff_flag = True
+                # else:
+                #     macd_diff_flag = False
+
+                if angle_flag and macd_signal_flag:
+                    log_message = f"Uptrend Momentum: ||Angle & MACD_hist Conditions Met|| - (MACD Histogram angle |{angle:.2f}°| >= threshold |{angle_threshold}°|, MACD/Signal |{macd_signal_flag}|)"
+                    print(log_message)
+                    logging.info(log_message)
+                    return True
 
                 else:
-                    log_message = f"Uptrend Momentum: ||Angle Condition Failed|| - (MACD Histogram angle |{angle:.2f}°| < threshold |{angle_threshold}°|)"
+                    log_message = f"Uptrend Momentum: ||Angle & MACD_hist Failed|| - (MACD Histogram angle |{angle:.2f}°| >= threshold |{angle_threshold}°|, MACD/Signal |{macd_signal_flag}|)"
                     print(log_message)
                     logging.info(log_message)
                     return False
@@ -748,38 +752,33 @@ class DecisionMaker:
             logging.info(log_message)
             return 'No Signal'
 
-        def rsi_signal():
+        def rsi_signal(interval):
             """
             Generate a signal based on RSI values (6, 14, 24).
             :return: Signal 'RSI_Down', 'RSI_Up', or 'No Signal'.
             """
-            interval = None
-
-            if scalping_interval == self.scalping_intervals[0]:
-                interval = all_features['latest'].get('15m', pd.DataFrame())
-            elif scalping_interval == self.scalping_intervals[1]:
-                interval = all_features['latest'].get('30m', pd.DataFrame())
+            data = all_features['latest'].get(interval, pd.DataFrame())
 
             # Get RSI values for the specified interval
-            rsi_6 = interval.get('RSI_6', None)
-            rsi_14 = interval.get('RSI_14', None)
-            rsi_24 = interval.get('RSI_24', None)
+            rsi_6 = data.get('RSI_6', None)
+            RSI_12 = data.get('RSI_12', None)
+            rsi_24 = data.get('RSI_24', None)
 
             # Check if all RSI values are available
-            if rsi_6 is None or rsi_14 is None or rsi_24 is None:
+            if rsi_6 is None or RSI_12 is None or rsi_24 is None:
                 log_message = f"RSI Signal: ||Error|| - (Missing RSI values for interval: {interval})"
                 print(log_message)
                 logging.info(log_message)
                 return 'No Signal'
 
             # Determine the signal based on RSI conditions with dynamic thresholds
-            if rsi_6 < rsi_14:
-                log_message = f"RSI Signal: ||RSI_Down|| - (RSI_6: {rsi_6}, RSI_14: {rsi_14}, RSI_24: {rsi_24})"
+            if rsi_6 < RSI_12 < rsi_24:
+                log_message = f"RSI Signal: ||RSI_Down|| - (RSI_6: {rsi_6}, RSI_12: {RSI_12}, RSI_24: {rsi_24})"
                 print(log_message)
                 logging.info(log_message)
                 return 'RSI_Down'
-            elif rsi_6 > rsi_14:
-                log_message = f"RSI Signal: ||RSI_Up|| - (RSI_6: {rsi_6}, RSI_14: {rsi_14}, RSI_24: {rsi_24})"
+            elif rsi_6 > RSI_12 > rsi_24:
+                log_message = f"RSI Signal: ||RSI_Up|| - (RSI_6: {rsi_6}, RSI_12: {RSI_12}, RSI_24: {rsi_24})"
                 print(log_message)
                 logging.info(log_message)
                 return 'RSI_Up'
@@ -810,7 +809,7 @@ class DecisionMaker:
                 return 'No Signal'
 
             # Lock the maximum gain if the price crosses the upper band
-            fake_upper_band = upper_band - (upper_band * 0.05 / 100)
+            fake_upper_band = upper_band - (upper_band * 0.15 / 100)
             if current_price > fake_upper_band:
                 if max_gain_reached is None or entry_gain_loss > max_gain_reached:
                     max_gain_reached = entry_gain_loss
@@ -871,9 +870,9 @@ class DecisionMaker:
 
 
         # Get signals from the defined functions ----------------------------------------------------------------------
-        uptrend_momentum = uptrend_momentum()
-        stoch_signal = stoch_rsi_signal(lowest_k_reached)
-        rsi_signal_value = rsi_signal()
+        uptrend_momentum = uptrend_momentum(scalping_interval)
+        # stoch_signal = stoch_rsi_signal(lowest_k_reached)
+        rsi_signal_value = rsi_signal(scalping_interval)
         trailing_signal = gain_trailing_lock(max_gain_reached)
 
         # Decision logic based on Uptrend ,StochRSI, RSI, and gain trailing signals
@@ -882,25 +881,25 @@ class DecisionMaker:
 
             stop_loss_scalping_value = self.loading_stop_loss_scalping()
 
-            if stoch_signal == 'overbought' or overbought_reached == True:
-                overbought_reached = True
-                save_flag_to_file(scalping_interval, 'overbought_reached', overbought_reached)
-                log_message = "Scalping Decision: ||Overbought Reached|| - (StochRSI: overbought)"
-                print(log_message)
-                logging.info(log_message)
-                # Wait for RSI to give RSI_Down signal
-                if rsi_signal_value != 'RSI_Up':
-                    log_message = "Scalping Decision: ||Sell_Sc|| - (RSI: RSI_Down after overbought)"
-                    print(log_message)
-                    logging.info(log_message)
-                    reset_flag(scalping_interval, 'overbought_reached')
-                    reset_flag(scalping_interval, 'max_gain_reached')
-                    reset_flag(scalping_interval, 'lowest_k_reached')
-                    return 'Sell_Sc'
+            # if stoch_signal == 'overbought' or overbought_reached == True:
+            #     overbought_reached = True
+            #     save_flag_to_file(scalping_interval, 'overbought_reached', overbought_reached)
+            #     log_message = "Scalping Decision: ||Overbought Reached|| - (StochRSI: overbought)"
+            #     print(log_message)
+            #     logging.info(log_message)
+            #     # Wait for RSI to give RSI_Down signal
+            #     if rsi_signal_value != 'RSI_Up':
+            #         log_message = "Scalping Decision: ||Sell_Sc|| - (RSI: RSI_Down after overbought)"
+            #         print(log_message)
+            #         logging.info(log_message)
+            #         reset_flag(scalping_interval, 'overbought_reached')
+            #         reset_flag(scalping_interval, 'max_gain_reached')
+            #         reset_flag(scalping_interval, 'lowest_k_reached')
+            #         return 'Sell_Sc'
 
 
             if trailing_signal == 'trailing_sell':
-                log_message = "Scalping Decision: ||Sell_Sc|| - (Trailing Stop Loss Activated)"
+                log_message = "Scalping Decision: ||Sell_Sc|| - (Trailing Gain Signal Activated)"
                 print(log_message)
                 logging.info(log_message)
                 reset_flag(scalping_interval, 'overbought_reached')
@@ -908,14 +907,15 @@ class DecisionMaker:
                 reset_flag(scalping_interval, 'lowest_k_reached')
                 return 'Sell_Sc'
 
-            elif not uptrend_momentum:
-                log_message = "Scalping Decision: ||Sell_Sc|| - (Uptrend Momentum Failed)"
+            elif rsi_signal_value == 'RSI_Down':
+                log_message = "Scalping Decision: ||Sell_Sc|| - (RSI Down Signal Activated)"
                 print(log_message)
                 logging.info(log_message)
                 reset_flag(scalping_interval, 'overbought_reached')
                 reset_flag(scalping_interval, 'max_gain_reached')
                 reset_flag(scalping_interval, 'lowest_k_reached')
                 return 'Sell_Sc'
+
 
             # elif not market_stable:
             #     log_message = "Scalping Decision: ||Sell_Sc|| - (Market Not Stable)"
@@ -928,7 +928,7 @@ class DecisionMaker:
         # Buy
         else:
 
-            if uptrend_momentum and stoch_signal == 'oversold' and rsi_signal_value == 'RSI_Up' and market_stable:
+            if uptrend_momentum and rsi_signal_value == 'RSI_Up' and market_stable:
                 log_message = "Scalping Decision: ||Buy_Sc|| - (StochRSI: oversold, RSI: RSI_Down)"
                 reset_flag(scalping_interval, 'lowest_k_reached')
                 print(log_message)

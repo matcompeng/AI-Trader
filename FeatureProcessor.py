@@ -45,7 +45,7 @@ class FeatureProcessor:
 
                 # Calculate RSI
                 df['RSI_6'] = talib.RSI(df['close'], timeperiod=6)
-                df['RSI_14'] = talib.RSI(df['close'], timeperiod=14)
+                df['RSI_12'] = talib.RSI(df['close'], timeperiod=12)
                 df['RSI_24'] = talib.RSI(df['close'], timeperiod=24)
 
                 # Calculate three SMA and three EMA with periods 7, 25, and 100

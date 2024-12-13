@@ -29,7 +29,7 @@ TRADING_PAIR = 'DOGEUSDT'        # Select Cryptocurrency Trading Pair
 
 # Feature Intervals:
 FEATURES_INTERVALS = ['1m', '5m', '15m', '30m', '1h']
-SCALPING_INTERVALS = ['1m', '5m']
+SCALPING_INTERVALS = ['5m', '15m']
 
 # Profit - Loss:
 POSITION_TIMEOUT = 3*24              # Set The Timeout In Hours for Position.
