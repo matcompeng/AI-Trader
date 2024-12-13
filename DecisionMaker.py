@@ -868,12 +868,72 @@ class DecisionMaker:
             logging.info(log_message)
             return 'No Signal'
 
+        def macd_positive_angle(interval):
+            """
+            Calculate the angle of the MACD line and check if it's positive.
+
+            **MACD Angle Rule**:
+               1. Use the last 3 records of MACD data.
+               2. Calculate the angle of the MACD line based on its trend.
+               3. If the angle is positive, return True; otherwise, return False.
+
+            :param interval: The trading interval to fetch historical MACD data for.
+            :return: Boolean indicating whether the MACD angle is positive.
+            """
+            try:
+                # Extract data for the specified interval from the historical context
+                interval_data = all_features['history'].get(interval, None)
+
+                if interval_data is None or interval_data.empty:
+                    log_message = f"MACD Angle: ||Error|| - (Historical data for interval {interval} is not available or empty)"
+                    print(log_message)
+                    logging.info(log_message)
+                    return False
+
+                # Use only the last 3 records from the historical context
+                interval_data = interval_data.tail(3)
+
+                # Extract MACD values
+                macd = interval_data['MACD'].values
+
+                if len(macd) < 2:
+                    log_message = f"MACD Angle: ||Error|| - (Not enough data to calculate MACD angle)"
+                    print(log_message)
+                    logging.info(log_message)
+                    return False
+
+                # Normalize MACD values
+                normalized_macd = macd / np.max(np.abs(macd))  # Normalize to [0, 1]
+                x = np.arange(len(normalized_macd))
+                slope, _ = np.polyfit(x, normalized_macd, 1)
+
+                # Convert slope to angle in degrees
+                macd_angle = np.degrees(np.arctan(slope))
+
+                # Check if the MACD angle is positive
+                if macd_angle >= 0:
+                    log_message = f"MACD Angle: ||Positive Angle|| - (MACD angle |{macd_angle:.2f}°| >= 0)"
+                    print(log_message)
+                    logging.info(log_message)
+                    return True
+                else:
+                    log_message = f"MACD Angle: ||Negative Angle|| - (MACD angle |{macd_angle:.2f}°| < 0)"
+                    print(log_message)
+                    logging.info(log_message)
+                    return False
+
+            except Exception as e:
+                log_message = f"MACD Angle: ||Error|| - (An error occurred while calculating MACD angle: {e})"
+                print(log_message)
+                logging.info(log_message)
+                return False
 
         # Get signals from the defined functions ----------------------------------------------------------------------
         uptrend_momentum = uptrend_momentum(scalping_interval)
         # stoch_signal = stoch_rsi_signal(lowest_k_reached)
         rsi_signal_value = rsi_signal(scalping_interval)
         trailing_signal = gain_trailing_lock(max_gain_reached)
+        macd_positive_angle = macd_positive_angle(scalping_interval)
 
         # Decision logic based on Uptrend ,StochRSI, RSI, and gain trailing signals
         # Sell
@@ -907,7 +967,7 @@ class DecisionMaker:
                 reset_flag(scalping_interval, 'lowest_k_reached')
                 return 'Sell_Sc'
 
-            elif rsi_signal_value == 'RSI_Down':
+            elif rsi_signal_value == 'RSI_Down' and not macd_positive_angle:
                 log_message = "Scalping Decision: ||Sell_Sc|| - (RSI Down Signal Activated)"
                 print(log_message)
                 logging.info(log_message)
