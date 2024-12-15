@@ -130,52 +130,89 @@ class DecisionMaker:
             message = f"Error in checking for sell due to reversal: {e}"
             return "Hold" ,message
 
-    def calculate_buy_amount(self, all_features, amount_rsi_interval, amount_atr_interval, capital, current_price):
+    def calculate_buy_amount(self, all_features, interval, amount_atr_interval, capital, current_price):
         """
-        Calculate buy amount based on ATR (from 30m or 1h) and StochRSI (from 5m or 15m).
+        Calculate buy amount based on ATR (from 30m or 1h) and RSI_12 derived from the timeframe of the latest downtrend in MACD_hist.
 
+        :param interval: The interval to use for RSI_12 and MACD_hist calculations.
         :param capital: Available capital for trading.
         :param amount_atr_interval: Interval to use for ATR calculation.
-        :param amount_rsi_interval: Interval to use for StochRSI calculation.
-        :param all_features: A dictionary of dataframes for different intervals (e.g., '1m', '5m', '15m', '30m', '1h', '1d')
+        :param all_features: A dictionary of dataframes for different intervals (e.g., '1m', '5m', '15m', '30m', '1h', '1d').
         :param current_price: The current price of the asset.
         :return: Recommended buy amount.
         """
 
-        # Extract data for each interval
+        # Extract ATR data
         current_atr = all_features['latest'][amount_atr_interval].get('ATR', None)
-        current_stoch_rsi = all_features['latest'][amount_rsi_interval].get('stoch_rsi_k', None)
 
-        # Ensure ATR and StochRSI values are available
-        if current_atr is None or current_stoch_rsi is None:
-            raise ValueError("ATR or StochRSI data is missing.")
+        # Ensure ATR value is available
+        if current_atr is None:
+            raise ValueError("ATR data is missing.")
 
-        # Calculate volatility factor
-        volatility_factor = current_atr / current_price
+        # Extract historical data for the interval
+        interval_data = all_features['history'].get(interval, None)
+        if interval_data is None or interval_data.empty:
+            raise ValueError(f"Historical data for interval {interval} is missing.")
 
-        # Smooth StochRSI using the last 4 values from the historical data DataFrame
-        stoch_rsi_values = all_features['history'][amount_rsi_interval]['stoch_rsi_k'].iloc[-4:]
-        smoothed_stoch_rsi = stoch_rsi_values.mean()
+        # Extract MACD_hist and RSI_12 columns
+        macd_hist = interval_data['MACD_hist']
+        rsi_12 = interval_data['RSI_12']
 
-        # Calculate momentum factor with a sigmoid-like function for smoother scaling
-        momentum_factor = 100 * np.exp(-0.05 * (smoothed_stoch_rsi - 1))
+        # Ensure MACD_hist has at least one negative value
+        if not any(macd_hist < 0):
+            raise ValueError("No negative MACD_hist values found for the interval.")
+
+        # Identify the latest downtrend in MACD_hist
+        latest_downtrend_indices = macd_hist[macd_hist < 0].index
+
+        # Group consecutive indices to find the latest downtrend
+        latest_downtrend = [latest_downtrend_indices[0]]
+        for idx in range(1, len(latest_downtrend_indices)):
+            if latest_downtrend_indices[idx] - latest_downtrend_indices[idx - 1] == 1:
+                latest_downtrend.append(latest_downtrend_indices[idx])
+            else:
+                # Stop at the first gap, as we only care about the most recent downtrend
+                break
+
+        # Find the minimum MACD_hist value in the latest downtrend
+        min_macd_hist_index = macd_hist[latest_downtrend].idxmin()
+        corresponding_rsi_12 = rsi_12[min_macd_hist_index]
+
+        # Ensure RSI_12 value is available
+        if pd.isna(corresponding_rsi_12):
+            raise ValueError(f"No RSI_12 value available for the minimum MACD_hist at index {min_macd_hist_index}.")
+
+        # Calculate momentum factor using a sigmoid-like function
+        if corresponding_rsi_12 <= 20:
+            momentum_factor = 100
+        elif corresponding_rsi_12 >= 80:
+            momentum_factor = 0
+        else:
+            momentum_factor = 100 * (1 - np.exp(-0.05 * (corresponding_rsi_12 - 20)))
 
         # Adjust momentum factor based on trend strength (e.g., ADX)
-        adx_value = all_features['latest'][amount_rsi_interval].get('ADX', None)
+        adx_value = all_features['latest'][interval].get('ADX', None)
         if adx_value is not None and adx_value > 25:
             momentum_factor *= 1.2  # Boost by 20% if a strong trend is detected
 
         # Adjust momentum factor based on recent price change to reduce risk in volatile conditions
-        recent_price_change = all_features['latest'][amount_rsi_interval].get('price_change', 0.0)
+        recent_price_change = all_features['latest'][interval].get('price_change', 0.0)
         if abs(recent_price_change) > 2:
             momentum_factor *= 0.8  # Reduce by 20% if recent price change is significant
+
+        # Calculate volatility factor
+        volatility_factor = current_atr / current_price
 
         # Adjust the buy amount based on both volatility and momentum factors
         adjusted_risk = self.risk_tolerance * volatility_factor * momentum_factor
         buy_amount = capital * adjusted_risk
 
+        # Logging and debugging information
         print(
-            f"ATR ({amount_atr_interval}): {current_atr:.2f}, Smoothed StochRSI ({amount_rsi_interval}): {smoothed_stoch_rsi:.2f}, Buy Amount: {buy_amount:.2f}")
+            f"ATR ({amount_atr_interval}): {current_atr:.2f}, RSI_12 ({interval}): {corresponding_rsi_12:.2f}, "
+            f"Momentum Factor: {momentum_factor:.2f}, Buy Amount: {buy_amount:.2f}"
+        )
+
         return buy_amount
 
     def calculate_adjusted_take_profit(self, entry_price, upper_band_profit, lower_band_profit):
@@ -614,6 +651,7 @@ class DecisionMaker:
                2. During this check:
                   - Ensure that the current MACD Histogram value is greater than the previous value.
                   - Additionally, ensure that the previous MACD Histogram value is 95% of the current value or less.
+               3. Calculate the angle of EMA_100 using percentage changes. If the angle is negative (< 0), return False regardless of other calculations.
             :return: Boolean indicating if the uptrend momentum is valid.
             """
             try:
@@ -624,61 +662,78 @@ class DecisionMaker:
                 interval_data = all_features['history'].get(interval, None)
 
                 if interval == '5m':
-                    angle_threshold = 35
+                    angle_threshold = 30
                     macd_diff_threshold = 0.98
                 elif interval == '15m':
-                    angle_threshold = 35
+                    angle_threshold = 30
                     macd_diff_threshold = 0.90
 
                 if interval_data is None or interval_data.empty:
-                    log_message = f"Uptrend Momentum: ||Error|| - (Historical data for interval {scalping_interval} is not available or empty)"
+                    log_message = f"Uptrend Momentum: ||Error|| - (Historical data for interval {interval} is not available or empty)"
                     print(log_message)
                     logging.info(log_message)
                     return False
 
-                # Use only the last 3 records from the historical context
-                interval_data = interval_data.tail(3)
+                # Use the last 20 records for EMA_100 calculation
+                ema_100 = interval_data['EMA_100'].tail(20).values
+
+                if len(ema_100) < 2:
+                    log_message = "Uptrend Momentum: ||Error|| - (Not enough data for EMA_100 angle calculation)"
+                    print(log_message)
+                    logging.info(log_message)
+                    return False
+
+                # Calculate percentage change in EMA_100
+                ema_percentage_change = (ema_100 - ema_100[0]) / ema_100[0] * 100
+
+                # Compute the slope using percentage changes
+                x_ema = np.arange(len(ema_percentage_change))
+                ema_slope, _ = np.polyfit(x_ema, ema_percentage_change, 1)
+
+                # Convert slope to angle in degrees
+                ema_angle = np.degrees(np.arctan(ema_slope))
+
+                # # If EMA_100 angle is negative, return False
+                # if ema_angle < 0:
+                #     log_message = f"Uptrend Momentum: ||Failed|| - (EMA_100 angle |{ema_angle:.2f}°| is negative)"
+                #     print(log_message)
+                #     logging.info(log_message)
+                #     return False
+
+                # Use only the last 4 records for MACD Histogram calculation
+                macd_hist = interval_data['MACD_hist'].tail(4).values
+
+                if len(macd_hist) < 4:
+                    log_message = f"Uptrend Momentum: ||Error|| - (Not enough data for MACD Histogram angle calculation)"
+                    print(log_message)
+                    logging.info(log_message)
+                    return False
 
                 # Calculate the angle of the MACD Histogram
-                macd_hist = interval_data['MACD_hist'].values
+                normalized_macd_hist = macd_hist / np.max(np.abs(macd_hist))  # Normalize to [0, 1]
+                x_macd_hist = np.arange(len(normalized_macd_hist))
+                macd_hist_slope, _ = np.polyfit(x_macd_hist, normalized_macd_hist, 1)
 
-                # Validate MACD for the current and previous records
+                # Convert slope to angle in degrees
+                macd_hist_angle = np.degrees(np.arctan(macd_hist_slope))
+
+                # Check if the MACD Histogram angle exceeds the specified threshold
+                angle_flag = macd_hist_angle >= angle_threshold
+
+                # Validate MACD and its signal
                 macd = interval_data['MACD'].values
                 macd_signal = interval_data['MACD_signal'].values
 
-                normalized_macd_hist = macd_hist / np.max(np.abs(macd_hist))  # Normalize to [0, 1]
-                x = np.arange(len(normalized_macd_hist))
-                slope, _ = np.polyfit(x, normalized_macd_hist, 1)
-
-                # Convert slope to angle in degrees
-                angle = np.degrees(np.arctan(slope))
-
-                # Check if the angle exceeds the specified threshold
-                if angle >= angle_threshold:
-                    angle_flag = True
-                else:
-                    angle_flag = False
-
-                # Validate MACD and its signal
-                if (macd[-2] > macd_signal[-2]) and (macd[-1] > macd_signal[-1]):
-                    macd_signal_flag = True
-                else:
-                    macd_signal_flag = False
-
-                # # Validate MACD Histogram values for the current and previous records
-                # if macd_hist[-1] > macd_hist[-2] and macd_hist[-2] <= macd_diff_threshold * macd_hist[-1]:  # and (macd[-1] > macd_signal[-1] and macd[-2] > macd_signal[-2]):
-                #     macd_diff_flag = True
-                # else:
-                #     macd_diff_flag = False
+                macd_signal_flag = (macd[-2] > macd_signal[-2]) and (macd[-1] > macd_signal[-1])
 
                 if angle_flag and macd_signal_flag:
-                    log_message = f"Uptrend Momentum: ||Angle & MACD_hist Conditions Met|| - (MACD Histogram angle |{angle:.2f}°| >= threshold |{angle_threshold}°|, MACD/Signal |{macd_signal_flag}|)"
+                    log_message = f"Uptrend Momentum: ||Conditions Met|| - (MACD Histogram angle |{macd_hist_angle:.2f}°| >= threshold |{angle_threshold}°|, EMA_100 angle |{ema_angle:.2f}°|, MACD/Signal |{macd_signal_flag}|)"
                     print(log_message)
                     logging.info(log_message)
                     return True
 
                 else:
-                    log_message = f"Uptrend Momentum: ||Angle & MACD_hist Failed|| - (MACD Histogram angle |{angle:.2f}°| >= threshold |{angle_threshold}°|, MACD/Signal |{macd_signal_flag}|)"
+                    log_message = f"Uptrend Momentum: ||Conditions Failed|| - (MACD Histogram angle |{macd_hist_angle:.2f}°| >= threshold |{angle_threshold}°|, EMA_100 angle |{ema_angle:.2f}°|, MACD/Signal |{macd_signal_flag}|)"
                     print(log_message)
                     logging.info(log_message)
                     return False
@@ -809,7 +864,7 @@ class DecisionMaker:
                 return 'No Signal'
 
             # Lock the maximum gain if the price crosses the upper band
-            fake_upper_band = upper_band - (upper_band * 0.15 / 100)
+            fake_upper_band = upper_band - (upper_band * 0.05 / 100)
             if current_price > fake_upper_band:
                 if max_gain_reached is None or entry_gain_loss > max_gain_reached:
                     max_gain_reached = entry_gain_loss

@@ -57,26 +57,26 @@ class FeatureProcessor:
                 df['EMA_100'] = talib.EMA(df['close'], timeperiod=100)
 
                 # Calculate MACD
-                df['MACD'], df['MACD_signal'], df['MACD_hist'] = talib.MACD(df['close'], fastperiod=12, slowperiod=26,
-                                                                            signalperiod=9)
+                df['MACD'], df['MACD_signal'], df['MACD_hist'] = talib.MACD(df['close'], fastperiod=8, slowperiod=21,
+                                                                            signalperiod=7)
 
                 # Calculate Bollinger Bands
                 df['upper_band'], df['middle_band'], df['lower_band'] = talib.BBANDS(df['close'], timeperiod=20)
 
                 # Calculate ADX
-                df['ADX'] = talib.ADX(df['high'], df['low'], df['close'], timeperiod=14)
+                df['ADX'] = talib.ADX(df['high'], df['low'], df['close'], timeperiod=12)
 
                 # Calculate Stochastic RSI
                 df['stoch_rsi_k'], df['stoch_rsi_d'] = self.calculate_stoch_rsi(df['close'])
 
                 # Calculate ATR
-                df['ATR'] = talib.ATR(df['high'], df['low'], df['close'], timeperiod=14)
+                df['ATR'] = talib.ATR(df['high'], df['low'], df['close'], timeperiod=12)
 
                 # Calculate OBV (On-Balance Volume)
                 df['OBV'] = talib.OBV(df['close'], df['volume'])
 
                 # Calculate VWAP
-                df['VWAP'] = self.calculate_vwap(df, period=14)
+                df['VWAP'] = self.calculate_vwap(df, period=12)
 
                 # Calculate SAR
                 df['SAR'] = talib.SAR(df['high'], df['low'], acceleration=0.02, maximum=0.2)

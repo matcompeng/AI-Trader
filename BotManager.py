@@ -646,7 +646,7 @@ class BotManager:
                                                                         self.decision_maker.calculate_buy_amount
                                                                         (all_features=all_features,
                                                                          amount_atr_interval=AMOUNT_ATR_INTERVAL,
-                                                                         amount_rsi_interval=AMOUNT_RSI_INTERVAL,
+                                                                         interval=AMOUNT_RSI_INTERVAL,
                                                                          capital=CAPITAL_AMOUNT,
                                                                          current_price=current_price
                                                                          ))
@@ -1132,7 +1132,7 @@ class BotManager:
                                                                       self.decision_maker.calculate_buy_amount
                                                                       (all_features=all_features,
                                                                       amount_atr_interval=AMOUNT_ATR_INTERVAL,
-                                                                      amount_rsi_interval=AMOUNT_RSI_INTERVAL,
+                                                                      interval=AMOUNT_RSI_INTERVAL,
                                                                       capital=CAPITAL_AMOUNT,
                                                                        current_price=current_price
                                                                        ))
@@ -1295,14 +1295,16 @@ class BotManager:
                 print("No Scalping Entries Found\n")
                 logging.info("\nNo Scalping Entries Found\n")
 
-                trading_cryptocurrency_amount = self.convert_usdt_to_crypto(current_price,
+                trading_cryptocurrency_amount_test = self.convert_usdt_to_crypto(current_price,
                                                                             self.decision_maker.calculate_buy_amount
                                                                             (all_features=all_features,
                                                                              amount_atr_interval=AMOUNT_ATR_INTERVAL,
-                                                                             amount_rsi_interval=scalping_interval,
+                                                                             interval=scalping_interval,
                                                                              capital=CAPITAL_AMOUNT,
                                                                              current_price=current_price
                                                                              ))
+
+                trading_cryptocurrency_amount = self.convert_usdt_to_crypto (current_price, 1000)
 
                 # Get Scalping Decision Maker for Buy
                 decision_buy = self.decision_maker.scalping_make_decision(all_features,
