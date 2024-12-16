@@ -591,6 +591,12 @@ class DecisionMaker:
         :return: Decision to 'Buy_Sc', 'Sell_Sc', or 'Hold'.
         """
 
+        # Retrieve band levels from all_features
+        lower_band = all_features['latest'][scalping_interval].get('lower_band', None)
+        middle_band = all_features['latest'][scalping_interval].get('middle_band', None)
+        upper_band = all_features['latest'][scalping_interval].get('upper_band', None)
+        fake_upper_band = upper_band - (upper_band * 0.05 / 100)
+
         def save_flag_to_file(interval, flag_name, value):
             """
             Save a flag value to a file specific to the interval and flag.
@@ -642,7 +648,7 @@ class DecisionMaker:
         lowest_k_reached = load_flag_from_file(scalping_interval, 'lowest_k_reached')
         max_gain_reached = load_flag_from_file(scalping_interval, 'max_gain_reached')
 
-        def uptrend_momentum(interval):
+        def uptrend_momentum(interval, price):
             """
             Validate uptrend momentum for a given historical context.
 
@@ -662,10 +668,10 @@ class DecisionMaker:
                 interval_data = all_features['history'].get(interval, None)
 
                 if interval == '5m':
-                    angle_threshold = 30
+                    angle_threshold = 25
                     macd_diff_threshold = 0.98
                 elif interval == '15m':
-                    angle_threshold = 30
+                    angle_threshold = 25
                     macd_diff_threshold = 0.90
 
                 if interval_data is None or interval_data.empty:
@@ -675,16 +681,16 @@ class DecisionMaker:
                     return False
 
                 # Use the last 20 records for EMA_100 calculation
-                ema_100 = interval_data['EMA_100'].tail(20).values
+                ema_200 = interval_data['EMA_200'].tail(10).values
 
-                if len(ema_100) < 2:
+                if len(ema_200) < 2:
                     log_message = "Uptrend Momentum: ||Error|| - (Not enough data for EMA_100 angle calculation)"
                     print(log_message)
                     logging.info(log_message)
                     return False
 
                 # Calculate percentage change in EMA_100
-                ema_percentage_change = (ema_100 - ema_100[0]) / ema_100[0] * 100
+                ema_percentage_change = (ema_200 - ema_200[0]) / ema_200[0] * 100
 
                 # Compute the slope using percentage changes
                 x_ema = np.arange(len(ema_percentage_change))
@@ -693,15 +699,15 @@ class DecisionMaker:
                 # Convert slope to angle in degrees
                 ema_angle = np.degrees(np.arctan(ema_slope))
 
-                # # If EMA_100 angle is negative, return False
-                # if ema_angle < 0:
-                #     log_message = f"Uptrend Momentum: ||Failed|| - (EMA_100 angle |{ema_angle:.2f}°| is negative)"
-                #     print(log_message)
-                #     logging.info(log_message)
-                #     return False
+                # If EMA_100 angle is negative, return False
+                if ema_angle < 0:
+                    log_message = f"Uptrend Momentum: ||Failed|| - (EMA_200 angle |{ema_angle:.2f}°| is negative)"
+                    print(log_message)
+                    logging.info(log_message)
+                    return False
 
                 # Use only the last 4 records for MACD Histogram calculation
-                macd_hist = interval_data['MACD_hist'].tail(4).values
+                macd_hist = interval_data['MACD_hist_fast'].tail(4).values
 
                 if len(macd_hist) < 4:
                     log_message = f"Uptrend Momentum: ||Error|| - (Not enough data for MACD Histogram angle calculation)"
@@ -721,8 +727,8 @@ class DecisionMaker:
                 angle_flag = macd_hist_angle >= angle_threshold
 
                 # Validate MACD and its signal
-                macd = interval_data['MACD'].values
-                macd_signal = interval_data['MACD_signal'].values
+                macd = interval_data['MACD_fast'].values
+                macd_signal = interval_data['MACD_signal_fast'].values
 
                 macd_signal_flag = (macd[-2] > macd_signal[-2]) and (macd[-1] > macd_signal[-1])
 
@@ -851,11 +857,6 @@ class DecisionMaker:
             if entry_gain_loss is None or current_price is None or entry_price is None:
                 return 'No Signal'
 
-            # Retrieve band levels from all_features
-            middle_band = all_features['latest'][scalping_interval].get('middle_band', None)
-            upper_band = all_features['latest'][scalping_interval].get('upper_band', None)
-            lower_band = all_features['latest'][scalping_interval].get('lower_band', None)
-
             # Ensure required data is available
             if middle_band is None or upper_band is None or lower_band is None:
                 log_message = "Gain Trailing Lock: ||Error|| - (Missing band data for trailing lock calculation)"
@@ -864,7 +865,6 @@ class DecisionMaker:
                 return 'No Signal'
 
             # Lock the maximum gain if the price crosses the upper band
-            fake_upper_band = upper_band - (upper_band * 0.05 / 100)
             if current_price > fake_upper_band:
                 if max_gain_reached is None or entry_gain_loss > max_gain_reached:
                     max_gain_reached = entry_gain_loss
@@ -984,7 +984,7 @@ class DecisionMaker:
                 return False
 
         # Get signals from the defined functions ----------------------------------------------------------------------
-        uptrend_momentum = uptrend_momentum(scalping_interval)
+        uptrend_momentum = uptrend_momentum(scalping_interval, current_price)
         # stoch_signal = stoch_rsi_signal(lowest_k_reached)
         rsi_signal_value = rsi_signal(scalping_interval)
         trailing_signal = gain_trailing_lock(max_gain_reached)
@@ -1043,7 +1043,7 @@ class DecisionMaker:
         # Buy
         else:
 
-            if uptrend_momentum and rsi_signal_value == 'RSI_Up' and market_stable:
+            if uptrend_momentum and rsi_signal_value == 'RSI_Up' and market_stable and current_price < fake_upper_band:
                 log_message = "Scalping Decision: ||Buy_Sc|| - (StochRSI: oversold, RSI: RSI_Down)"
                 reset_flag(scalping_interval, 'lowest_k_reached')
                 print(log_message)

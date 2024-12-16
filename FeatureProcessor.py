@@ -55,10 +55,14 @@ class FeatureProcessor:
                 df['EMA_7'] = talib.EMA(df['close'], timeperiod=7)
                 df['EMA_25'] = talib.EMA(df['close'], timeperiod=25)
                 df['EMA_100'] = talib.EMA(df['close'], timeperiod=100)
+                df['EMA_200'] = talib.EMA(df['close'], timeperiod=200)
 
                 # Calculate MACD
-                df['MACD'], df['MACD_signal'], df['MACD_hist'] = talib.MACD(df['close'], fastperiod=8, slowperiod=21,
-                                                                            signalperiod=7)
+                df['MACD'], df['MACD_signal'], df['MACD_hist'] = talib.MACD(df['close'], fastperiod=12, slowperiod=26,
+                                                                            signalperiod=9)
+
+                df['MACD_fast'], df['MACD_signal_fast'], df['MACD_hist_fast'] = talib.MACD(df['close'], fastperiod=6, slowperiod=13,
+                                                                            signalperiod=5)
 
                 # Calculate Bollinger Bands
                 df['upper_band'], df['middle_band'], df['lower_band'] = talib.BBANDS(df['close'], timeperiod=20)

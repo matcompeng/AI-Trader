@@ -46,7 +46,7 @@ TRAILING_POSITIONS_COUNT = 1         # Define The Minimum Count For Stable Posit
 PREDICTION_CYCLE = 15                # Time in Minutes to Run the Stable Prediction bot cycle.
 INTERVAL_BANDWIDTH = '5m'            # Define The Interval To calculate Prediction Bandwidth.
 SAR_INTERVALS = ['1m']               # Select The Interval Getting SAR Indicator for Prediction Activation.
-PREDICT_BANDWIDTH = 0.45             # Define Minimum Bandwidth % to Activate Trading.
+PREDICT_BANDWIDTH = 0.80             # Define Minimum Bandwidth % to Activate Trading.
 X_INDEX = ['pending']                # Stop The Predictor In these Indexes.
 
 # Stable Trading:
@@ -1310,6 +1310,7 @@ class BotManager:
                 decision_buy = self.decision_maker.scalping_make_decision(all_features,
                                                                           scalping_positions,
                                                                           scalping_interval=scalping_interval,
+                                                                          current_price=current_price,
                                                                           market_stable=market_stable)
 
                 print(f"Scalping Decision Maker Suggesting ///{decision_buy}///")
