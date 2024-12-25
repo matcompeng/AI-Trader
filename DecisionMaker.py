@@ -4,6 +4,7 @@ import os
 import numpy as np
 import pandas as pd
 import logging
+from Notifier import Notifier
 
 
 class DecisionMaker:
@@ -15,6 +16,7 @@ class DecisionMaker:
         self.profit_interval = profit_interval
         self.loose_interval = loose_interval
         self.dip_interval = dip_interval
+        self.notifier = Notifier()
         self.amount_rsi_interval = amount_rsi_interval
         self.amount_atr_interval = amount_atr_interval
         self.min_stable_intervals = min_stable_intervals
@@ -25,6 +27,7 @@ class DecisionMaker:
         self.roc_speed = roc_speed
         self.trading_interval= trading_interval
         self.scalping_intervals = scalping_intervals
+        self.candidate_resistance_cache = {}
 
         # Configure logging to save in the data directory
         log_file_path = os.path.join(self.data_directory, 'bot_manager.log')
@@ -493,6 +496,176 @@ class DecisionMaker:
         # If none of the above conditions are met, do not sell
         return False
 
+    def detect_latest_resistance(
+        self,
+        all_features,
+        interval,
+        current_price,
+        lookback=30,
+        pivot_size=2,
+        cluster_tolerance=0.002,
+        min_touches=2
+    ):
+        """
+        Detects the most recent 'strong' resistance level from the given OHLCV DataFrame
+        by looking at pivot highs within the last `lookback` candles, requiring `min_touches` for
+        confirmation. Also handles single-candle new highs by keeping a 'candidate' resistance
+        if the price breaks an old level but doesn't yet have 2 touches.
+
+        :param all_features: Dictionary containing 'history' DataFrames for different intervals.
+        :param interval: Which interval to use (e.g., '1m', '5m', '15m').
+        :param current_price: The current live price of the asset.
+        :param lookback: Number of recent candles to look at (e.g., 30).
+        :param pivot_size: How many candles on each side to confirm a local pivot high.
+        :param cluster_tolerance: Fraction (e.g., 0.002 = 0.2%) to cluster nearby pivot highs.
+        :param min_touches: Minimum pivot-high count in a cluster to call it “confirmed resistance.”
+        :return: Float price of the latest confirmed resistance OR a candidate resistance.
+        """
+        # -------------------------------------------------------------------------------------------
+        # 1) Retrieve the DataFrame and slice the last `lookback` candles
+        # -------------------------------------------------------------------------------------------
+        df = all_features['history'].get(interval, pd.DataFrame())
+        if df.empty:
+            return None  # Not enough data
+
+        recent_df = df.iloc[-lookback:].copy()
+        highs = recent_df['high'].values
+        if len(highs) < pivot_size * 2:
+            return None  # Not enough candles to identify pivots
+
+        # -------------------------------------------------------------------------------------------
+        # 2) Identify pivot highs (local maxima with pivot_size candles on each side)
+        # -------------------------------------------------------------------------------------------
+        pivot_indices = []
+        for i in range(pivot_size, len(highs) - pivot_size):
+            current_high = highs[i]
+            left_side = highs[i - pivot_size : i]
+            right_side = highs[i + 1 : i + 1 + pivot_size]
+
+            if all(current_high > h for h in left_side) and all(current_high >= h for h in right_side):
+                pivot_indices.append(i)
+
+        # If no pivots, return whatever candidate might exist
+        if not pivot_indices:
+            # Check if we have a candidate from before
+            candidate = self.candidate_resistance_cache.get(interval)
+            return candidate if candidate else None
+
+        # Gather pivot-high prices as (DataFrame index, high_value)
+        pivot_prices = [(recent_df.iloc[idx].name, highs[idx]) for idx in pivot_indices]
+
+        # -------------------------------------------------------------------------------------------
+        # 3) Cluster pivot highs (because price rarely rejects at exactly the same number repeatedly)
+        # -------------------------------------------------------------------------------------------
+        pivot_prices.sort(key=lambda x: x[1])  # sort by pivot-high ascending
+        clusters = []
+        current_cluster = [pivot_prices[0]]
+
+        for i in range(1, len(pivot_prices)):
+            _, curr_price_val = pivot_prices[i]
+            _, prev_price_val = pivot_prices[i - 1]
+
+            # If within cluster_tolerance * prev_price_val, they belong to the same cluster
+            if abs(curr_price_val - prev_price_val) <= cluster_tolerance * prev_price_val:
+                current_cluster.append(pivot_prices[i])
+            else:
+                clusters.append(current_cluster)
+                current_cluster = [pivot_prices[i]]
+        # Add the last cluster
+        if current_cluster:
+            clusters.append(current_cluster)
+
+        # -------------------------------------------------------------------------------------------
+        # 4) Find clusters with at least `min_touches` pivot highs and pick the highest one
+        # -------------------------------------------------------------------------------------------
+        qualified_clusters = []
+        for cluster in clusters:
+            if len(cluster) >= min_touches:
+                # You can choose to define the cluster price as the max or average
+                cluster_highs = [c[1] for c in cluster]
+                cluster_max_price = max(cluster_highs)
+                qualified_clusters.append(cluster_max_price)
+
+        if qualified_clusters:
+            confirmed_resistance = max(qualified_clusters)
+        else:
+            # If no cluster meets the min_touches threshold, we have no "confirmed" resistance
+            confirmed_resistance = None
+
+        # -------------------------------------------------------------------------------------------
+        # 5) Handle "Candidate" Resistance if there's a breakout above confirmed_resistance
+        # -------------------------------------------------------------------------------------------
+        # We keep a separate dictionary entry for a candidate new high if
+        # the price has broken above the old confirmed resistance but we don’t yet have 2 touches.
+
+        old_candidate = self.candidate_resistance_cache.get(interval, None)
+
+        # (A) If we do have a confirmed resistance, check if current_price is above it
+        if confirmed_resistance and current_price > confirmed_resistance:
+            # This means we've broken the old confirmed level, so let's see if
+            # the market formed a new higher high that doesn't yet have 2 touches.
+            highest_since_break = recent_df[recent_df['high'] > confirmed_resistance]['high'].max()
+            if pd.isna(highest_since_break):
+                highest_since_break = current_price  # fallback if nothing found
+
+            # We store it as a candidate
+            self.candidate_resistance_cache[interval] = highest_since_break
+
+            # For *output*, if we want to reflect that the "latest resistance" is the old confirmed level,
+            # we might still return the old confirmed. Or if you prefer, return the candidate.
+            # That choice depends on your strategy. We'll return the candidate here if higher than the old confirmed:
+            if highest_since_break > confirmed_resistance:
+                return highest_since_break
+            else:
+                return confirmed_resistance
+
+        # (B) If we have no confirmed_resistance yet, see if there's a candidate in place
+        elif not confirmed_resistance:
+            # If we do have an old candidate, check if it’s been "re-touched" at least once
+            # among the newly detected pivot highs
+            if old_candidate:
+                # check how many pivot highs are within cluster_tolerance of old_candidate
+                candidate_touches = [
+                    price_val for (idx, price_val) in pivot_prices
+                    if abs(price_val - old_candidate) <= cluster_tolerance * old_candidate
+                ]
+                if len(candidate_touches) >= min_touches:
+                    # This candidate is now confirmed
+                    confirmed_resistance = max(candidate_touches)
+                    self.candidate_resistance_cache[interval] = None
+                    return confirmed_resistance
+                else:
+                    # Candidate remains unconfirmed
+                    return old_candidate
+            else:
+                # No confirmed, no candidate => nothing
+                return None
+
+        # (C) If we do have a confirmed_resistance but price is still below it
+        else:
+            # Possibly we want to check if the old candidate has now been retested enough times
+            # to turn it into a confirmed. This scenario might happen if the price spiked,
+            # then came back below the old confirmed level, so let's see if we re-touched
+            # the candidate from below.
+            if old_candidate and old_candidate > confirmed_resistance:
+                # See how many pivot highs are near the candidate
+                candidate_touches = [
+                    price_val for (idx, price_val) in pivot_prices
+                    if abs(price_val - old_candidate) <= cluster_tolerance * old_candidate
+                ]
+                if len(candidate_touches) >= min_touches:
+                    # Confirm the candidate and discard it
+                    confirmed_resistance = max(candidate_touches)
+                    self.candidate_resistance_cache[interval] = None
+                    return confirmed_resistance
+                else:
+                    # Keep the old candidate if it's still relevant
+                    # (maybe price is dancing around in that region)
+                    return confirmed_resistance
+            else:
+                # No candidate or candidate <= confirmed => Just return the confirmed
+                return confirmed_resistance
+
 
 
     def make_decision(self, prediction, current_price, entry_price, all_features, position_expired, macd_positive, bot_manager):
@@ -613,7 +786,7 @@ class DecisionMaker:
                 with open(flag_file, 'w') as file:
                     json.dump({'value': value}, file, indent=4)
 
-                print(f"Flag '{flag_name}' for interval '{interval}' saved with value: {value}")
+                # print(f"Flag '{flag_name}' for interval '{interval}' saved with value: {value}")
             except Exception as e:
                 print(f"Error saving flag '{flag_name}' for interval '{interval}': {e}")
 
@@ -647,6 +820,9 @@ class DecisionMaker:
         overbought_reached = load_flag_from_file(scalping_interval, 'overbought_reached') or False
         lowest_k_reached = load_flag_from_file(scalping_interval, 'lowest_k_reached')
         max_gain_reached = load_flag_from_file(scalping_interval, 'max_gain_reached')
+        uptrend_counter = load_flag_from_file(scalping_interval, 'uptrend_counter') or 0
+        macd_counter = load_flag_from_file(scalping_interval, 'macd_counter') or 0
+        break_counter = load_flag_from_file(scalping_interval, 'break_counter') or 0
 
         def uptrend_momentum(interval, price):
             """
@@ -668,10 +844,10 @@ class DecisionMaker:
                 interval_data = all_features['history'].get(interval, None)
 
                 if interval == '5m':
-                    angle_threshold = 25
+                    angle_threshold = 20
                     macd_diff_threshold = 0.98
                 elif interval == '15m':
-                    angle_threshold = 25
+                    angle_threshold = 20
                     macd_diff_threshold = 0.90
 
                 if interval_data is None or interval_data.empty:
@@ -700,7 +876,7 @@ class DecisionMaker:
                 ema_angle = np.degrees(np.arctan(ema_slope))
 
                 # If EMA_100 angle is negative, return False
-                if ema_angle < 0:
+                if ema_angle < 3:
                     log_message = f"Uptrend Momentum: ||Failed|| - (EMA_200 angle |{ema_angle:.2f}°| is negative)"
                     print(log_message)
                     logging.info(log_message)
@@ -730,7 +906,7 @@ class DecisionMaker:
                 macd = interval_data['MACD_fast'].values
                 macd_signal = interval_data['MACD_signal_fast'].values
 
-                macd_signal_flag = (macd[-2] > macd_signal[-2]) and (macd[-1] > macd_signal[-1])
+                macd_signal_flag = macd[-1] > macd_signal[-1]
 
                 if angle_flag and macd_signal_flag:
                     log_message = f"Uptrend Momentum: ||Conditions Met|| - (MACD Histogram angle |{macd_hist_angle:.2f}°| >= threshold |{angle_threshold}°|, EMA_100 angle |{ema_angle:.2f}°|, MACD/Signal |{macd_signal_flag}|)"
@@ -821,25 +997,25 @@ class DecisionMaker:
             data = all_features['latest'].get(interval, pd.DataFrame())
 
             # Get RSI values for the specified interval
-            rsi_6 = data.get('RSI_6', None)
-            RSI_12 = data.get('RSI_12', None)
+            rsi_12 = data.get('RSI_12', None)
             rsi_24 = data.get('RSI_24', None)
+            rsi_48 = data.get('RSI_48', None)
 
             # Check if all RSI values are available
-            if rsi_6 is None or RSI_12 is None or rsi_24 is None:
+            if rsi_12 is None or rsi_24 is None or rsi_48 is None:
                 log_message = f"RSI Signal: ||Error|| - (Missing RSI values for interval: {interval})"
                 print(log_message)
                 logging.info(log_message)
                 return 'No Signal'
 
             # Determine the signal based on RSI conditions with dynamic thresholds
-            if rsi_6 < RSI_12 < rsi_24:
-                log_message = f"RSI Signal: ||RSI_Down|| - (RSI_6: {rsi_6}, RSI_12: {RSI_12}, RSI_24: {rsi_24})"
+            if rsi_12 < rsi_24 and rsi_12 < rsi_48:
+                log_message = f"RSI Signal: ||RSI_Down|| - (RSI_12: {round(rsi_12)}, RSI_24: {round(rsi_24)}, RSI_48: {round(rsi_48)})"
                 print(log_message)
                 logging.info(log_message)
                 return 'RSI_Down'
-            elif rsi_6 > RSI_12 > rsi_24:
-                log_message = f"RSI Signal: ||RSI_Up|| - (RSI_6: {rsi_6}, RSI_12: {RSI_12}, RSI_24: {rsi_24})"
+            elif rsi_12 > rsi_24 > rsi_48:
+                log_message = f"RSI Signal: ||RSI_Up|| - (RSI_12: {round(rsi_12)}, RSI_24: {round(rsi_24)}, RSI_48: {round(rsi_48)}"
                 print(log_message)
                 logging.info(log_message)
                 return 'RSI_Up'
@@ -866,7 +1042,7 @@ class DecisionMaker:
 
             # Lock the maximum gain if the price crosses the upper band
             if current_price > fake_upper_band:
-                if max_gain_reached is None or entry_gain_loss > max_gain_reached:
+                if max_gain_reached is None or current_price > max_gain_reached:
                     max_gain_reached = entry_gain_loss
                     save_flag_to_file(scalping_interval, 'max_gain_reached', max_gain_reached)
                     log_message = f"Gain Trailing Lock: ||Max Gain Locked|| - (Current Price: {current_price}, Max Gain: {max_gain_reached:.2f}%)"
@@ -906,11 +1082,13 @@ class DecisionMaker:
 
             # Trigger a trailing sell signal if the price reverses below the active threshold
             if max_gain_reached is not None and active_threshold is not None:
-                reverse_percentage = (entry_gain_loss - max_gain_reached) / max_gain_reached
-                log_message = f"Gain Trailing Lock: ||Reversal Checking|| - (Reverse-%: {reverse_percentage:.2f}, Active Threshold: {active_threshold:.2f})"
+                # Calculate the range between fake_upper_band and max_gain_reached
+                price_range = abs(max_gain_reached - fake_upper_band)
+                reversal_percentage = (current_price - max_gain_reached) / price_range * 100
+                log_message = f"Gain Trailing Lock: ||Reversal Checking|| - (Reverse-%: {reversal_percentage:.2f}, Active Threshold: {active_threshold:.2f})"
                 print(log_message)
                 logging.info(log_message)
-                if reverse_percentage <= active_threshold:
+                if reversal_percentage <= active_threshold:
                     reset_flag(scalping_interval, 'max_gain_reached')
                     log_message = f"Gain Trailing Lock: ||Trailing Sell Signal Activated|| - (Reversal to Active Threshold: {active_threshold:.2f}%)"
                     print(log_message)
@@ -946,7 +1124,7 @@ class DecisionMaker:
                     return False
 
                 # Use only the last 3 records from the historical context
-                interval_data = interval_data.tail(3)
+                interval_data = interval_data.tail(4)
 
                 # Extract MACD values
                 macd = interval_data['MACD'].values
@@ -983,12 +1161,181 @@ class DecisionMaker:
                 logging.info(log_message)
                 return False
 
+        def testing_uptrend_momentum(uptrend_counter):
+            if uptrend_momentum(scalping_interval, current_price):
+                uptrend_counter += 1
+                save_flag_to_file(scalping_interval, 'uptrend_counter', uptrend_counter)
+            else:
+                uptrend_counter = 0
+                save_flag_to_file(scalping_interval, 'uptrend_counter', uptrend_counter)
+
+            # Proceed with buying decision only if the counter reaches 30
+            log_message = f"Testing Uptrend Momentum: ||Uptrend Count: {uptrend_counter} of 60||"
+            print(log_message)
+            logging.info(log_message)
+
+            if uptrend_counter >= 60:
+                return True
+            else:
+                return False
+
+        def macd_negative_rising(interval):
+            """
+            Check if:
+              1) MACD histogram is negative but rising between the last two recorded points:
+                 - macd_hist[-3] < 0 and macd_hist[-2] < 0
+                 - macd_hist[-2] > macd_hist[-3]
+              2) RSI_12 < RSI_24 < RSI_48 (all taken from the most recent row)
+              3) rsi_dip = (RSI_12 <= 40)  <-- OLD logic
+                 **OR** (RSI_12 at the minimum MACD histogram point is below some threshold) <-- NEW logic
+
+            If both conditions are met, send a notification using self.notifier.
+            Additionally, find the RSI at the minimum MACD histogram of the latest negative run,
+            and log or notify based on that RSI dip value.
+
+            :param interval: Interval string (e.g. '1m', '5m') to look up data.
+            """
+            # Retrieve historical DataFrame for the chosen interval
+            interval_data = all_features['history'].get(interval, pd.DataFrame())
+            if interval_data.empty:
+                logging.info(f"[macd_negative_rising] No historical data for interval '{interval}'.")
+                return
+
+            required_cols = ['MACD_hist', 'RSI_12', 'RSI_24', 'RSI_48']
+            for col in required_cols:
+                if col not in interval_data.columns:
+                    logging.info(
+                        f"[macd_negative_rising] Missing '{col}' in data for '{interval}'."
+                    )
+                    return
+
+            macd_hist = interval_data['MACD_hist_fast']
+            rsi_12_series = interval_data['RSI_12']
+            rsi_24_series = interval_data['RSI_24']
+            rsi_48_series = interval_data['RSI_48']
+
+            if len(macd_hist) < 3:
+                logging.info(
+                    f"[macd_negative_rising] Not enough MACD_hist data for '{interval}'. Need at least 3 data points."
+                )
+                return
+
+            # ------------------------------------------------------------------------
+            # 1) Original logic: Check if MACD histogram is negative but rising
+            #    between the last two bars: macd_hist[-3], macd_hist[-2].
+            # ------------------------------------------------------------------------
+            hist_neg2 = macd_hist.iloc[-2]  # 3rd from last
+            hist_neg1 = macd_hist.iloc[-1]  # 2nd from last
+
+            macd_negative_rising = (hist_neg2 < 0 and hist_neg1 < 0 and hist_neg1 > hist_neg2)
+
+            # 2) Check RSI chain from the last row
+            rsi_12 = rsi_12_series.iloc[-1]
+            rsi_24 = rsi_24_series.iloc[-1]
+            rsi_48 = rsi_48_series.iloc[-1]
+
+            rsi_chain = (rsi_12 < rsi_24 < rsi_48)
+
+            # ------------------------------------------------------------------------
+            # 3) NEW logic: Identify the "latest downtrend" in MACD_hist
+            #    and find the candle with the minimum MACD_hist in that run.
+            # ------------------------------------------------------------------------
+            negative_macd_indices = macd_hist[macd_hist < 0].index
+            if len(negative_macd_indices) < 1:
+                # No negative MACD histogram at all
+                logging.info(f"[macd_negative_rising] No negative MACD_hist run for '{interval}'.")
+                return
+
+            # Find the last consecutive run of negative MACD values
+            # Starting from the end, group backward until a gap is found
+            latest_downtrend = [negative_macd_indices[-1]]
+            for idx in range(len(negative_macd_indices) - 2, -1, -1):
+                if negative_macd_indices[idx + 1] - negative_macd_indices[idx] == 1:
+                    # Consecutive
+                    latest_downtrend.append(negative_macd_indices[idx])
+                else:
+                    # Gap found, stop
+                    break
+
+            # Because we appended in reverse, reorder the list ascending by time
+            latest_downtrend.sort()
+
+            # Find the index with the minimum MACD_hist value within this run
+            min_macd_hist_index = macd_hist[latest_downtrend].idxmin()
+            min_macd_value = macd_hist[min_macd_hist_index]
+
+            # ------------------------------------------------------------------------
+            # 4) Grab the RSI at that same candle
+            # ------------------------------------------------------------------------
+            rsi_at_min_macd = rsi_12_series[min_macd_hist_index]
+            # Decide how you want to define an “RSI dip”
+            # For example, let's say RSI < 35 means it's a “dip”
+            rsi_dip_threshold = 45
+            rsi_dip_condition = (rsi_at_min_macd <= rsi_dip_threshold)
+
+            # ------------------------------------------------------------------------
+            # 5) Combine conditions:
+            #    - MACD negative but rising on the last 2 bars
+            #    - RSI chain on the last bar
+            #    - RSI at the min MACD histogram is also a “dip”
+            # ------------------------------------------------------------------------
+            if macd_negative_rising and rsi_chain and rsi_dip_condition:
+                message = (
+                    f"MACD negative Rising on interval '{interval}'\n"
+                    f"MACD Hist last two: (-2)={hist_neg2:.4f}, (-1)={hist_neg1:.4f}\n"
+                    f"RSI_12 chain last bar: RSI_12={rsi_12:.2f}, RSI_24={rsi_24:.2f}, RSI_48={rsi_48:.2f}\n"
+                    f"Latest Downtrend min MACD: {min_macd_value:.4f} at index {min_macd_hist_index}\n"
+                    f"RSI@MinMACD={rsi_at_min_macd:.2f}, threshold={rsi_dip_threshold}"
+                )
+                logging.info("[macd_negative_rising] " + message)
+                return message
+            else:
+                logging.info(
+                    f"[macd_negative_rising] Condition not fully met at interval '{interval}'.\n"
+                    f"  Last bars: MACD Hist (-2)={hist_neg2:.4f}, (-1)={hist_neg1:.4f};\n"
+                    f"  RSI chain last bar: (12={rsi_12:.2f}, 24={rsi_24:.2f}, 48={rsi_48:.2f}), chain={rsi_chain};\n"
+                    f"  RSI@MinMACD={rsi_at_min_macd:.2f} vs dip_threshold={rsi_dip_threshold} => dip_condition={rsi_dip_condition}."
+                )
+                return None
+
+        def notify_macd_negative_rising(macd_counter):
+            message = macd_negative_rising(scalping_interval)
+            if message is not None:
+                macd_counter += 1
+                save_flag_to_file(scalping_interval, 'macd_counter', macd_counter)
+            else:
+                macd_counter = 0
+                save_flag_to_file(scalping_interval, 'macd_counter', macd_counter)
+
+            if macd_counter in range(1,6):
+                self.notifier.send_notification("MACD Negative Rising", message)
+
+        def notify_break_resistance(break_counter):
+            latest_resistance = self.detect_latest_resistance(all_features=all_features,interval=scalping_interval, current_price=current_price)
+            if latest_resistance is not None and current_price > latest_resistance:
+                break_counter += 1
+                save_flag_to_file(scalping_interval, 'break_counter', break_counter)
+            else:
+                message_counter = 0
+                save_flag_to_file(scalping_interval, 'break_counter', break_counter)
+
+            if break_counter in range(1,6):
+                breakout_msg = (
+                    f"Price has just broken above the latest resistance of "
+                    f"{latest_resistance:.4f} on interval '{scalping_interval}'.\n"
+                    f"Current Price: {current_price:.4f}")
+                self.notifier.send_notification("Break Resistance", breakout_msg)
+
+
         # Get signals from the defined functions ----------------------------------------------------------------------
-        uptrend_momentum = uptrend_momentum(scalping_interval, current_price)
+        # Test uptrend momentum for 30 consecutive cycles
+        uptrend_signal = testing_uptrend_momentum(uptrend_counter)
         # stoch_signal = stoch_rsi_signal(lowest_k_reached)
         rsi_signal_value = rsi_signal(scalping_interval)
         trailing_signal = gain_trailing_lock(max_gain_reached)
         macd_positive_angle = macd_positive_angle(scalping_interval)
+        notify_macd_negative_rising(macd_counter)
+        notify_break_resistance(break_counter)
 
         # Decision logic based on Uptrend ,StochRSI, RSI, and gain trailing signals
         # Sell
@@ -1013,16 +1360,16 @@ class DecisionMaker:
             #         return 'Sell_Sc'
 
 
-            if trailing_signal == 'trailing_sell':
-                log_message = "Scalping Decision: ||Sell_Sc|| - (Trailing Gain Signal Activated)"
-                print(log_message)
-                logging.info(log_message)
-                reset_flag(scalping_interval, 'overbought_reached')
-                reset_flag(scalping_interval, 'max_gain_reached')
-                reset_flag(scalping_interval, 'lowest_k_reached')
-                return 'Sell_Sc'
+            # if trailing_signal == 'trailing_sell':
+            #     log_message = "Scalping Decision: ||Sell_Sc|| - (Trailing Gain Signal Activated)"
+            #     print(log_message)
+            #     logging.info(log_message)
+            #     reset_flag(scalping_interval, 'overbought_reached')
+            #     reset_flag(scalping_interval, 'max_gain_reached')
+            #     reset_flag(scalping_interval, 'lowest_k_reached')
+            #     return 'Sell_Sc'
 
-            elif rsi_signal_value == 'RSI_Down' and not macd_positive_angle:
+            if rsi_signal_value == 'RSI_Down' and not macd_positive_angle:
                 log_message = "Scalping Decision: ||Sell_Sc|| - (RSI Down Signal Activated)"
                 print(log_message)
                 logging.info(log_message)
@@ -1031,21 +1378,13 @@ class DecisionMaker:
                 reset_flag(scalping_interval, 'lowest_k_reached')
                 return 'Sell_Sc'
 
-
-            # elif not market_stable:
-            #     log_message = "Scalping Decision: ||Sell_Sc|| - (Market Not Stable)"
-            #     print(log_message)
-            #     logging.info(log_message)
-            #     reset_flag(scalping_interval, 'overbought_reached')
-            #     reset_flag(scalping_interval, 'max_gain_reached')
-            #     reset_flag(scalping_interval, 'lowest_k_reached')
-            #     return 'Sell_Sc'
         # Buy
         else:
 
-            if uptrend_momentum and rsi_signal_value == 'RSI_Up' and market_stable and current_price < fake_upper_band:
+            if uptrend_signal and rsi_signal_value == 'RSI_Up' and macd_positive_angle and market_stable:
                 log_message = "Scalping Decision: ||Buy_Sc|| - (StochRSI: oversold, RSI: RSI_Down)"
                 reset_flag(scalping_interval, 'lowest_k_reached')
+                reset_flag(scalping_interval, 'uptrend_counter')
                 print(log_message)
                 logging.info(log_message)
                 return 'Buy_Sc'
