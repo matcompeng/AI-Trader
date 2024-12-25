@@ -1201,7 +1201,7 @@ class DecisionMaker:
                 logging.info(f"[macd_negative_rising] No historical data for interval '{interval}'.")
                 return
 
-            required_cols = ['MACD_hist', 'RSI_12', 'RSI_24', 'RSI_48']
+            required_cols = ['MACD_hist_fast', 'RSI_12', 'RSI_24', 'RSI_48']
             for col in required_cols:
                 if col not in interval_data.columns:
                     logging.info(
@@ -1270,7 +1270,7 @@ class DecisionMaker:
             rsi_at_min_macd = rsi_12_series[min_macd_hist_index]
             # Decide how you want to define an “RSI dip”
             # For example, let's say RSI < 35 means it's a “dip”
-            rsi_dip_threshold = 45
+            rsi_dip_threshold = 40
             rsi_dip_condition = (rsi_at_min_macd <= rsi_dip_threshold)
 
             # ------------------------------------------------------------------------
@@ -1307,7 +1307,7 @@ class DecisionMaker:
                 macd_counter = 0
                 save_flag_to_file(scalping_interval, 'macd_counter', macd_counter)
 
-            if macd_counter in range(1,6):
+            if macd_counter in range(1,4):
                 self.notifier.send_notification("MACD Negative Rising", message)
 
         def notify_break_resistance(break_counter):
@@ -1316,10 +1316,10 @@ class DecisionMaker:
                 break_counter += 1
                 save_flag_to_file(scalping_interval, 'break_counter', break_counter)
             else:
-                message_counter = 0
+                break_counter = 0
                 save_flag_to_file(scalping_interval, 'break_counter', break_counter)
 
-            if break_counter in range(1,6):
+            if break_counter in range(1,4):
                 breakout_msg = (
                     f"Price has just broken above the latest resistance of "
                     f"{latest_resistance:.4f} on interval '{scalping_interval}'.\n"
