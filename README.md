@@ -113,7 +113,7 @@ Prerequisites
 
 Installation
 	1.	Clone the repository: 
- git clone https://github.com/matcompeng/AI-Trader-Bot.git
+ git clone https://github.com/matcompeng/AI-Trader
 cd AI-Trader-Bot
 
 	2.	Install dependencies:
