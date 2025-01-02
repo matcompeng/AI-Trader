@@ -1,5 +1,6 @@
 import json
 import os
+import time
 
 import numpy as np
 import pandas as pd
@@ -28,6 +29,7 @@ class DecisionMaker:
         self.trading_interval= trading_interval
         self.scalping_intervals = scalping_intervals
         self.candidate_resistance_cache = {}
+        self.last_notification_time = {}  # Dictionary to track last notification timestamps
 
         # Configure logging to save in the data directory
         log_file_path = os.path.join(self.data_directory, 'bot_manager.log')
@@ -1270,7 +1272,7 @@ class DecisionMaker:
             rsi_at_min_macd = rsi_12_series[min_macd_hist_index]
             # Decide how you want to define an “RSI dip”
             # For example, let's say RSI < 35 means it's a “dip”
-            rsi_dip_threshold = 40
+            rsi_dip_threshold = 25
             rsi_dip_condition = (rsi_at_min_macd <= rsi_dip_threshold)
 
             # ------------------------------------------------------------------------
@@ -1281,11 +1283,12 @@ class DecisionMaker:
             # ------------------------------------------------------------------------
             if macd_negative_rising and rsi_chain and rsi_dip_condition:
                 message = (
-                    f"MACD negative Rising on interval '{interval}'\n"
-                    f"MACD Hist last two: (-2)={hist_neg2:.4f}, (-1)={hist_neg1:.4f}\n"
-                    f"RSI_12 chain last bar: RSI_12={rsi_12:.2f}, RSI_24={rsi_24:.2f}, RSI_48={rsi_48:.2f}\n"
-                    f"Latest Downtrend min MACD: {min_macd_value:.4f} at index {min_macd_hist_index}\n"
-                    f"RSI@MinMACD={rsi_at_min_macd:.2f}, threshold={rsi_dip_threshold}"
+                    f"Rising on interval '{interval}'\n"
+                    f"Current Price: {current_price}\n"
+                    f"RSI@MinMACD={rsi_at_min_macd:.2f}, threshold={rsi_dip_threshold}\n"
+                    f"RSI Chain: (12)={rsi_12:.2f}, (24)={rsi_24:.2f}, (48)={rsi_48:.2f}\n"
+                    # f"MACD Hist last two: (-2)={hist_neg2:.4f}, (-1)={hist_neg1:.4f}\n"
+                    # f"Latest Downtrend min MACD: {min_macd_value:.4f} at index {min_macd_hist_index}\n"
                 )
                 logging.info("[macd_negative_rising] " + message)
                 return message
@@ -1298,33 +1301,59 @@ class DecisionMaker:
                 )
                 return None
 
-        def notify_macd_negative_rising(macd_counter):
-            message = macd_negative_rising(scalping_interval)
-            if message is not None:
+        def notify_macd_negative_rising(macd_counter, interval):
+            current_time = time.time()  # Current time in seconds since epoch
+            event_key = f"macd_negative_rising_{interval}"
+
+            # Check if the last notification was sent within the last 5 minutes (300 seconds)
+            if self.last_notification_time.get(event_key) and current_time - self.last_notification_time[
+                event_key] < 300:
+                logging.info(f"Notification for {event_key} suppressed to avoid spam.")
+                return  # Skip sending the notification
+
+            # Check MACD negative rising conditions
+            message = macd_negative_rising(interval)
+            if message:
                 macd_counter += 1
-                save_flag_to_file(scalping_interval, 'macd_counter', macd_counter)
+                save_flag_to_file(interval, 'macd_counter', macd_counter)
             else:
                 macd_counter = 0
-                save_flag_to_file(scalping_interval, 'macd_counter', macd_counter)
+                save_flag_to_file(interval, 'macd_counter', macd_counter)
 
-            if macd_counter in range(1,4):
+            # Send notification if conditions are met and update timestamp
+            if macd_counter in range(1, 3):
                 self.notifier.send_notification("MACD Negative Rising", message)
+                self.last_notification_time[event_key] = current_time  # Update the last notification time
 
-        def notify_break_resistance(break_counter):
-            latest_resistance = self.detect_latest_resistance(all_features=all_features,interval=scalping_interval, current_price=current_price)
+        def notify_break_resistance(break_counter, interval):
+            current_time = time.time()
+            event_key = f"break_resistance_{interval}"
+
+            # Check if the last notification was sent within the last 5 minutes
+            if self.last_notification_time.get(event_key) and current_time - self.last_notification_time[
+                event_key] < 300:
+                logging.info(f"Notification for {event_key} suppressed to avoid spam.")
+                return  # Skip sending the notification
+
+            # Check resistance break conditions
+            latest_resistance = self.detect_latest_resistance(all_features=all_features, interval=interval,
+                                                              current_price=current_price)
             if latest_resistance is not None and current_price > latest_resistance:
                 break_counter += 1
-                save_flag_to_file(scalping_interval, 'break_counter', break_counter)
+                save_flag_to_file(interval, 'break_counter', break_counter)
             else:
                 break_counter = 0
-                save_flag_to_file(scalping_interval, 'break_counter', break_counter)
+                save_flag_to_file(interval, 'break_counter', break_counter)
 
-            if break_counter in range(1,4):
+            # Send notification if conditions are met and update timestamp
+            if break_counter in range(1, 3):
                 breakout_msg = (
                     f"Price has just broken above the latest resistance of "
-                    f"{latest_resistance:.4f} on interval '{scalping_interval}'.\n"
-                    f"Current Price: {current_price:.4f}")
+                    f"{latest_resistance:.4f} on interval '{interval}'.\n"
+                    f"Current Price: {current_price:.4f}"
+                )
                 self.notifier.send_notification("Break Resistance", breakout_msg)
+                self.last_notification_time[event_key] = current_time  # Update the last notification time
 
 
         # Get signals from the defined functions ----------------------------------------------------------------------
@@ -1334,8 +1363,8 @@ class DecisionMaker:
         rsi_signal_value = rsi_signal(scalping_interval)
         trailing_signal = gain_trailing_lock(max_gain_reached)
         macd_positive_angle = macd_positive_angle(scalping_interval)
-        notify_macd_negative_rising(macd_counter)
-        notify_break_resistance(break_counter)
+        notify_macd_negative_rising(macd_counter, scalping_interval)
+        notify_break_resistance(break_counter, scalping_interval)
 
         # Decision logic based on Uptrend ,StochRSI, RSI, and gain trailing signals
         # Sell
